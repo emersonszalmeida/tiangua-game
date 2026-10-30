@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tileset de Tianguá (amostra)</title>
+<style>
+html,body{margin:0;background:#1a1612;color:#eee;font:14px system-ui,sans-serif}
+.wrap{padding:14px}
+h3{margin:18px 0 6px}
+.row{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end}
+.c{background:#3c352c;padding:8px;border-radius:6px;text-align:center}
+.c canvas{display:block;image-rendering:pixelated}
+.c small{display:block;margin-top:4px;color:#bbb}
+canvas#demo{image-rendering:pixelated;display:block;background:#2b2620;border-radius:6px}
+</style></head>
+<body><div class="wrap">
+<h1>Tileset de Tianguá — amostra no estilo do personagem</h1>
+<p>Losango de 128×64 pixels (lado de 3 m, o mesmo do mapa; o personagem tem 55 pixels = 1,75 m). Paleta tirada do personagem (marrom-escuro em vez de preto, tons chapados, sem degradê).</p>
+<h3>Chão</h3><div class="row" id="ground"></div>
+<h3>Construções (paredes, janela, porta, telhado)</h3><div class="row" id="build"></div>
+<h3>Objetos</h3><div class="row" id="props"></div>
+<h3>Teste de montagem com o personagem (escala real)</h3><canvas id="demo"></canvas>
+</div>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script>
+// ---------- paleta (as cores do personagem + variações do cenário na mesma família) ----------
+const P = {
+  line: '#362826', line2: '#4a2924', brown: '#6e4e39', brownL: '#8c6a4c', sand: '#b4896e',
+  asf1: '#353e47', asf2: '#2f3943', asf3: '#3b4650', asf4: '#2a333b', asfLine: '#d7b29d',
+  cal1: '#8c7d67', cal2: '#9a8c74', cal3: '#7a6c58', calJ: '#5e4e4d',
+  gra1: '#7d8a4e', gra2: '#6d7a43', gra3: '#8d9a5a', gra4: '#59673a',
+  pra1: '#b0a085', pra2: '#8c7d67', pra3: '#c4b497',
+  ter1: '#8a6b4a', ter2: '#7a5c3e', ter3: '#9a7a56',
+  wallA: '#d7b29d', wallA2: '#c19276', wallB: '#c9c08a', wallB2: '#aaa06c', wallC: '#a8b3b8', wallC2: '#8a979e', wallD: '#9c9873', wallD2: '#7e7a58',
+  tel1: '#a8553a', tel2: '#8a4530', tel3: '#c0694a', tel4: '#6e3626',
+  glass: '#4a6070', glass2: '#6a8494', glassL: '#9ab0bc', door: '#6e4e39', door2: '#533127', frame: '#e3d8c6', frame2: '#bfb3a0',
+  trunk: '#5e4a38', trunk2: '#4a3a2c', leaf1: '#5f7a3a', leaf2: '#4e6830', leaf3: '#7a9448', leaf4: '#3e5426',
+  metal: '#2a333b', metal2: '#4a5560', lamp: '#f2d89a',
+};
+const W = 128, H = 64;
+const hash = (x, y, s = 0) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function put(ctx, x, y, col) { ctx.fillStyle = col; ctx.fillRect(x, y, 1, 1); }
+const inDiamond = (x, y) => Math.abs(x - (W / 2 - .5)) / (W / 2) + Math.abs(y - (H / 2 - .5)) / (H / 2) <= 1;
+
+// ---------- chão ----------
+function groundTile(fn, seed) { const c = mk(W, H), x = c.getContext('2d'); for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (inDiamond(i, j)) { const col = fn(i, j, seed || 0); if (col) put(x, i, j, col); } return c; }
+// coordenadas "do chão" (u ao longo do lado esquerdo-baixo, v ao longo do direito-baixo) para linhas isométricas
+const uv = (i, j) => [(i - (W / 2 - .5)) / 2 + (j - (H / 2 - .5)), -(i - (W / 2 - .5)) / 2 + (j - (H / 2 - .5))];
+const asphalt = (i, j, s) => { const r = hash(i, j, s); const [u, v] = uv(i, j); if (r > .985) return P.asf4; if (r > .93) return P.asf3; if (r < .1) return P.asf2; return P.asf1; };
+const asphaltLine = (i, j, s) => { const [u, v] = uv(i, j); if (Math.abs(u) < 2.2 && ((Math.floor(v / 10) % 2) === 0)) return P.asfLine; return asphalt(i, j, s); };
+const sidewalk = (i, j, s) => { const [u, v] = uv(i, j); const a = ((u % 16) + 16) % 16, b = ((v % 16) + 16) % 16; if (a < 1.5 || b < 1.5) return P.calJ; const r = hash(i, j, s); return r > .9 ? P.cal2 : r < .08 ? P.cal3 : P.cal1; };
+const grass = (i, j, s) => { const r = hash(i, j, s); const t = hash(Math.floor(i / 2), Math.floor(j / 2), s + 7); if (r > .965) return P.gra3; if (r < .06) return P.gra4; return t > .7 ? P.gra2 : P.gra1; };
+const praca = (i, j, s) => { const [u, v] = uv(i, j); const a = Math.floor(u / 16), b = Math.floor(v / 16); const chk = (a + b) & 1; const e = ((u % 16) + 16) % 16, f = ((v % 16) + 16) % 16; if (e < 1.5 || f < 1.5) return P.pra2; const r = hash(i, j, s); return chk ? (r > .9 ? P.pra3 : P.pra1) : (r > .92 ? P.pra1 : P.pra3); };
+const dirt = (i, j, s) => { const r = hash(i, j, s); return r > .93 ? P.sand : r < .12 ? P.ter2 : r > .75 ? P.ter3 : P.ter1; };
+
+// ---------- construções: bloco isométrico (topo + face esquerda + face direita) ----------
+function box(hh, leftFn, rightFn, topFn, lineCol) {
+  const c = mk(W, H + hh), x = c.getContext('2d'), hw = W / 2, hH = H / 2;
+  for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (inDiamond(i, j)) put(x, i, j, topFn(i, j));
+  for (let i = 0; i < hw; i++) { const y0 = Math.round(hH + i / 2); for (let d = 0; d < hh; d++) put(x, i, y0 + d, leftFn(i, d)); }
+  for (let i = hw; i < W; i++) { const y0 = Math.round(H - (i - hw) / 2); for (let d = 0; d < hh; d++) put(x, i, y0 + d, rightFn(i - hw, d)); }
+  const o = lineCol || P.line;
+  const edge = (x0, y0, x1, y1) => { const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)); for (let k = 0; k <= n; k++) put(x, Math.round(x0 + (x1 - x0) * k / n), Math.round(y0 + (y1 - y0) * k / n), o); };
+  edge(0, hH, hw - 1, 0); edge(hw, 0, W - 1, hH); edge(0, hH, hw - 1, H - 1); edge(hw, H - 1, W - 1, hH);
+  edge(0, hH, 0, hH + hh); edge(W - 1, hH, W - 1, hH + hh); edge(hw - 1, H, hw - 1, H + hh - 1); edge(hw, H - 1, hw, H - 1 + hh);
+  edge(0, hH + hh, hw - 1, H + hh - 1); edge(hw, H - 1 + hh, W - 1, hH + hh);
+  return c;
+}
+const roofTop = (c1, c2, c3) => (i, j) => { const [u, v] = uv(i, j); const a = ((u % 8) + 8) % 8; return a < 1.5 ? c2 : (hash(i, j, 3) > .92 ? c3 : c1); };
+const plain = c => () => c;
+function wall(base, shade, withWin, withDoor, hh) {
+  return (isRight) => (u, d) => {
+    const col = isRight ? base : shade;
+    if (d < 4) return isRight ? shade : P.line;
+    if (d > hh - 7) return P.calJ;
+    if (withWin) { const wx = u >= 20 && u <= 44, wy = d >= 30 && d <= 62; if (wx && wy) { if (u <= 21 || u >= 43 || d <= 31 || d >= 61) return P.frame; if (u === 32 || u === 33) return P.frame2; return (d - 31 + u) % 10 < 3 ? P.glassL : (d < 46 ? P.glass2 : P.glass); } }
+    if (withDoor) { const wx = u >= 20 && u <= 44, wy = d >= 28 && d <= hh - 7; if (wx && wy) { if (u <= 21 || u >= 43 || d <= 30) return P.frame; if (u === 40 && d >= 56 && d <= 58) return P.lamp; return u < 32 ? P.door : P.door2; } }
+    return hash(u, d, isRight ? 5 : 9) > .97 ? (isRight ? shade : P.line2) : col;
+  };
+}
+function house(base, shade, roof, kind) { const hh = 100, win = kind === 'win' || kind === 'both', door = kind === 'door' || kind === 'both'; return box(hh, wall(shade, shade, false, false, hh)(false), wall(base, shade, win, door, hh)(true), roofTop(roof[0], roof[1], roof[2])); }
+
+// ---------- objetos ----------
+function tree() {
+  const TW = 112, TH = 176, c = mk(TW, TH), x = c.getContext('2d');
+  for (let j = 92; j < 172; j++) for (let i = 48; i < 64; i++) { const e = i === 48 || i === 63; put(x, i, j, e ? P.line : (i < 56 ? P.trunk : P.trunk2)); }
+  for (let i = 42; i < 70; i++) put(x, i, 172, P.line);
+  const blobs = [[56, 56, 46], [30, 78, 28], [82, 78, 28], [56, 92, 26], [56, 30, 26]];
+  for (let j = 0; j < 130; j++) for (let i = 0; i < TW; i++) { let inside = false; for (const [bx, by, br] of blobs) if ((i - bx) ** 2 + (j - by) ** 2 <= br * br) inside = true; if (!inside) continue; const light = (i - 40) + (j - 36) < 14 ? 0 : 1; const r = hash(i, j, 4), t = hash(Math.floor(i / 3), Math.floor(j / 3), 11); put(x, i, j, r > .93 ? P.leaf3 : light ? (t < .3 ? P.leaf4 : P.leaf2) : (t > .7 ? P.leaf3 : P.leaf1)); }
+  const img = x.getImageData(0, 0, TW, TH), d = img.data, out = [];
+  const A = (i, j) => (i < 0 || j < 0 || i >= TW || j >= 130) ? 0 : d[(j * TW + i) * 4 + 3];
+  for (let j = 0; j < 130; j++) for (let i = 0; i < TW; i++) if (!A(i, j) && (A(i - 1, j) || A(i + 1, j) || A(i, j - 1) || A(i, j + 1))) out.push([i, j]);
+  out.forEach(([i, j]) => put(x, i, j, P.line));
+  return c;
+}
+function lamp() {
+  const c = mk(24, 128), x = c.getContext('2d');
+  for (let j = 26; j < 124; j++) { put(x, 10, j, P.line); put(x, 11, j, P.metal2); put(x, 12, j, P.metal); put(x, 13, j, P.line); }
+  for (let i = 5; i < 19; i++) { put(x, i, 124, P.line); put(x, i, 123, P.metal); put(x, i, 122, P.metal); }
+  for (let j = 4; j < 26; j++) for (let i = 4; i < 20; i++) { const e = j === 4 || j === 25 || i === 4 || i === 19; put(x, i, j, e ? P.line : (i < 12 ? P.lamp : '#e0c27a')); }
+  return c;
+}
+function bench() {
+  const c = mk(64, 40), x = c.getContext('2d');
+  for (let i = 4; i < 60; i++) for (let j = 18; j < 24; j++) put(x, i, j, j === 18 || j === 23 ? P.line : P.brownL);
+  for (let i = 4; i < 60; i++) for (let j = 6; j < 14; j++) put(x, i, j, j === 6 || j === 13 ? P.line : P.brown);
+  for (const px of [8, 52]) for (let j = 24; j < 38; j++) { put(x, px, j, P.line); put(x, px + 1, j, P.metal2); put(x, px + 2, j, P.metal2); put(x, px + 3, j, P.line); }
+  return c;
+}
+
+// ---------- montagem da página ----------
+function add(id, cnv, label, k = 3) { const d = document.createElement('div'); d.className = 'c'; cnv.style.width = cnv.width * k + 'px'; cnv.style.height = cnv.height * k + 'px'; d.appendChild(cnv); const s = document.createElement('small'); s.textContent = label; d.appendChild(s); document.getElementById(id).appendChild(d); }
+add('ground', groundTile(asphalt, 1), 'Asfalto', 1);
+add('ground', groundTile(asphaltLine, 2), 'Asfalto com faixa', 1);
+add('ground', groundTile(sidewalk, 3), 'Calçada', 1);
+add('ground', groundTile(grass, 4), 'Grama', 1);
+add('ground', groundTile(praca, 5), 'Praça (piso)', 1);
+add('ground', groundTile(dirt, 6), 'Terra', 1);
+add('build', house(P.wallA, P.wallA2, [P.tel1, P.tel2, P.tel3], 'win'), 'Casa rosa, janela', 1);
+add('build', house(P.wallB, P.wallB2, [P.tel1, P.tel2, P.tel3], 'door'), 'Casa amarela, porta', 1);
+add('build', house(P.wallC, P.wallC2, [P.tel2, P.tel4, P.tel1], 'both'), 'Casa azul, porta + janela', 1);
+add('build', house(P.wallD, P.wallD2, [P.tel1, P.tel2, P.tel3], 'blank'), 'Parede lisa', 1);
+add('props', tree(), 'Árvore', 1);
+add('props', lamp(), 'Poste', 1);
+add('props', bench(), 'Banco da praça', 1);
+
+// ---------- teste: personagem ao lado das peças, na mesma escala ----------
+(function demo() {
+  const k = 2, cv = document.getElementById('demo'), x = cv.getContext('2d'); cv.width = 900; cv.height = 560; cv.style.width = cv.width + 'px'; x.imageSmoothingEnabled = false;
+  x.fillStyle = '#2b2620'; x.fillRect(0, 0, cv.width, cv.height);
+  const ox = 450, oy = 40;
+  const tile = (c, gx, gy, up = 0) => x.drawImage(c, ox + (gx - gy) * 64 * k - 64 * k, oy + (gx + gy) * 32 * k - up * k, c.width * k, c.height * k);
+  const g = { asf: groundTile(asphalt, 1), asfl: groundTile(asphaltLine, 2), cal: groundTile(sidewalk, 3), gra: groundTile(grass, 4), pra: groundTile(praca, 5) };
+  for (let gy = -2; gy < 7; gy++) for (let gx = -2; gx < 7; gx++) { let t; if (gx + gy <= 1) t = (gx - gy) % 2 ? g.asfl : g.asf; else if (gx + gy === 2) t = g.cal; else if (gx >= 3 && gy >= 2) t = g.pra; else if (gx + gy < 6) t = g.cal; else t = g.gra; tile(t, gx, gy); }
+  tile(house(P.wallB, P.wallB2, [P.tel1, P.tel2, P.tel3], 'both'), 2, -1, 100); tile(house(P.wallA, P.wallA2, [P.tel1, P.tel2, P.tel3], 'win'), 3, -1, 100);
+  const S = IDLES.S, cs = mk(S.w, S.h), cx = cs.getContext('2d'); S.rows.forEach((r, y) => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') put(cx, i, y, IDLES.pal[r[i]]); });
+  x.drawImage(cs, 420, 300, S.w * k, S.h * k);
+  x.drawImage(tree(), 600, 150, 112 * k, 176 * k); x.drawImage(lamp(), 360, 170, 24 * k, 128 * k); x.drawImage(bench(), 480, 330, 64 * k, 40 * k);
+})();
+</script></body></html>

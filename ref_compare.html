@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Comparação</title>
+<style>html,body{margin:0;background:#6a6b6a;font:14px system-ui;color:#fff}.r{display:flex;gap:40px;padding:14px;align-items:flex-start}canvas{image-rendering:pixelated}</style></head>
+<body><div class="r"><div><div>Original (IA)</div><canvas id="o"></canvas></div><div><div>Convertido em grade de pixels (43×46, 16 cores)</div><canvas id="c"></canvas></div></div>
+<script src="sprite_ref.js"></script>
+<script>
+const S = SPRITE_REF, k = 9, c = document.getElementById('c'); c.width = S.w * k; c.height = S.h * k; const x = c.getContext('2d');
+S.rows.forEach((r, y) => [...r].forEach((ch, i) => { if (ch !== '.') { x.fillStyle = S.pal[ch]; x.fillRect(i * k, y * k, k, k); } }));
+const o = document.getElementById('o'); o.width = S.w * k; o.height = S.h * k;
+const img = new Image(); img.onload = () => { const ctx = o.getContext('2d'); ctx.drawImage(img, 392 - 3, 219 - 3, S.w * 10.08 + 6, S.h * 10.08 + 6, 0, 0, o.width, o.height); }; img.src = 'ref_original.png';
+</script></body></html>

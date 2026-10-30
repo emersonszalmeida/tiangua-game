@@ -1,0 +1,8 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Parados: referência x folha limpa</title>
+<style>body{margin:0;background:#202020;color:#eee;font:13px system-ui;padding:10px}.r{display:flex;gap:8px;align-items:flex-end;margin-bottom:14px}.c{background:#8c8c8c;color:#111;padding:4px;text-align:center;border-radius:4px}canvas,img{image-rendering:pixelated;display:block}</style></head>
+<body><div id="o"></div><script src="sprites7.js"></script><script>
+function mk(slot,f,k){const s=SPR7.slots[slot],c=document.createElement('canvas');c.width=s.w*k;c.height=s.h*k;const x=c.getContext('2d');s.frames[f].forEach((r,y)=>{for(let i=0;i<r.length;i++)if(r[i]!=='.'){x.fillStyle=SPR7.pal[r[i]];x.fillRect(i*k,y*k,k,k)}});return c}
+const rows=[['S (quadro 1)','frames8/f01.png','walkS',0],['SE (cozinha)','frames8/cozinha.png','walkSW',0],['E (quadro 16)','frames8/f16.png','walkW',0],['N (quadro 28)','frames8/f28.png','walkN',0]];
+for(const [t,img,slot] of rows){const r=document.createElement('div');r.className='r';const c=document.createElement('div');c.className='c';const i=new Image();i.src=img;i.style.height='170px';c.appendChild(i);c.append(t);r.appendChild(c);
+for(let f=0;f<8;f++){const d=document.createElement('div');d.className='c';d.appendChild(mk(slot,f,2));d.append(slot+' '+f);r.appendChild(d)}document.getElementById('o').appendChild(r)}
+</script></body></html>

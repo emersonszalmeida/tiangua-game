@@ -1,0 +1,10 @@
+node_modules/
+# capturas de tela de conferência (se regeneram com cdpshot.mjs); ficam só as imagens do dono e as de referência
+*.png
+!ref_original.png
+!cut_*.png
+!draw*.png
+!idle11.png
+!idle11_cut.png
+!para_recortar/*.png
+!frames8/*.png

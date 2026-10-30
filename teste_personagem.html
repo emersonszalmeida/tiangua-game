@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste do personagem</title>
+<style>
+html,body{margin:0;height:100%;background:#1a1612;overflow:hidden;font:14px system-ui,sans-serif;color:#eee}
+canvas#g{display:block;width:100vw;height:100vh}
+#ui{position:fixed;left:12px;top:10px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;line-height:1.5}
+#info{position:fixed;left:12px;bottom:10px;background:rgba(0,0,0,.55);padding:6px 12px;border-radius:6px}
+canvas#sheet{position:fixed;right:10px;top:10px;background:rgba(0,0,0,.55);border-radius:6px}
+</style></head>
+<body>
+<canvas id="g"></canvas>
+<canvas id="sheet"></canvas>
+<div id="ui">WASD ou setas para andar (diagonais combinando duas teclas)<br>Segure <b>Shift</b> para correr</div>
+<div id="info"></div>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script>
+const D = SPR7, SC = 3;
+const WALK_MS = 90, RUN_MS = 70;
+// poses paradas de cada vista (pernas juntas, braços caídos); a pose NW é o desenho do usuário. cx = centro dos pés
+for (const v of ['S', 'N', 'W', 'SW', 'NW']) { const g = IDLES[v], bot = g.rows.slice(-6); let sum = 0, n = 0; bot.forEach(r => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') { sum += i; n++; } });
+  D.slots['idle' + v] = { w: g.w, h: g.h, cx: sum / n, idle: 0, frames: [g.rows] }; }
+const cache = new Map();
+function frameCanvas(slot, f) {
+  const k = slot + f; if (cache.has(k)) return cache.get(k);
+  const s = D.slots[slot], rows = s.frames[f], c = document.createElement('canvas'); c.width = s.w; c.height = s.h; const x = c.getContext('2d');
+  rows.forEach((r, y) => { for (let i = 0; i < r.length; i++) { const ch = r[i]; if (ch !== '.') { x.fillStyle = D.pal[ch]; x.fillRect(i, y, 1, 1); } } });
+  cache.set(k, c); return c;
+}
+// direção -> [vista desenhada, espelhar?]
+const VIEW = { N: ['N', 0], NE: ['NW', 1], E: ['W', 1], SE: ['SW', 1], S: ['S', 0], SW: ['SW', 0], W: ['W', 0], NW: ['NW', 0] };
+// quadro "parado" de cada vista (os dois pés juntos, braços caídos); NW/NE usam a pose desenhada
+function idleOf(dir) { return { slot: 'idle' + VIEW[dir][0], f: 0 }; }
+const DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+function dirOf(dx, dy) { return dy < 0 ? (dx < 0 ? 'NW' : dx > 0 ? 'NE' : 'N') : dy > 0 ? (dx < 0 ? 'SW' : dx > 0 ? 'SE' : 'S') : dx < 0 ? 'W' : 'E'; }
+
+// ---------- chão ----------
+const cv = document.getElementById('g'), ctx = cv.getContext('2d');
+function resize() { cv.width = innerWidth; cv.height = innerHeight; ctx.imageSmoothingEnabled = false; }
+addEventListener('resize', resize); resize();
+const hash = (x, y) => { let h = (x * 374761393 + y * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const T = 56, TONES = ['#4a4339', '#51493d', '#463f35', '#58503f'];
+function ground(cx, cy) {
+  ctx.fillStyle = '#2b2620'; ctx.fillRect(0, 0, cv.width, cv.height);
+  const x0 = Math.floor((cx - cv.width / 2) / T), x1 = Math.floor((cx + cv.width / 2) / T), y0 = Math.floor((cy - cv.height * .6) / T), y1 = Math.floor((cy + cv.height * .6) / T);
+  for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+    const r = hash(tx, ty), sx = Math.round(tx * T - cx + cv.width / 2), sy = Math.round(ty * T - cy + cv.height * .6);
+    ctx.fillStyle = TONES[(r * 4) | 0]; ctx.fillRect(sx + 2, sy + 2, T - 4, T - 4);
+    if (r > .7) { ctx.fillStyle = '#ffffff10'; ctx.fillRect(sx + 6, sy + 6, 12, 4); }
+    if (r < .25) { ctx.fillStyle = '#00000022'; ctx.fillRect(sx + T - 20, sy + T - 14, 10, 6); }
+  }
+}
+
+// ---------- entrada ----------
+const keys = new Set();
+addEventListener('keydown', e => { keys.add(e.key.toLowerCase()); if (e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => keys.delete(e.key.toLowerCase()));
+addEventListener('blur', () => keys.clear());
+const qs = new URLSearchParams(location.search), sim = qs.get('sim'), simRun = qs.has('run');
+const held = d => (sim && sim.includes(d)) || ({ U: ['w', 'arrowup'], D: ['s', 'arrowdown'], L: ['a', 'arrowleft'], R: ['d', 'arrowright'] }[d]).some(k => keys.has(k));
+
+// ---------- desenho do personagem ----------
+const tmp = document.createElement('canvas'); const tx = tmp.getContext('2d');
+function drawChar(sx, sy, dir, run, f, scale, withFx, idleSlot) {
+  const [view, flip] = VIEW[dir], slot = idleSlot || ((run ? 'run' : 'walk') + view), s = D.slots[slot], img = frameCanvas(slot, f);
+  const W = s.w * scale, H = s.h * scale, ax = Math.round((s.cx + .5) * scale);
+  if (withFx) {
+    ctx.fillStyle = 'rgba(0,0,0,.38)'; ctx.beginPath(); ctx.ellipse(sx, sy - 3, 22, 8, 0, 0, 7); ctx.fill();
+    tmp.width = W * 2; tmp.height = H; tx.imageSmoothingEnabled = false;
+    tx.save(); tx.translate(W / 2, 0); if (flip) { tx.translate(2 * ax, 0); tx.scale(-1, 1); } tx.translate(0, H); tx.scale(1, -1); tx.drawImage(img, 0, 0, W, H); tx.restore();
+    tx.globalCompositeOperation = 'destination-in';
+    const gr = tx.createLinearGradient(0, 0, 0, H * .6); gr.addColorStop(0, 'rgba(0,0,0,.4)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    tx.fillStyle = gr; tx.fillRect(0, 0, W * 2, H); tx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(tmp, sx - ax - W / 2, sy);
+  }
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(sx, sy); if (flip) ctx.scale(-1, 1);
+  ctx.drawImage(img, -ax, -H, W, H); ctx.restore();
+}
+
+// ---------- painel com todas as direções ----------
+const sh = document.getElementById('sheet'), sc = sh.getContext('2d');
+const PS = 2, CW = 36 * PS + 8, CHH = 62 * PS + 8; sh.width = CW * 8 + 8; sh.height = CHH * 3 + 8;
+function drawSheet(t, cur, curMode) {
+  sc.clearRect(0, 0, sh.width, sh.height); sc.imageSmoothingEnabled = false;
+  [0, 1, 2].forEach((mode, r) => DIRS.forEach((dir, i) => {
+    const run = mode === 1, [view, flip] = VIEW[dir], id = idleOf(dir), slot = mode === 2 ? id.slot : (run ? 'run' : 'walk') + view, s = D.slots[slot], f = mode === 2 ? id.f : Math.floor(t / (run ? RUN_MS : WALK_MS)) % 8, img = frameCanvas(slot, f);
+    const bx = 4 + i * CW + CW / 2, by = 4 + r * CHH + CHH - 4;
+    if (dir === cur && mode === curMode) { sc.fillStyle = '#ffffff22'; sc.fillRect(4 + i * CW, 4 + r * CHH, CW, CHH); }
+    sc.save(); sc.translate(bx, by); if (flip) sc.scale(-1, 1); sc.drawImage(img, -Math.round((s.cx + .5) * PS), -s.h * PS, s.w * PS, s.h * PS); sc.restore();
+    sc.fillStyle = '#fff9'; sc.font = '10px system-ui'; sc.textAlign = 'center'; sc.fillText(dir, bx, 4 + r * CHH + 10);
+  }));
+}
+
+const P = { x: 0, y: 0, dir: qs.get('face') || 'S', t0: 0 };
+let last = performance.now(); const info = document.getElementById('info');
+function loop(ts) {
+  const dt = Math.min(.05, (ts - last) / 1000); last = ts;
+  const dx = (held('R') ? 1 : 0) - (held('L') ? 1 : 0), dy = (held('D') ? 1 : 0) - (held('U') ? 1 : 0), moving = !!(dx || dy), run = moving && (keys.has('shift') || simRun);
+  let f;
+  if (moving) {
+    { const nd = dirOf(dx, dy); if (nd.length === 2) P.diagAt = ts; if (nd.length === 1 && P.dir.length === 2 && P.dir.includes(nd) && ts - (P.diagAt || 0) < 150) { /* mantém */ } else P.dir = nd; } const n = Math.hypot(dx, dy), sp = (run ? 300 : 160) * dt; P.x += dx / n * sp; P.y += dy / n * sp;
+    if (!P.t0) P.t0 = ts; f = Math.floor((ts - P.t0) / (run ? RUN_MS : WALK_MS)) % 8;
+  } else { P.t0 = 0; f = idleOf(P.dir).f; }
+  ground(P.x, P.y);
+  drawChar(Math.round(cv.width * .38), Math.round(cv.height * .62), P.dir, run, f, SC, true, !moving ? idleOf(P.dir).slot : null);
+  drawSheet(ts, P.dir, !moving ? 2 : run ? 1 : 0);
+  info.textContent = (moving ? (run ? 'Correndo' : 'Andando') : 'Parado') + ' · direção ' + P.dir;
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>

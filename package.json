@@ -1,0 +1,9 @@
+{
+  "name": "tiangua-game",
+  "private": true,
+  "description": "Jogo de clãs isométrico no mapa de Tianguá (protótipo). Veja NOTAS.md.",
+  "dependencies": {
+    "jpeg-js": "^0.4.4",
+    "omggif": "^1.0.10"
+  }
+}
