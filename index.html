@@ -8,10 +8,13 @@ canvas{display:block;image-rendering:pixelated}
 #cred{position:fixed;right:8px;bottom:6px;color:#c9b793;font-size:11px;opacity:.8}
 </style></head><body>
 <canvas id="c"></canvas>
-<div id="hud"><div style="font-size:16px;font-weight:600" id="where">…</div><div id="near" style="opacity:.85"></div><div style="opacity:.6;margin-top:4px">WASD / setas: andar · roda do mouse: zoom · clique no minimapa: ir até lá</div></div>
+<div id="hud"><div style="font-size:16px;font-weight:600" id="where">…</div><div id="near" style="opacity:.85"></div><div style="opacity:.6;margin-top:4px">WASD / setas: andar · Shift: correr · roda do mouse: zoom · clique no minimapa: ir até lá</div></div>
 <canvas id="mm" width="200" height="200" style="position:fixed;left:10px;bottom:10px;border:2px solid #5b4630;border-radius:4px;cursor:pointer;image-rendering:pixelated;background:#1c1510"></canvas>
 <div id="cred">© OpenStreetMap contributors</div>
 <script src="map.js"></script>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script src="personagem.js"></script>
 <script>
 const M = window.MAP, GW = M.w, GH = M.h;
 const raw = atob(M.b64), grid = new Uint8Array(raw.length);
@@ -20,12 +23,12 @@ const type = (x, y) => (x < 0 || y < 0 || x >= GW || y >= GH) ? 3 : grid[y * GW 
 const hgt = (x, y) => (x < 0 || y < 0 || x >= GW || y >= GH) ? 0 : (grid[y * GW + x] & 7) === 3 ? grid[y * GW + x] >> 3 : 0;
 
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
-let zoom = 2;
+const ZOOMS = [1, 2, 3]; let zi = 1, zoom = ZOOMS[zi]; // zoom inteiro: pixel art sem borrar
 function resize() { cv.width = innerWidth; cv.height = innerHeight; ctx.imageSmoothingEnabled = false; }
 addEventListener('resize', resize); resize();
-addEventListener('wheel', e => { zoom = Math.max(1, Math.min(4, zoom + (e.deltaY < 0 ? .25 : -.25))); });
+addEventListener('wheel', e => { zi = Math.max(0, Math.min(ZOOMS.length - 1, zi + (e.deltaY < 0 ? 1 : -1))); zoom = ZOOMS[zi]; });
 
-const TW = 32, TH = 16, WALL = 12; // diamante do tile e altura de um andar
+const TW = 128, TH = 64, WALL = 100; // losango do tile (3 m, mesma escala do tileset e do personagem) e altura de um andar
 const COL = {
   0: ['#a98c5e', '#9b7f53'], // terra
   1: ['#8c8478', '#7f786d'], // rua (pedra)
@@ -72,27 +75,25 @@ function hud(dt) {
   mx.strokeStyle = '#fff'; mx.lineWidth = 1; mx.stroke();
 }
 const keys = {};
-addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; });
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 const blocked = (x, y) => type(Math.floor(x), Math.floor(y)) === 3;
 
-let facing = 1, walk = 0, last = performance.now();
-function update(dt) {
-  // direção na tela -> tile: cima na tela = (-1,-1)
-  let sx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
-  let sy = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
-  if (!sx && !sy) { walk = 0; return; }
-  const l = Math.hypot(sx, sy); sx /= l; sy /= l;
-  if (sx) facing = sx > 0 ? 1 : -1;
-  // tela (sx,sy) -> tile: tx = sx/2 + sy, ty = -sx/2 + sy  (iso 2:1)
-  let tx = sx + sy * 2, ty = -sx + sy * 2;
-  const tl = Math.hypot(tx, ty); tx /= tl; ty /= tl;
-  const sp = 7 * dt; // tiles/s (~21 m/s... ajustado para jogo)
-  const nx = px + tx * sp, ny = py + ty * sp, r = .25;
+const hero = PERS.create('S');
+const WALK_PX = 160 / 3, RUN_PX = 300 / 3; // px de tela por segundo, iguais ao teste_personagem.html (o passo acompanha a animação)
+let last = performance.now();
+function update(dt, now) {
+  const kx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+  const ky = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+  PERS.step(hero, kx, ky, !!keys.shift, now);
+  if (!hero.moving) return;
+  // deslocamento na tela -> tile (iso 2:1): dx = (tx-ty)*TW/2, dy = (tx+ty)*TH/2
+  const l = Math.hypot(kx, ky), d = (hero.run ? RUN_PX : WALK_PX) * dt, dx = kx / l * d, dy = ky / l * d;
+  const nx = px + dx / TW + dy / TH, ny = py + dy / TH - dx / TW, r = .25;
   const ok = (x, y) => !blocked(x - r, y - r) && !blocked(x + r, y - r) && !blocked(x - r, y + r) && !blocked(x + r, y + r);
   if (ok(nx, py)) px = nx;
   if (ok(px, ny)) py = ny;
-  walk += dt * 10;
 }
 
 function diamond(x, y, c) {
@@ -106,7 +107,7 @@ function drawBuilding(x, y, sx, sy, h) {
   if (hl < H) {
     ctx.fillStyle = L; ctx.beginPath();
     ctx.moveTo(sx - TW / 2, sy + TH / 2 - H); ctx.lineTo(sx, sy + TH - H); ctx.lineTo(sx, sy + TH - hl); ctx.lineTo(sx - TW / 2, sy + TH / 2 - hl); ctx.fill();
-    if (h && (x + y) % 2 === 0) { ctx.fillStyle = '#2a1d14'; ctx.fillRect(sx - TW / 2 + 6, sy + TH / 2 - H + 5, 4, 5); }
+    if (h && (x + y) % 2 === 0) { ctx.fillStyle = '#2a1d14'; ctx.fillRect(sx - TW / 2 + 24, sy + TH / 2 - H + 30, 16, 28); }
   }
   if (hr < H) {
     ctx.fillStyle = R; ctx.beginPath();
@@ -117,20 +118,6 @@ function drawBuilding(x, y, sx, sy, h) {
   ctx.strokeStyle = 'rgba(0,0,0,.18)'; ctx.lineWidth = 1; ctx.beginPath();
   ctx.moveTo(sx - TW / 2, top + TH / 2); ctx.lineTo(sx, top + TH); ctx.lineTo(sx + TW / 2, top + TH / 2); ctx.stroke();
 }
-function drawPlayer(sx, sy) {
-  const b = Math.abs(Math.sin(walk)) * 1.5, f = facing;
-  const px_ = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(Math.round(sx + x * f - (f < 0 ? w : 0)), Math.round(sy - y - h - b), w, h); };
-  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx, sy, 7, 3, 0, 0, 7); ctx.fill();
-  const leg = Math.sin(walk) * 2;
-  px_(-3, 0, 3, 5 + (leg > 0 ? 0 : 1), '#3a2a20'); px_(1, 0, 3, 5 + (leg > 0 ? 1 : 0), '#3a2a20'); // pernas
-  px_(-4, 5, 8, 8, '#6b4a2f');           // colete
-  px_(-1, 6, 3, 6, '#e9dcc2');           // camisa
-  px_(-5, 6, 2, 6, '#6b4a2f'); px_(4, 6, 2, 6, '#6b4a2f'); // braços
-  px_(-3, 13, 6, 5, '#d9a77a');          // rosto
-  px_(-1, 12, 3, 1, '#3a6ea5');          // lenço
-  px_(-5, 17, 10, 2, '#4a3220'); px_(-3, 19, 6, 3, '#4a3220'); // chapéu
-}
-
 function render() {
   const W = cv.width, H = cv.height;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -140,7 +127,7 @@ function render() {
   ctx.translate(-camX, -camY);
   const vw = W / zoom, vh = H / zoom;
   // faixa de tiles visíveis: varre diagonais s = x+y
-  const sMin = Math.max(0, Math.floor((camY - vh / 2) / (TH / 2)) - 2), sMax = Math.min(GW + GH - 2, Math.ceil((camY + vh / 2) / (TH / 2)) + 8);
+  const sMin = Math.max(0, Math.floor((camY - vh / 2) / (TH / 2)) - 2), sMax = Math.min(GW + GH - 2, Math.ceil((camY + vh / 2) / (TH / 2)) + 14); // +14: prédios de 3 andares abaixo da tela ainda aparecem
   const pS = px + py; let playerDrawn = false;
   for (let s = sMin; s <= sMax; s++) {
     const xa = Math.max(0, s - (GH - 1)), xb = Math.min(GW - 1, s);
@@ -152,7 +139,7 @@ function render() {
       else diamond(sx, sy, COL[t][(x + y) & 1]);
     }
     if (!playerDrawn && s >= Math.floor(pS) ) {
-      drawPlayer((px - py) * TW / 2, (px + py) * TH / 2 + TH / 2); playerDrawn = true;
+      PERS.draw(ctx, hero, (px - py) * TW / 2, (px + py) * TH / 2 + TH / 2); playerDrawn = true;
     }
   }
 }
@@ -160,7 +147,7 @@ function labels() {
   ctx.font = '600 9px system-ui'; ctx.textAlign = 'center';
   for (const p of places) {
     if (Math.abs(p[0] - px) > 60 || Math.abs(p[1] - py) > 60) continue;
-    const sx = (p[0] - p[1]) * TW / 2, sy = (p[0] + p[1]) * TH / 2 - 30;
+    const sx = (p[0] - p[1]) * TW / 2, sy = (p[0] + p[1]) * TH / 2 - 70;
     const w = ctx.measureText(p[2]).width + 8;
     ctx.fillStyle = 'rgba(28,21,16,.8)'; ctx.fillRect(sx - w / 2, sy - 9, w, 13);
     ctx.fillStyle = '#ffd36b'; ctx.fillText(p[2], sx, sy + 1);
@@ -168,7 +155,7 @@ function labels() {
 }
 function loop(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  update(dt); render(); labels(); hud(dt); requestAnimationFrame(loop);
+  update(dt, now); render(); labels(); hud(dt); requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
 </script></body></html>

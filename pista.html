@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Pista — peças de asfalto</title>
+<style>
+html,body{margin:0;height:100%;background:#15161c;overflow:hidden;font:14px system-ui,sans-serif;color:#eee}
+canvas#g{display:block;width:100vw;height:100vh;image-rendering:pixelated}
+#ui{position:fixed;left:12px;top:10px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;line-height:1.5}
+#pecas{position:fixed;right:10px;top:10px;bottom:10px;overflow:auto;background:rgba(0,0,0,.6);padding:8px;border-radius:6px;width:160px}
+#pecas div{text-align:center;margin-bottom:8px}
+#pecas canvas{display:block;margin:0 auto;image-rendering:pixelated}
+#pecas small{color:#bbb}
+</style></head>
+<body>
+<canvas id="g"></canvas>
+<div id="ui">WASD / setas: andar · Shift: correr<br><b>N</b>: noite / dia · <b>F</b>: lanterna · roda do mouse: zoom</div>
+<div id="pecas"></div>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script src="personagem.js"></script>
+<script>
+// ---------- peças de asfalto (losango 128×64, mesma escala do tileset e do personagem) ----------
+// Cores de dia; a noite é uma camada de luz por cima, então a mesma peça serve para os dois.
+const P = {
+  asf0: '#43474d', asf1: '#474b51', asf2: '#4b4f55', asf3: '#505459', // escuro → claro (tons próximos: o asfalto é quase liso)
+  pin: '#5f6266', pin2: '#363a40',                                     // pedrinhas
+  fai: '#cfc8b8', fai2: '#a9a395',                                     // faixa (tinta e tinta gasta)
+  ole: '#34373d', ole2: '#2c2f35', oleB: '#4a4660',                    // mancha de óleo
+  rem: '#3c4046', rem2: '#33363b',                                     // remendo
+  rac: '#2b2e33',                                                      // rachadura
+};
+const W = 128, H = 64;
+const hash = (x, y, s = 0) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+const inDiamond = (i, j) => Math.abs(i - (W / 2 - .5)) / (W / 2) + Math.abs(j - (H / 2 - .5)) / (H / 2) <= 1;
+// coordenadas "do chão": u ao longo do eixo ↘, v ao longo do eixo ↙, de -32 a 32 dentro do losango.
+// Uma peça ao lado soma 64 em u (ou v), então tudo que é função de (u mod 64, v mod 64) emenda sem costura.
+const uv = (i, j) => [(i - (W / 2 - .5)) / 2 + (j - (H / 2 - .5)), -(i - (W / 2 - .5)) / 2 + (j - (H / 2 - .5))];
+
+// ruído periódico em 64: os pontos da grade na borda usam sempre a mesma semente,
+// só o miolo muda entre variações; assim qualquer variação encaixa em qualquer outra
+const sm = t => t * t * (3 - 2 * t);
+function pnoise(u, v, N, seed) {
+  const c = 64 / N, fu = (u + 32) / c, fv = (v + 32) / c, iu = Math.floor(fu), iv = Math.floor(fv), tu = sm(fu - iu), tv = sm(fv - iv);
+  const L = (a, b) => { a = ((a % N) + N) % N; b = ((b % N) + N) % N; return hash(a, b, (a === 0 || b === 0) ? 77 + N : seed * 31 + N); };
+  const a = L(iu, iv), b = L(iu + 1, iv), d = L(iu, iv + 1), e = L(iu + 1, iv + 1);
+  return (a + (b - a) * tu) * (1 - tv) + (d + (e - d) * tu) * tv;
+}
+function asphalt(u, v, seed, i, j) {
+  const n = pnoise(u, v, 4, seed) * .6 + pnoise(u, v, 8, seed + 5) * .4;
+  const r = hash(Math.floor((u + 32) * 2) & 127, Math.floor(v + 32) & 63, 3); // grão: depende só de (u,v), então também emenda
+  if (r > .975) return P.pin; if (r < .02) return P.pin2;
+  return n < .3 ? P.asf0 : n < .6 ? P.asf1 : n < .78 ? P.asf2 : P.asf3;
+}
+function groundTile(fn) { const c = mk(W, H), x = c.getContext('2d'); for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) if (inDiamond(i, j)) { const [u, v] = uv(i, j); x.fillStyle = fn(u, v, i, j); x.fillRect(i, j, 1, 1); } return c; }
+
+const plain = seed => (u, v) => asphalt(u, v, seed);
+// faixa tracejada no meio da peça; 'v' gira para o outro eixo
+const dashed = (axis, seed) => (u, v) => {
+  const [a, b] = axis === 'u' ? [u, v] : [v, u], k = ((a + 32) % 64 + 64) % 64;
+  if (Math.abs(b) <= 2.5 && k >= 14 && k < 46) { const r = hash(Math.floor(a * 2), Math.floor(b * 2), 9); return r > .97 ? asphalt(u, v, seed) : r > .88 ? P.fai2 : P.fai; }
+  return asphalt(u, v, seed);
+};
+const oil = seed => (u, v) => {
+  const d = (u / 13) ** 2 + ((v - 3) / 8) ** 2 + (hash(Math.floor(u), Math.floor(v), 4) - .5) * .25;
+  if (d < .35) return hash(Math.floor(u * 2), Math.floor(v), 6) > .94 ? P.oleB : P.ole2;
+  if (d < 1) return P.ole;
+  return asphalt(u, v, seed);
+};
+const patch = seed => (u, v) => {
+  const a = Math.abs(u + 2), b = Math.abs(v - 1);
+  if (a < 17 && b < 11) return (a > 15.5 || b > 9.5) ? P.rem2 : (hash(Math.floor(u * 2), Math.floor(v), 8) > .96 ? P.pin : P.rem);
+  return asphalt(u, v, seed);
+};
+const crack = seed => {
+  // caminho aleatório ao longo de u (fica longe das bordas para não cortar na emenda)
+  const path = {}; let v0 = -4; for (let u = -22; u <= 22; u++) { v0 += (hash(u, 0, seed) - .5) * 1.6; path[u] = v0; }
+  const br = {}; let v1 = path[4]; for (let u = 4; u <= 16; u++) { v1 += .55 + (hash(u, 1, seed) - .5); br[u] = v1; }
+  return (u, v) => {
+    const k = Math.round(u);
+    if (path[k] !== undefined && Math.abs(v - path[k]) < .8) return P.rac;
+    if (br[k] !== undefined && Math.abs(v - br[k]) < .6) return P.rac;
+    return asphalt(u, v, seed);
+  };
+};
+
+const T = {
+  a1: groundTile(plain(1)), a2: groundTile(plain(2)), a3: groundTile(plain(3)), a4: groundTile(plain(4)),
+  fu: groundTile(dashed('u', 1)), fv: groundTile(dashed('v', 2)),
+  oleo: groundTile(oil(3)), rem: groundTile(patch(4)), rac: groundTile(crack(2)),
+};
+[['a1', 'Asfalto 1'], ['a2', 'Asfalto 2'], ['a3', 'Asfalto 3'], ['a4', 'Asfalto 4'], ['fu', 'Faixa tracejada ↘'], ['fv', 'Faixa tracejada ↙'], ['oleo', 'Mancha de óleo'], ['rem', 'Remendo'], ['rac', 'Rachadura']].forEach(([k, label]) => {
+  const d = document.createElement('div'), c = mk(W, H); c.getContext('2d').drawImage(T[k], 0, 0); d.appendChild(c);
+  const s = document.createElement('small'); s.textContent = label; d.appendChild(s); document.getElementById('pecas').appendChild(d);
+});
+
+// ---------- rua montada só com as peças: 3 de largura (a do meio com a faixa), 40 de comprimento ----------
+const GX0 = -20, GX1 = 20, GY0 = 0, GY1 = 2;
+const ox = -(GX0 - GY1) * 64 + 64, oy = -(GX0 + GY0) * 32;                  // origem do chão dentro do canvas pronto
+const floor = mk((GX1 - GX0 + GY1 - GY0 + 2) * 64, (GX1 - GX0 + GY1 - GY0 + 2) * 32);
+(function () {
+  const x = floor.getContext('2d'), plains = [T.a1, T.a2, T.a3, T.a4];
+  for (let gy = GY0; gy <= GY1; gy++) for (let gx = GX0; gx <= GX1; gx++) {
+    const r = hash(gx, gy, 12); let t;
+    if (gy === 1) t = T.fu;
+    else if (r > .93) t = T.oleo; else if (r > .87) t = T.rem; else if (r > .8) t = T.rac;
+    else t = plains[(hash(gx, gy, 13) * 4) | 0];
+    x.drawImage(t, ox + (gx - gy) * 64 - 64, oy + (gx + gy) * 32);
+  }
+})();
+
+// ---------- jogo ----------
+const cv = document.getElementById('g'), ctx = cv.getContext('2d'), lm = mk(1, 1), lx = lm.getContext('2d');
+function resize() { cv.width = lm.width = innerWidth; cv.height = lm.height = innerHeight; ctx.imageSmoothingEnabled = false; }
+addEventListener('resize', resize); resize();
+const ZOOMS = [1, 2, 3]; let zi = 1;
+addEventListener('wheel', e => { zi = Math.max(0, Math.min(2, zi + (e.deltaY < 0 ? 1 : -1))); });
+const keys = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase(); keys[k] = true; if (e.key.startsWith('Arrow')) e.preventDefault();
+  if (k === 'n') night = !night; if (k === 'f') torch = !torch;
+});
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+let night = true, torch = true;
+
+const hero = PERS.create('SE');
+let px = 0, py = 1.5;                                  // em tiles; o meio da pista é gy = 1.5
+const WALK_PX = 160 / 3, RUN_PX = 300 / 3;
+// direção na tela -> vetor no chão (em tiles), para a lanterna apontar para onde ele olha
+const DIRV = { N: [0, -1], NE: [1, -1], E: [1, 0], SE: [1, 1], S: [0, 1], SW: [-1, 1], W: [-1, 0], NW: [-1, -1] };
+const toGround = (dx, dy) => { const a = dx / 128 + dy / 64, b = dy / 64 - dx / 128, l = Math.hypot(a, b); return [a / l, b / l]; };
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const kx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0), ky = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+  PERS.step(hero, kx, ky, !!keys.shift, now);
+  if (hero.moving) {
+    const l = Math.hypot(kx, ky), d = (hero.run ? RUN_PX : WALK_PX) * dt, dx = kx / l * d, dy = ky / l * d;
+    px = Math.max(GX0 + .3, Math.min(GX1 + .7, px + dx / 128 + dy / 64)); py = Math.max(GY0 + .3, Math.min(GY1 + .7, py + dy / 64 - dx / 128));
+  }
+  const z = ZOOMS[zi], Wd = cv.width, Hd = cv.height, sx = (px - py) * 64, sy = (px + py) * 32;
+  const view = () => ctx.setTransform(z, 0, 0, z, Math.round(Wd / 2 - sx * z), Math.round(Hd * .55 - sy * z));
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'source-over';
+  ctx.fillStyle = '#20232b'; ctx.fillRect(0, 0, Wd, Hd);
+  view(); ctx.drawImage(floor, -ox, -oy);
+  PERS.draw(ctx, hero, sx, sy);
+
+  if (night) {
+    // mapa de luz: escuro azulado + luzes somadas; depois multiplica sobre a cena
+    lx.setTransform(1, 0, 0, 1, 0, 0); lx.globalCompositeOperation = 'source-over';
+    lx.fillStyle = '#4e5470'; lx.fillRect(0, 0, Wd, Hd);
+    lx.setTransform(z, 0, 0, z, Math.round(Wd / 2 - sx * z), Math.round(Hd * .55 - sy * z));
+    lx.globalCompositeOperation = 'lighter';
+    // halo fraco em volta do personagem (para ele não sumir)
+    let g = lx.createRadialGradient(sx, sy - 20, 0, sx, sy - 20, 90); g.addColorStop(0, 'rgba(120,110,100,.55)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+    lx.fillStyle = g; lx.fillRect(sx - 90, sy - 110, 180, 180);
+    if (torch) {
+      // cone no plano do chão: desenha em tiles com a matriz isométrica, então o círculo vira losango achatado
+      const [a, b] = toGround(...DIRV[hero.dir]), ang = Math.atan2(b, a);
+      lx.save(); lx.filter = `blur(${10 * z}px)`; // borda macia
+      lx.transform(64, 32, -64, 32, sx, sy); lx.rotate(ang);
+      const cg = lx.createRadialGradient(.3, 0, 0, .3, 0, 4.5); cg.addColorStop(0, 'rgba(255,205,160,.8)'); cg.addColorStop(.55, 'rgba(255,195,145,1)'); cg.addColorStop(1, 'rgba(255,170,120,0)');
+      lx.fillStyle = cg; for (let k = 0; k < 2; k++) { lx.beginPath(); lx.moveTo(.3, 0); lx.arc(.3, 0, 4.5, -.4, .4); lx.closePath(); lx.fill(); } // 2×: mais forte
+      lx.restore();
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(lm, 0, 0); ctx.globalCompositeOperation = 'source-over';
+  }
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>

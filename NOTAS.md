@@ -1,6 +1,6 @@
 # Jogo de clãs de Tianguá — notas para continuar
 
-Última atualização: 2026-10-30. Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
+Última atualização: 2026-11-01. Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
 
 ## O que é o projeto
 Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **praças** são os objetivos.
@@ -14,7 +14,8 @@ Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **pra�
 |---|---|
 | `teste_personagem.html` | **O personagem com 8 direções**: WASD/setas, Shift corre, painel com todas as poses (andar, correr, parado), reflexo no chão |
 | `tileset.html` | Amostra do tileset (chão, casas, árvore, poste, banco), com o personagem na mesma escala |
-| `index.html` | Mapa isométrico de Tianguá jogável (vaqueiro antigo). **Próximo passo: trocar pelo personagem novo** |
+| `index.html` | Mapa isométrico de Tianguá jogável **com o personagem principal** (8 direções, Shift corre). Mapa na escala do tileset (losango 128×64 = 3 m, andar ≈ 100 px); zoom só inteiro (1×/2×/3×) |
+| `pista.html` | **Peças de asfalto que se encaixam** (4 asfaltos lisos, faixa tracejada ↘/↙, óleo, remendo, rachadura) montadas numa rua; **N** noite/dia, **F** lanterna. Referência: cena noturna da ambulância que o dono mostrou |
 | `parados.html`, `comparar_ne_e.html`, `idles_all_view.html` | Páginas de comparação usadas para conferir poses |
 | `mato.html`, `fp.html` | Versões 3D antigas (primeira pessoa). Descartadas, o dono escolheu o isométrico |
 
@@ -62,10 +63,11 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - Não usar PowerShell para o dia a dia (preferir bash); nada de vibração/efeitos exagerados.
 
 ## Pendências / próximos passos
-1. **Colocar o personagem no mapa isométrico (`index.html`)**: 8 direções, andar/correr/parado, tamanho certo, sombra, cor do clã.
-2. Tileset completo para o mapa de Tianguá (ver "Fraco ainda" acima); perguntar se o dono prefere gerar peças-chave (igreja, casa típica) na IA e converter.
-3. Decidir **estilo** (faroeste × atual) e como preencher os quarteirões vazios do mapa (casas genéricas, mato ou vazio).
-4. Marcar as praças como objetivos; depois segundo jogador (multiplayer).
+1. ~~Colocar o personagem no mapa~~ ✅ feito em 2026-11-01 (código do personagem em `personagem.js`: `PERS.create/step/draw`). Faltam: **cor do clã** (o dono ainda não disse onde no corpo) e decidir a **velocidade** (hoje ~1,7 m/s andando, igual ao teste, para o pé não deslizar; atravessar o centro demora).
+2. **Cenário peça por peça no estilo das referências noturnas** (cozinha escura e ambulância na pista): começou pela pista (`pista.html`). Próximo: objetos em cima da pista (cones, caixas, entulho) e sombra projetada pela luz. Luz é camada separada (multiply de um mapa de luz), as peças são cores de dia. Não copiar objetos das referências, só o estilo.
+3. Tileset completo para o mapa de Tianguá (ver "Fraco ainda" acima); perguntar se o dono prefere gerar peças-chave (igreja, casa típica) na IA e converter.
+4. Decidir **estilo** (faroeste × atual) e como preencher os quarteirões vazios do mapa (casas genéricas, mato ou vazio).
+5. Marcar as praças como objetivos; depois segundo jogador (multiplayer).
 
 ## Atenção: origem das imagens
 `sheet7.gif`, `sheet8.gif` e `sheet9.jpg` (e as poses derivadas) vieram de material enviado pelo dono, de **origem/licença desconhecida**. Servem como teste. Para o jogo final, usar personagem próprio ou com licença comercial (a conversão é a mesma).
