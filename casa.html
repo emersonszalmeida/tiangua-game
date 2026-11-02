@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Casa — peças de parede</title>
+<style>
+html,body{margin:0;height:100%;background:#a98c5e;overflow:hidden;font:14px system-ui,sans-serif;color:#eee}
+canvas#g{display:block;width:100vw;height:100vh;image-rendering:pixelated}
+#ui{position:fixed;left:12px;top:10px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;line-height:1.5}
+#pecas{position:fixed;right:10px;top:10px;bottom:10px;overflow:auto;background:rgba(0,0,0,.6);padding:8px;border-radius:6px;width:110px}
+#pecas div{text-align:center;margin-bottom:8px}
+#pecas canvas{display:block;margin:0 auto;image-rendering:pixelated}
+#pecas small{color:#bbb}
+</style></head>
+<body>
+<canvas id="g"></canvas>
+<div id="ui">WASD / setas: andar · Shift: correr · roda do mouse: zoom</div>
+<div id="pecas"></div>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script src="personagem.js"></script>
+<script>
+// ---------- peças de parede (1 tile = 3 m = 64 px de comprimento na tela; altura 92 px ≈ 2,9 m) ----------
+const FACE_Y = { b: '#cdbda4', b2: '#c7b79e', l: '#d5c6ae', d: '#bcac93', top: '#a99a82', base: '#8f7d66', baseL: '#a08e76', line: '#6e5e4c' }; // face voltada para ↙
+const FACE_X = { b: '#b5a58c', b2: '#afa086', l: '#bdae95', d: '#a5957d', top: '#94856e', base: '#7c6b56', baseL: '#8c7b65', line: '#5e4f3f' }; // face voltada para ↘
+const CAP = '#2f2622', CAP_L = '#4a3d35', JAMB = '#8a7a64', FLOOR = ['#d6ccb6', '#d1c7b1', '#dad0bb'];
+const HIGH = 92, LOW = 12, DOOR_H = 72, DOOR_A = 16, DOOR_B = 48; // porta: de i=16 a i=48 (1,5 m de vão), 2,25 m de altura
+const TP = 4, T = TP / 64, TW = 128, TH = 64;                      // espessura: 4 px para o lado e 2 para cima (≈ 19 cm)
+const hash = (x, y, s = 0) => { let h = (x * 374761393 + y * 668265263 + s * 2147483647) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function mk(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
+function put(x, i, j, col) { x.fillStyle = col; x.fillRect(i, j, 1, 1); }
+
+// cor da face: i ao longo da parede (repete a cada 64, então as peças emendam), d a partir do topo
+function faceColor(F, i, d, h) {
+  const fromFloor = h - 1 - d;
+  if (h > 20) {
+    if (fromFloor < 7) return fromFloor === 0 ? F.line : hash(i % 64, fromFloor, 2) > .9 ? F.base : F.baseL;
+    if (fromFloor === 7) return F.line;
+    if (d < 3) return F.top;
+  } else if (d < 2) return F.top;
+  const r = hash(i % 64, d, 5);
+  if (r > .975) return F.d; if (r < .03) return F.l;
+  return hash(Math.floor((i % 64) / 7), Math.floor(d / 6), 7) > .65 ? F.b2 : F.b;
+}
+// trecho de 1 tile correndo para ↘; a parede virada para ↙ é este mesmo desenho espelhado
+function wallPiece(F, h, door) {
+  const oy = h + TP / 2, c = mk(64 + TP, oy + 33), x = c.getContext('2d');
+  for (let i = 0; i < 64; i++) for (let d = 0; d < h; d++) {
+    if (door && i >= DOOR_A && i < DOOR_B && d >= h - DOOR_H) continue;
+    put(x, i, oy + Math.floor(i / 2) - h + d, faceColor(F, i, d, h));
+  }
+  if (door) for (let k = 0; k < TP; k++) for (let d = 0; d < DOOR_H; d++) // lateral do vão (a espessura da parede)
+    put(x, DOOR_A + k, oy + Math.floor((DOOR_A + k) / 2) - k - d - 1, JAMB);
+  // topo escuro
+  for (let i = 0; i < 64 + TP; i++) {
+    const up = i < TP ? -Math.floor(i / 2) : -TP / 2 + Math.floor((i - TP) / 2), lo = i < 64 ? Math.floor(i / 2) : 32 - Math.ceil((i - 64) / 2);
+    for (let j = up; j <= lo; j++) put(x, i, oy - h + j, j === lo && i < 64 ? CAP_L : CAP);
+  }
+  return { c, oy };
+}
+// pilar: fecha cantos e pontas de parede (mesmas cores, mesmo rodapé)
+function postPiece(h) {
+  const oy = h + TP, c = mk(TP * 2, oy + 1), x = c.getContext('2d');
+  for (let k = 0; k < TP; k++) for (let d = 0; d < h; d++) { // k = 0 junto à quina da frente
+    put(x, TP - 1 - k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_Y, 63 - k, d, h));
+    put(x, TP + k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_X, k, d, h));
+  }
+  for (let i = 0; i < TP * 2; i++) { const a = Math.floor((Math.min(i, TP * 2 - 1 - i) + 2) / 2); for (let j = -a; j <= a; j++) put(x, i, oy - TP / 2 - h + j - 1, CAP); }
+  return { c, oy };
+}
+const PIECE = {
+  xHigh: wallPiece(FACE_Y, HIGH), xDoor: wallPiece(FACE_Y, HIGH, true), xLow: wallPiece(FACE_Y, LOW),
+  yHigh: wallPiece(FACE_X, HIGH), yDoor: wallPiece(FACE_X, HIGH, true), yLow: wallPiece(FACE_X, LOW),
+  postHigh: postPiece(HIGH), postLow: postPiece(LOW),
+};
+const floorTile = (function () {
+  const c = mk(TW, TH), x = c.getContext('2d');
+  for (let j = 0; j < TH; j++) for (let i = 0; i < TW; i++) if (Math.abs(i - 63.5) / 64 + Math.abs(j - 31.5) / 32 <= 1) { const r = hash(i, j, 21); put(x, i, j, r > .96 ? FLOOR[1] : r < .04 ? FLOOR[2] : FLOOR[0]); }
+  return c;
+})();
+function mirrored(c) { const m = mk(c.width, c.height), x = m.getContext('2d'); x.translate(c.width, 0); x.scale(-1, 1); x.drawImage(c, 0, 0); return m; }
+[[PIECE.xHigh.c, 'Parede ↘'], [mirrored(PIECE.yHigh.c), 'Parede ↙'], [PIECE.xDoor.c, 'Com vão de porta ↘'], [mirrored(PIECE.yDoor.c), 'Com vão de porta ↙'], [PIECE.xLow.c, 'Parede cortada ↘'], [mirrored(PIECE.yLow.c), 'Parede cortada ↙'], [PIECE.postHigh.c, 'Pilar'], [PIECE.postLow.c, 'Pilar baixo']].forEach(([cv, label]) => {
+  const d = document.createElement('div'); cv.style.display = 'block'; d.appendChild(cv);
+  const s = document.createElement('small'); s.textContent = label; d.appendChild(s); document.getElementById('pecas').appendChild(d);
+});
+
+// ---------- planta da casa, em tiles (5 × 4 = 15 × 12 m) ----------
+const GW = 5, GH = 4;
+// [eixo, posição da face, início, fim, tipo]; x = corre em ↘ (y fixo), y = corre em ↙ (x fixo)
+const PLAN = [
+  ['x', 0, 0, 5, 'high'],                  // fundo direito
+  ['y', 0, 0, 4, 'high'],                  // fundo esquerdo
+  ['y', 3, 0, 1, 'high'], ['y', 3, 1, 2, 'door'], ['y', 3, 2, 4, 'high'], // divisória
+  ['x', 2, 0, 1, 'high'], ['x', 2, 1, 2, 'door'], ['x', 2, 2, 3, 'high'], // divisória
+  ['x', 4, 0, 2, 'low'], ['x', 4, 3, 5, 'low'],                           // frente cortada, com a entrada de x=2 a x=3
+  ['y', 5, 0, 4, 'low'],
+];
+const POSTS = [[0, 0, 'High'], [5, 0, 'High'], [0, 4, 'High'], [3, 0, 'High'], [3, 4, 'High'], [0, 2, 'High'], [3, 2, 'High'], [5, 4, 'Low'], [2, 4, 'Low']];
+const items = [], rects = [];
+for (const [axis, c, a, b, kind] of PLAN) for (let n = a; n < b; n++) {
+  const name = axis + (kind === 'door' ? 'Door' : kind === 'low' ? 'Low' : 'High');
+  items.push({ axis, c, n, p: PIECE[name], key: n + .5 + c });
+  const add = (n0, n1) => rects.push(axis === 'x' ? [n0, c - T, n1, c] : [c - T, n0, c, n1]);
+  if (kind === 'door') { add(n, n + .25); add(n + .75, n + 1); } else add(n, n + 1);
+}
+for (const [x, y, k] of POSTS) { items.push({ axis: 'p', x, y, p: PIECE['post' + k], key: x + y - T }); rects.push([x - T, y - T, x, y]); }
+items.sort((a, b) => a.key - b.key);
+function drawItem(ctx, it) {
+  if (it.axis === 'x') ctx.drawImage(it.p.c, (it.n - it.c) * 64, (it.n + it.c) * 32 - it.p.oy);
+  else if (it.axis === 'y') { ctx.save(); ctx.translate((it.c - it.n) * 64, (it.c + it.n) * 32 - it.p.oy); ctx.scale(-1, 1); ctx.drawImage(it.p.c, 0, 0); ctx.restore(); }
+  else ctx.drawImage(it.p.c, (it.x - it.y) * 64 - TP, (it.x + it.y) * 32 - it.p.oy);
+}
+// a parede está atrás do personagem? (paredes são finas: basta saber de que lado dela ele está)
+const behind = it => it.axis === 'x' ? py > it.c - T / 2 : it.axis === 'y' ? px > it.c - T / 2 : (py > it.y - T / 2 || px > it.x - T / 2);
+
+// ---------- jogo ----------
+const cv = document.getElementById('g'), ctx = cv.getContext('2d');
+function resize() { cv.width = innerWidth; cv.height = innerHeight; ctx.imageSmoothingEnabled = false; }
+addEventListener('resize', resize); resize();
+const ZOOMS = [1, 2, 3]; let zi = 1;
+addEventListener('wheel', e => { zi = Math.max(0, Math.min(2, zi + (e.deltaY < 0 ? 1 : -1))); });
+const keys = {};
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const hero = PERS.create('S'), R = .15;
+let px = 1.5, py = 3;
+const WALK_PX = 160 / 3, RUN_PX = 300 / 3;
+const free = (x, y) => x > -3 && y > -3 && x < GW + 3 && y < GH + 3 && !rects.some(([a, b, c, d]) => x + R > a && x - R < c && y + R > b && y - R < d);
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const kx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0), ky = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+  PERS.step(hero, kx, ky, !!keys.shift, now);
+  if (hero.moving) {
+    const l = Math.hypot(kx, ky), d = (hero.run ? RUN_PX : WALK_PX) * dt, dx = kx / l * d, dy = ky / l * d;
+    const nx = px + dx / TW + dy / TH, ny = py + dy / TH - dx / TW;
+    if (free(nx, py)) px = nx; if (free(px, ny)) py = ny;
+  }
+  const z = ZOOMS[zi], Wd = cv.width, Hd = cv.height, sx = (px - py) * 64, sy = (px + py) * 32;
+  // câmera centrada na casa (o personagem anda dentro dela sem a tela balançar)
+  const camX = (GW - GH) * 32, camY = (GW + GH) * 16 - HIGH / 2;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = '#a98c5e'; ctx.fillRect(0, 0, Wd, Hd);
+  ctx.setTransform(z, 0, 0, z, Math.round(Wd / 2 - 50 - camX * z), Math.round(Hd / 2 - camY * z));
+  for (let gy = 0; gy < GH; gy++) for (let gx = 0; gx < GW; gx++) ctx.drawImage(floorTile, (gx - gy) * 64 - 64, (gx + gy) * 32);
+  for (const it of items) if (behind(it)) drawItem(ctx, it);
+  PERS.draw(ctx, hero, sx, sy);
+  for (const it of items) if (!behind(it)) drawItem(ctx, it);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+</script></body></html>
