@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Praça do Relógio — protótipo</title>
+<style>
+html,body{margin:0;height:100%;background:#a98c5e;overflow:hidden;font:14px system-ui,sans-serif;color:#eee}
+canvas#g{display:block;width:100vw;height:100vh;image-rendering:pixelated}
+#ui{position:fixed;left:12px;top:10px;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:6px;line-height:1.5}
+#load{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1612;font-size:18px}
+</style></head>
+<body>
+<canvas id="g"></canvas>
+<div id="ui">WASD / setas: andar · Shift: correr · roda do mouse: zoom<br>Praça pequena inspirada na Praça do Relógio (desenho próprio, não é traçado da foto)</div>
+<div id="load">Montando a praça…</div>
+<script src="sprites7.js"></script>
+<script src="idles.js"></script>
+<script src="personagem.js"></script>
+<script src="pista.js"></script>
+<script src="poste.js"></script>
+<script>
+const hash = PISTA.hash, colorAt = PISTA.colorAt;
+const OUT = '#362826';
+const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], bayer = (x, y) => BAY[(y & 3) * 4 + (x & 3)] / 15;
+const rgbCache = new Map();
+const rgb = h => { let r = rgbCache.get(h); if (!r) { r = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); rgbCache.set(h, r); } return r; };
+const toHex = c => '#' + c.map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+const mul = (h, m) => toHex(rgb(h).map(v => v * m));
+const mix = (h, o, k) => { const a = rgb(h); return toHex(a.map((v, i) => v + (o[i] - v) * k)); };
+const SHADOW = [78, 68, 122];
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ================= caixa isométrica (losango 128×64 por tile; 1 tile = 3 m) =================
+// w, d = tamanho em tiles (x ↘ e y ↙), h = altura em pixels. tex(face, a, b): face 1 = topo (a = x, b = y em tiles),
+// face 2 = lado direito, virado para +x (a = y em tiles, b = pixels a partir do topo), face 3 = lado esquerdo, virado para +y (a = x, b = pixels)
+function isoBox(w, d, h, tex) {
+  const PAD = 1, cw = Math.ceil((w + d) * 64) + 2 * PAD, ch = Math.ceil((w + d) * 32 + h) + 2 * PAD, ox = d * 64 + PAD;
+  const face = new Uint8Array(cw * ch), col = new Array(cw * ch);
+  for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+    const dx = i + .5 - ox, dy = j + .5 - PAD, x = (dx / 64 + dy / 32) / 2, y = (dy / 32 - dx / 64) / 2;
+    let f = 0, a, b;
+    if (x >= 0 && x < w && y >= 0 && y < d) { f = 1; a = x; b = y; }
+    else { const yy = w - dx / 64, zd = dy - (w + yy) * 32; if (yy >= 0 && yy < d && zd >= 0 && zd < h) { f = 2; a = yy; b = zd; }
+      else { const xx = d + dx / 64, z2 = dy - (xx + d) * 32; if (xx >= 0 && xx < w && z2 >= 0 && z2 < h) { f = 3; a = xx; b = z2; } } }
+    if (f) { face[j * cw + i] = f; col[j * cw + i] = tex(f, a, b); }
+  }
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch; const g = c.getContext('2d'), im = g.createImageData(cw, ch);
+  for (let j = 0; j < ch; j++) for (let i = 0; i < cw; i++) {
+    const k = j * cw + i, f = face[k]; if (!f) continue;
+    let color = col[k];
+    const nb = [i > 0 ? face[k - 1] : 0, i < cw - 1 ? face[k + 1] : 0, j > 0 ? face[k - cw] : 0, j < ch - 1 ? face[k + cw] : 0];
+    if (nb.some(n => !n)) color = OUT;
+    else if (nb[1] !== f || nb[3] !== f) color = mul(color, .72);                  // quina entre duas faces
+    const r = rgb(color); im.data[k * 4] = r[0]; im.data[k * 4 + 1] = r[1]; im.data[k * 4 + 2] = r[2]; im.data[k * 4 + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return { c, ax: ox, ay: PAD, h };
+}
+// desenha com o canto de trás (x=wx, y=wy) em coordenadas do mundo, subido z pixels
+function drawBox(ctx, box, wx, wy, z) { ctx.drawImage(box.c, Math.round((wx - wy) * 64 - box.ax), Math.round((wx + wy) * 32 - box.h - z - box.ay)); }
+
+// ================= texturas =================
+const ROOF = { terra: ['#a8553a', '#b8613f', '#c06e47'], cinza: ['#7e8186', '#8d9094', '#999ca0'] };
+const roofTex = (kind, ox, oy) => (a, b) => {
+  const T = ROOF[kind], x = a + ox, y = b + oy, row = Math.floor(y * 12), tone = hash(Math.floor(x * 8), row, 3);
+  if (((y * 12) % 1) < .12) return mul(T[0], .8);
+  return tone > .85 ? T[2] : tone > .35 ? T[1] : T[0];
+};
+function wallTex(o) {
+  // o: base (lado claro), shade (lado escuro), roof, win (função: tem janela?), door (função)
+  return (f, a, b, gx, gy) => {
+    if (f === 1) return roofTex(o.roof, gx, gy)(a, b);
+    const base = f === 2 ? o.base : o.shade, ga = (f === 2 ? gy : gx) + a, seg = Math.floor(ga), u = (ga - seg) * 64;
+    if (b < 5) return mul(base, .85);                                   // beiral
+    if (b > o.h - 6) return mul(base, .78);                              // rodapé
+    const dark = f === 2 ? 1 : .8;
+    if (o.door(seg) && u > 14 && u < 50 && b > 34) return (u < 17 || u > 47 || b < 37) ? '#4a2f23' : (u < 32 ? '#6e4e39' : '#5f452d');
+    if (o.win(seg) && u > 14 && u < 50 && b > 30 && b < 70) {
+      if (u < 17 || u > 47 || b < 33 || b > 67) return '#e8e2d2';
+      if (u > 31 && u < 34) return '#e8e2d2';
+      return (b + u) % 12 < 3 ? '#9ab0b8' : '#46606c';
+    }
+    return hash(Math.floor(ga * 64), b, f) > .97 ? mul(base, .92) : base;
+  };
+}
+const withOff = (fn, gx, gy) => (f, a, b) => fn(f, a, b, gx, gy);
+
+// ================= cenário =================
+// plaza: x -0.5..7, y 0..7; ruas: norte y -3..0, leste x 7..10, sul y 7..10
+const C = { x: 3.5, y: 3.5 };
+const TREES = [[1.3, 1.3], [1.3, 5.7], [5.7, 1.3], [5.7, 5.7]];
+const POOL = 1.45;                                               // meia largura do espelho d'água (em tiles)
+const WATER_BASE = '#3aa5b8';
+const asphaltZone = (x, y) => (y >= -3 && y < 0) || (x >= 7 && x < 10) || (y >= 7 && y < 10);
+function groundColor(x, y) {
+  if (x < -6 || x > 11 || y < -8 || y > 11) return null;
+  const tx = Math.floor(x), ty = Math.floor(y);
+  if (asphaltZone(x, y)) {
+    const frac = (v, p) => ((v % p) + p) % p;
+    if (Math.abs(y + 1.5) < .05 && x < 6.6 && frac(x, .8) < .4) return '#f0ebdd';
+    if (Math.abs(y - 8.5) < .05 && x < 6.6 && frac(x, .8) < .4) return '#f0ebdd';
+    if (Math.abs(x - 8.5) < .05 && y > .4 && y < 4.8 && frac(y, .8) < .4) return '#f0ebdd';
+    if (x >= 7.2 && x < 9.8 && y >= 5.2 && y < 6.1 && Math.floor((y - 5.2) / .1) % 2 === 0) return '#e8e2d2';   // faixa de pedestre
+    return colorAt(tx, ty, (x - tx - .5) * 64, (y - ty - .5) * 64);
+  }
+  let c;
+  if (x >= -.5 && x < 7 && y >= 0 && y < 7) {
+    const edge = Math.min(x + .5, y, 7 - x, 7 - y);
+    if (x >= .7 && x < 6.3 && y >= .7 && y < 6.3) {
+      // miolo: lajes claras com desenhos curvos mais escuros
+      const dx = x - C.x, dy = y - C.y, r = Math.hypot(dx, dy), th = Math.atan2(dy, dx);
+      const t = hash(Math.floor(x * 3), Math.floor(y * 3), 5);
+      c = t > .8 ? '#d9cdb0' : t > .3 ? '#d1c5a5' : '#cabe9d';
+      if ((x * 3) % 1 < .025 || (y * 3) % 1 < .025) c = '#bfb391';
+      if ((Math.abs(r - 1.55) < .04 || Math.abs(r - 2.4) < .035) && Math.sin(th * 7 + r) > -.55) c = '#a89c7c';
+      for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3 + .3, mx = C.x + Math.cos(a) * 3.0, my = C.y + Math.sin(a) * 3.0, m = Math.hypot(x - mx, y - my); if (m < .2 && m > .15) c = '#a89c7c'; else if (m <= .15 && m > .05) c = '#dcd0b4'; }
+    } else {
+      c = hash(Math.floor(x * 2), Math.floor(y * 2), 7) > .5 ? '#bdb9ae' : '#b4b0a5';
+      if ((x * 2) % 1 < .03 || (y * 2) % 1 < .03) c = '#a29e93';
+    }
+    if (edge < .09) c = '#8f8b82';                                      // meio-fio
+    else if (edge < .14 && x < 7 && y < 7) c = '#cfcbc0';
+    { const cd = Math.max(Math.abs(x - C.x), Math.abs(y - C.y)); if (cd < POOL) c = WATER_BASE; else if (cd < POOL + .13) c = (cd < POOL + .04) ? '#b0714f' : '#7a4a35'; }
+    if (x < .3 && y > 0) c = mix(c, SHADOW, .22);                        // sombra dos prédios do lado esquerdo
+    return c;
+  }
+  const t = hash(Math.floor(x * 4), Math.floor(y * 4), 2);
+  c = t > .8 ? '#b19463' : t > .15 ? '#a98c5e' : '#a0845a';
+  if (x < -.5 && x > -.9 && y > 0 && y < 7) c = '#8f8b82';
+  return c;
+}
+const SX0 = -1088, SY0 = -448, GWp = 2304, GHp = 1152;
+function buildGround() {
+  const c = document.createElement('canvas'); c.width = GWp; c.height = GHp; const g = c.getContext('2d'), im = g.createImageData(GWp, GHp);
+  for (let j = 0; j < GHp; j++) for (let i = 0; i < GWp; i++) {
+    const sx = SX0 + i + .5, sy = SY0 + j + .5, x = (sx / 64 + sy / 32) / 2, y = (sy / 32 - sx / 64) / 2, col = groundColor(x, y);
+    if (!col) continue; const r = rgb(col), k = (j * GWp + i) * 4; im.data[k] = r[0]; im.data[k + 1] = r[1]; im.data[k + 2] = r[2]; im.data[k + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  // sombras no chão (luz de cima à esquerda: caem para a direita)
+  g.fillStyle = 'rgba(78,68,122,.5)';
+  const strip = (wx, wy, len, w, slope = .3) => { const bx = (wx - wy) * 64 - SX0, by = (wx + wy) * 32 - SY0; for (let k = 0; k < len; k++) g.fillRect(Math.round(bx + k), Math.round(by + k * slope - w / 2), 1, w); };
+  const oval = (wx, wy, rx, ry, dx, dy) => { const bx = (wx - wy) * 64 - SX0 + dx, by = (wx + wy) * 32 - SY0 + dy; for (let k = -ry; k <= ry; k++) { const hw = Math.round(rx * Math.sqrt(1 - (k / (ry + .5)) ** 2)); g.fillRect(bx - hw, by + k, hw * 2, 1); } };
+  strip(C.x, C.y, 105, 24, .32);
+  for (const [tx, ty] of TREES) oval(tx, ty, 74, 19, 52, 10);
+  strip(6.4, .5, 130, 7); strip(.6, 6.4, 130, 7);
+  return c;
+}
+
+// ================= objetos =================
+const OBJ = [];                       // {key, draw(ctx)}
+const BLOCK = [];                     // retângulos que bloqueiam o personagem [x0, y0, x1, y1]
+// -- prédios do lado esquerdo e do norte, em fatias de 1 tile (para ordenar bem com o personagem)
+function wallRow(axis, fixed, from, to, depth, h, o) {
+  for (let s = from; s < to; s += 1) {
+    const len = Math.min(1, to - s);
+    const wx = axis === 'y' ? fixed : s, wy = axis === 'y' ? s : fixed, w = axis === 'y' ? depth : len, d = axis === 'y' ? len : depth;
+    const oo = Object.assign({ h }, o);
+    const box = isoBox(w, d, h, withOff(wallTex(oo), wx, wy));
+    OBJ.push({ key: wx + w / 2 + wy + d / 2, draw: ctx => drawBox(ctx, box, wx, wy, 0) });
+  }
+  const x0 = axis === 'y' ? fixed : from, y0 = axis === 'y' ? from : fixed;
+  BLOCK.push([x0, y0, x0 + (axis === 'y' ? depth : to - from), y0 + (axis === 'y' ? to - from : depth)]);
+}
+const none = () => false;
+wallRow('y', -4, .4, 3.4, 3.5, 96, { base: '#d8c19a', shade: '#b79f78', roof: 'terra', win: s => s % 3 !== 1, door: s => s % 3 === 1 });
+wallRow('y', -4, 3.4, 7, 3.5, 118, { base: '#cfcac0', shade: '#aaa59a', roof: 'cinza', win: s => s % 2 === 0, door: s => s % 4 === 1 });
+wallRow('x', -8, 0, 9.5, 4.5, 110, { base: '#c4b49a', shade: '#a39378', roof: 'terra', win: s => s % 2 === 1, door: s => s % 4 === 2 });
+
+// -- estátua no centro (figura de pedra com capa e espada, de frente para o jogador), sobre pedestal com placa e canteiro de flores
+const BRONZE = ['#1f140e', '#3b2616', '#5e3d22', '#86592f', '#b48048'], SKIN = ['#4a2f20', '#6e4630', '#9a6a48', '#c28e63', '#dfb088'], STEEL = ['#2c3438', '#4a565c', '#6e7c84', '#98a8b0', '#c4d2d8'];
+const STATUE_PAL = { 1: SKIN, 2: BRONZE, 4: BRONZE, 5: BRONZE, 6: STEEL, 7: STEEL, 8: BRONZE, 9: SKIN, 10: BRONZE };
+function statueSprite() {
+  const W = 46, H = 82, cx = 23, ID = new Uint8Array(W * H);
+  const inE = (x, y, ex, ey, rx, ry) => ((x - ex) / rx) ** 2 + ((y - ey) / ry) ** 2 <= 1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let id = 0;
+    const half = y < 19 ? 0 : y < 26 ? 8 + (y - 19) * .75 : y < 38 ? 13.2 + (y - 26) * .1 : 14.4 + (y - 38) * .09;                     // meia largura da capa
+    if (y >= 19 && y <= 69 && Math.abs(x + .5 - cx) < half + (y > 66 && (x % 3 === 0) ? -1 : 0)) id = 4;                       // capa
+    if (y >= 19 && y <= 66 && Math.abs(x + .5 - cx) < 3.6 + (y - 19) * .06) id = 5;                  // túnica na abertura da capa
+    if (y >= 38 && y <= 40 && Math.abs(x + .5 - cx) < 4.6) id = 10;                                  // cinto
+    if (y >= 66 && y <= 76 && ((x >= 17 && x < 22) || (x >= 24 && x < 29))) id = 5;                    // pernas
+    if (y >= 74 && y <= 80 && ((x >= 15 && x < 22) || (x >= 24 && x < 31))) id = 8;                    // botas
+    if (y >= 19 && y <= 21 && Math.abs(x + .5 - cx) < 5) id = 4;                                      // gola
+    if (y >= 17 && y <= 19 && Math.abs(x + .5 - cx) < 2.4) id = 1;                                    // pescoço
+    if (inE(x + .5, y + .5, cx, 10, 6.6, 7.8)) id = 1;                                                // cabeça
+    if (inE(x + .5, y + .5, cx, 10, 6.9, 8) && (y < 8 || (y < 13 && Math.abs(x + .5 - cx) > 5.2))) id = 2;      // cabelo
+        if (x >= 10 && x <= 14 && y >= 23 && y <= 36) id = 4;                                             // braço que segura a espada
+    if (x >= 11 && x <= 14 && y >= 29 && y <= 33) id = 9;                                             // mão
+    if (x >= 11 && x <= 14 && y >= 25 && y <= 27) id = 7;                                             // pomo
+    if (y >= 34 && y <= 35 && x >= 7 && x <= 18) id = 7;                                              // guarda
+    if (x >= 12 && x <= 13 && y >= 36 && y <= (x === 12 ? 78 : 76)) id = 6;                           // lâmina
+    ID[y * W + x] = id;
+  }
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), im = g.createImageData(W, H);
+  const base = { 1: 3, 2: 1, 4: 2, 5: 3, 6: 3, 7: 3, 8: 1, 9: 3, 10: 1 };
+  const px = (x, y, col) => { const r = rgb(col), k = (y * W + x) * 4; im.data[k] = r[0]; im.data[k + 1] = r[1]; im.data[k + 2] = r[2]; im.data[k + 3] = 255; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const id = ID[y * W + x]; if (!id) continue;
+    const nb = [x > 0 ? ID[y * W + x - 1] : 0, x < W - 1 ? ID[y * W + x + 1] : 0, y > 0 ? ID[(y - 1) * W + x] : 0, y < H - 1 ? ID[(y + 1) * W + x] : 0];
+    if (nb.some(n => !n)) { px(x, y, '#1a110c'); continue; }
+    let t = base[id] + Math.round(-(x - cx) / 13 + (bayer(x, y) - .5) * .8);
+    if (id === 4 && ((x * 5 + (y >> 3)) % 9 < 2)) t--;                                                 // dobras da capa
+    if (id === 5 && y > 41 && x === cx) t--;                                                           // costura da túnica
+    if (nb.some(n => n !== id && n !== 0) && id !== 6 && id !== 1 && id !== 2) t--;                                            // contorno entre partes
+    if (id === 1 && (y === 10 || y === 11) && (Math.abs(x + .5 - cx - 3) < 1.1 || Math.abs(x + .5 - cx + 3) < 1.1)) t = 0;   // olhos fechados
+    px(x, y, STATUE_PAL[id][clamp(t, 0, 4)]);
+  }
+  g.putImageData(im, 0, 0); return { c, ax: cx, ay: 80 };
+}
+const stoneTex = (top, s1, s2) => (f, a, b) => f === 1 ? (hash(Math.floor(a * 12), Math.floor(b * 12), 4) > .85 ? mul(top, .93) : top) : (hash(Math.floor(a * 64), b, f) > .96 ? mul(f === 2 ? s1 : s2, .9) : (f === 2 ? s1 : s2));
+// queda d'água: faixa azul-clara com fios brancos que desce pelo meio das duas faces visíveis
+const fallTex = (s1, s2, cxa, top, bot) => (f, a, b) => {
+  if (f === 1) return hash(Math.floor(a * 12), Math.floor(b * 12), 4) > .85 ? mul('#9a6e4c', .93) : '#9a6e4c';
+  const u = (a - cxa) * 64, col = f === 2 ? s1 : s2;
+  if (Math.abs(u) < 6 && b >= top && b <= bot) { if (Math.abs(u) > 4.6) return '#2f8fa6'; const w = hash(Math.floor(u), Math.floor(b / 3), 8); return w > .7 ? '#d8f6f8' : w > .35 ? '#6fd0e0' : '#4fb8c8'; }
+  if (hash(Math.floor(a * 64), b, f) > .96) return mul(col, .9);
+  return b > 30 ? mul(col, .92) : col;
+};
+const ped = [
+  [isoBox(.9, .9, 10, fallTex('#8a857c', '#6e6a62', .45, 0, 10)), C.x - .45, C.y - .45, 0],
+  [isoBox(.62, .62, 34, fallTex('#8a5e40', '#6a452e', .31, 2, 34)), C.x - .31, C.y - .31, 10],
+  [isoBox(.74, .74, 6, stoneTex('#a2785a', '#86593d', '#664229')), C.x - .37, C.y - .37, 44],
+];
+const ST = statueSprite();
+OBJ.push({ key: C.x + C.y, draw: ctx => { ped.forEach(([bx, wx, wy, z]) => drawBox(ctx, bx, wx, wy, z)); ctx.drawImage(ST.c, Math.round((C.x - C.y) * 64 - ST.ax), Math.round((C.x + C.y) * 32 - 50 - ST.ay)); } });
+BLOCK.push([C.x - .5, C.y - .5, C.x + .5, C.y + .5]);
+
+// -- bancos
+// banco de parque: ripas separadas no assento e no encosto (inclinado para trás), laterais de ferro com braço e pernas
+const WOOD = ['#3b2616', '#5a3b26', '#7a5238', '#a37249'], IRON = ['#1a110c', '#2b1c14', '#43301f', '#5e4630'];
+const slatTex = (f, a, b) => f === 1 ? (hash(Math.floor(a * 40), Math.floor(b * 40), 6) > .9 ? WOOD[2] : WOOD[3]) : (f === 2 ? WOOD[2] : WOOD[1]);
+const ironTex = (f, a, b) => f === 1 ? IRON[3] : (f === 2 ? IRON[2] : IRON[1]);
+function bench(face, cx, cy) {
+  const L = .72, D = .27, alongY = face[0] === 'x', plus = face[1] === '+';
+  // retângulo no banco: u ao longo do comprimento, v da frente (0) para o encosto (D)
+  const rect = (u0, u1, v0, v1) => alongY
+    ? (plus ? [cx + D / 2 - v1, cy - L / 2 + u0, v1 - v0, u1 - u0] : [cx - D / 2 + v0, cy - L / 2 + u0, v1 - v0, u1 - u0])
+    : (plus ? [cx - L / 2 + u0, cy + D / 2 - v1, u1 - u0, v1 - v0] : [cx - L / 2 + u0, cy - D / 2 + v0, u1 - u0, v1 - v0]);
+  const parts = [];
+  const add = (u0, u1, v0, v1, z, h, tex) => { const [x, y, w, d] = rect(u0, u1, v0, v1); parts.push([isoBox(Math.max(w, .02), Math.max(d, .02), h, tex), x, y, z]); };
+  const T = .045;                                                              // espessura das laterais
+  for (const [u0, u1] of [[0, T], [L - T, L]]) {
+    add(u0, u1, .02, .08, 0, 9, ironTex);                                      // perna da frente
+    add(u0, u1, .17, .24, 0, 9, ironTex);                                      // perna de trás
+    add(u0, u1, .02, .2, 8, 2, ironTex);                                       // travessa sob o assento
+    add(u0, u1, .17, .24, 9, 24, ironTex);                                     // montante do encosto
+    add(u0, u1, .0, .22, 19, 3, ironTex);                                      // braço
+  }
+  for (let i = 0; i < 4; i++) add(T, L - T, .01 + i * .055, .01 + i * .055 + .045, 9, 3, slatTex);   // assento
+  for (let i = 0; i < 3; i++) add(T, L - T, .205 + i * .012, .205 + i * .012 + .03, 17 + i * 7, 5, slatTex);   // encosto inclinado
+  OBJ.push({ key: cx + cy + .05, draw: ctx => parts.forEach(([bx, wx, wy, z]) => drawBox(ctx, bx, wx, wy, z)) });
+  const [x0, y0, w, d] = alongY ? [cx - D / 2, cy - L / 2, D, L] : [cx - L / 2, cy - D / 2, L, D];
+  BLOCK.push([x0, y0, x0 + w, y0 + d]);
+}
+// o encosto fica do lado de fora, de costas para o espelho d'água
+bench('x+', C.x - 2.35, C.y); bench('x-', C.x + 2.35, C.y); bench('y+', C.x, C.y - 2.35); bench('y-', C.x, C.y + 2.35);
+
+// -- árvores (copa em cúpulas achatadas, mesmo jeito das árvores de teste)
+const LEAF = ['#1b3320', '#27502a', '#36702f', '#4c9040', '#78b852'];
+const TBARK = ['#2b1c14', '#4a3020', '#6e4a2e', '#946a42'];
+function treeSprite(seed) {
+  const W = 190, H = 190, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), im = g.createImageData(W, H);
+  const put = (x, y, col) => { x |= 0; y |= 0; if (x < 0 || y < 0 || x >= W || y >= H) return; const r = rgb(col), k = (y * W + x) * 4; im.data[k] = r[0]; im.data[k + 1] = r[1]; im.data[k + 2] = r[2]; im.data[k + 3] = 255; };
+  const bx = 95, by = H - 4, CX = 95, CY = 70, RX = 78, RY = 66;
+  // tronco retorcido, mais largo na base
+  for (let y = by - 80; y <= by; y++) {
+    const t = (y - (by - 80)) / 80, mid = bx + 7 * Math.sin(y * .14 + seed), hw = 8 + t * 4 + (t > .85 ? (t - .85) * 50 : 0);
+    for (let x = Math.floor(mid - hw); x <= Math.ceil(mid + hw); x++) {
+      const u = (x - mid) / hw; if (Math.abs(u) > 1) continue;
+      const tw = ((x - mid) + y * .55 + seed * 3) % 9; let tone = u < -.55 ? 3 : u < .1 ? 2 : u < .6 ? 1 : 0; if (tw < 1.4 && tone > 0) tone--;
+      put(x, y, Math.abs(u) > .88 ? '#1f130c' : TBARK[tone]);
+    }
+  }
+  // copa redonda: folhas em escamas (cada folha tem luz em cima e sombra embaixo), luz de cima à esquerda
+  const CW = 6, CH = 5;
+  for (let j = 0; j < H / CH; j++) for (let i = 0; i < W / CW; i++) {
+    const jx = (hash(i, j, seed) - .5) * 3, jy = (hash(i, j, seed + 1) - .5) * 2.5, lx = i * CW + CW / 2 + jx + (j % 2) * CW / 2, ly = j * CH + CH / 2 + jy;
+    const dx = (lx - CX) / RX, dy = (ly - CY) / RY, rr = Math.hypot(dx, dy * (dy > 0 ? 1.12 : 1)), ang = Math.atan2(dy, dx);
+    if (rr > 1 + .05 * Math.sin(ang * 7 + seed) + (hash(i, j, seed + 2) - .5) * .06) continue;
+    // luz esférica: normal da esfera
+    const nx = dx, ny = dy, nz = Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny)), lum = clamp(-.45 * nx - .55 * ny + .55 * nz, -1, 1);
+    let base = clamp(Math.floor(lum * 3.4 + 1.6 + (hash(i, j, seed + 3) - .5) * .9), 0, 4);
+    for (let y = Math.floor(ly - 3); y <= ly + 3; y++) for (let x = Math.floor(lx - 4); x <= lx + 4; x++) {
+      const ex = (x + .5 - lx) / 4, ey = (y + .5 - ly) / 3, e = ex * ex + ey * ey; if (e > 1) continue;
+      let t = base; if (ex + ey < -.35) t++; else if (ex + ey > .5 || e > .72) t--;
+      put(x, y, LEAF[clamp(t, 0, 4)]);
+    }
+  }
+  g.putImageData(im, 0, 0); return { c, ax: bx, ay: by };
+}
+// canteiro de tijolo redondo (altura 16 px), com terra e capim dentro
+function planterSprite() {
+  const W = 150, H = 78, c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), im = g.createImageData(W, H);
+  const cx = 75, cy = 30, RX = 62, RY = 31, HT = 16, RIM = 6;
+  const put = (x, y, col) => { const r = rgb(col), k = (y * W + x) * 4; im.data[k] = r[0]; im.data[k + 1] = r[1]; im.data[k + 2] = r[2]; im.data[k + 3] = 255; };
+  const e1 = (x, y, rx, ry, oy = 0) => ((x + .5 - cx) / rx) ** 2 + ((y + .5 - cy - oy) / ry) ** 2;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const top = e1(x, y, RX, RY), bot = e1(x, y, RX, RY, HT);
+    if (top <= 1) {
+      const inner = e1(x, y, RX - RIM, RY - RIM / 2);
+      if (inner <= 1) { const t = hash(x, y, 5); put(x, y, t > .93 ? '#5f8a45' : t > .55 ? '#3a4a2c' : '#2f3c24'); if (y < cy - RY / 2 + 4 && inner > .75) put(x, y, '#2a3820'); }
+      else { put(x, y, top > .93 ? '#6e3a2a' : (hash(Math.floor((x + (y > cy ? 0 : 5)) / 10), Math.floor(y / 4), 7) > .5 ? '#c47450' : '#b86044')); }
+    } else if (bot <= 1 && y > cy) {
+      const row = Math.floor((y - cy) / 5), off = (row % 2) * 5, bxn = Math.floor((x + off) / 10), mort = (y - cy) % 5 === 0 || (x + off) % 10 === 0;
+      const shade = clamp(1 + (x - cx) / 160, .8, 1.1), base = hash(bxn, row, 3) > .5 ? '#9a4f38' : '#8a4430';
+      put(x, y, mort ? '#5a3023' : mul(base, shade));
+      if (bot > .9) put(x, y, '#3b1e14');
+    }
+  }
+  g.putImageData(im, 0, 0); return { c, ax: cx, ay: cy + 2 };
+}
+const PL = planterSprite();
+// árvores geradas no PixelLab (128×128, desenhadas em 2×); cx/by = centro e pé do tronco na imagem
+const TREE_IMG = [
+  { src: 'arvore_v3_sem_galho.png', cx: 64, by: 103, flip: false },
+  { src: 'arvore_pl0.png', cx: 63, by: 90, flip: false },
+  { src: 'arvore_v1_sem_galho.png', cx: 63, by: 106, flip: false },
+  { src: 'arvore_v3_sem_galho.png', cx: 64, by: 103, flip: true },
+].map(t => { const im = new Image(); im.src = t.src; return { ...t, im }; });
+TREES.forEach(([x, y], i) => {
+  const t = TREE_IMG[i];
+  OBJ.push({ key: x + y, draw: ctx => {
+    const sx = Math.round((x - y) * 64), sy = Math.round((x + y) * 32);
+    ctx.drawImage(PL.c, sx - PL.ax, sy - PL.ay);
+    if (!t.im.complete || !t.im.naturalWidth) return;
+    ctx.save(); ctx.translate(sx, sy + 4 - t.by * 2); if (t.flip) ctx.scale(-1, 1);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(t.im, -t.cx * 2, 0, 256, 256); ctx.restore();
+  } });
+  BLOCK.push([x - .55, y - .55, x + .55, y + .55]);
+});
+
+// -- postes de iluminação nos cantos
+const LP = POSTE.lightPole();
+[[6.55, .45], [.35, 6.55]].forEach(([x, y]) => {
+  OBJ.push({ key: x + y, draw: ctx => ctx.drawImage(LP.c, Math.round((x - y) * 64 - LP.ax), Math.round((x + y) * 32 - LP.ay + 2)) });
+  BLOCK.push([x - .15, y - .15, x + .15, y + .15]);
+});
+
+// ================= jogo =================
+const cv = document.getElementById('g'), ctx = cv.getContext('2d');
+function resize() { cv.width = innerWidth; cv.height = innerHeight; ctx.imageSmoothingEnabled = false; }
+addEventListener('resize', resize); resize();
+const ZOOMS = [1, 2, 3]; let zi = 1;
+addEventListener('wheel', e => { zi = clamp(zi + (e.deltaY < 0 ? 1 : -1), 0, 2); });
+const keys = {};
+addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
+addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+const hero = PERS.create('N'); let hx = 3.5, hy = 6.4;
+const WALK_PX = 160 / 3, RUN_PX = 300 / 3, R = .2;
+const hit = (x, y) => BLOCK.some(([x0, y0, x1, y1]) => x + R > x0 && x - R < x1 && y + R > y0 && y - R < y1) || x < -.4 || x > 10.8 || y < -3.2 || y > 10.8;
+// espelho d'água: anéis que se espalham a partir do pedestal, redesenhado ~15 vezes por segundo
+const WC = Math.ceil(POOL * 2 * 128 / 2) * 2 + 4, WH = Math.ceil(POOL * 2 * 64 / 2) * 2 + 4, water = document.createElement('canvas'); water.width = WC; water.height = WH;
+const wg = water.getContext('2d'), wim = wg.createImageData(WC, WH);
+const WOX = Math.round((C.x - C.y) * 64 - WC / 2), WOY = Math.round((C.x + C.y) * 32 - WH / 2);
+let waterT = -1;
+function drawWater(now) {
+  const f = Math.floor(now / 70); if (f === waterT) return; waterT = f; const t = now / 1000;
+  for (let j = 0; j < WH; j++) for (let i = 0; i < WC; i++) {
+    const sx = WOX + i + .5, sy = WOY + j + .5, x = (sx / 64 + sy / 32) / 2, y = (sy / 32 - sx / 64) / 2, dx = x - C.x, dy = y - C.y, k = (j * WC + i) * 4;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) >= POOL) { wim.data[k + 3] = 0; continue; }
+    const r = Math.hypot(dx, dy), ph = r * 6.5 - t * .9, ring = Math.sin(ph * 6.283), edge = Math.max(Math.abs(dx), Math.abs(dy)) / POOL;
+    const n = hash(Math.floor(x * 12), Math.floor(y * 12), 9);
+    let col = n > .8 ? '#4fb8c8' : n > .3 ? '#3aa5b8' : '#2f93a8';
+    if (edge > .88) col = mul(col, .82);                                                      // fundo mais escuro junto da borda
+    if (ring > .9 && r > .5) col = '#a9ecef'; else if (ring > .82 && r > .5) col = '#7fdbe6';
+    if (r < .62 && r > .46 && hash(Math.floor(x * 20), Math.floor(y * 20), Math.floor(t * 6)) > .75) col = '#e6fbfc';   // espuma ao pé do pedestal
+    const c = rgb(col); wim.data[k] = c[0]; wim.data[k + 1] = c[1]; wim.data[k + 2] = c[2]; wim.data[k + 3] = 255;
+  }
+  wg.putImageData(wim, 0, 0);
+}
+let ground = null, last = performance.now();
+const qs = new URLSearchParams(location.search); if (qs.has('x')) { hx = +qs.get('x'); hy = +qs.get('y'); } if (qs.has('z')) zi = +qs.get('z');
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  const kx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0), ky = (keys.s || keys.arrowdown ? 1 : 0) - (keys.w || keys.arrowup ? 1 : 0);
+  PERS.step(hero, kx, ky, !!keys.shift, now);
+  if (hero.moving) {
+    const l = Math.hypot(kx, ky), d = (hero.run ? RUN_PX : WALK_PX) * dt, dx = kx / l * d, dy = ky / l * d, nx = hx + dx / 128 + dy / 64, ny = hy + dy / 64 - dx / 128;
+    const preso = hit(hx, hy); if (preso || !hit(nx, hy)) hx = nx; if (preso || !hit(hx, ny)) hy = ny;
+  }
+  const z = ZOOMS[zi], Wd = cv.width, Hd = cv.height, sx = (hx - hy) * 64, sy = (hx + hy) * 32;
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#a98c5e'; ctx.fillRect(0, 0, Wd, Hd);
+  ctx.setTransform(z, 0, 0, z, Math.round(Wd / 2 - sx * z), Math.round(Hd * .58 - sy * z));
+  ctx.drawImage(ground, SX0, SY0); drawWater(now); ctx.drawImage(water, Math.round(WOX), Math.round(WOY));
+  const list = OBJ.concat([{ key: hx + hy, draw: c => PERS.draw(c, hero, sx, sy) }]).sort((a, b) => a.key - b.key);
+  for (const o of list) o.draw(ctx);
+  requestAnimationFrame(loop);
+}
+setTimeout(() => { ground = buildGround(); document.getElementById('load').remove(); requestAnimationFrame(loop); }, 30);
+</script></body></html>

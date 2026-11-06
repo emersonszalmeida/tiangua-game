@@ -31,7 +31,10 @@ const PERS = (function () {
   function draw(ctx, P, sx, sy) {
     const [view, flip] = VIEW[P.dir], slot = P.moving ? (P.run ? 'run' : 'walk') + view : 'idle' + view, s = D.slots[slot], img = frameCanvas(slot, P.moving ? P.f : 0);
     const ax = Math.round(s.cx + .5);
-    ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(sx, sy - 1, 8, 3, 0, 0, 7); ctx.fill();
+    // sombra: oval de pixels, de um tom só, cinza neutro, centrada nos pés e passando 2 px abaixo deles
+    const bx = Math.round(sx), by = Math.round(sy);
+    ctx.fillStyle = 'rgba(20,20,24,.30)';
+    for (const [dy, hw] of [[-6, 5], [-5, 7], [-4, 8], [-3, 9], [-2, 9], [-1, 9], [0, 8], [1, 7], [2, 5]]) ctx.fillRect(bx - hw, by + dy, hw * 2 + 1, 1);
     ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(sx), Math.round(sy)); if (flip) ctx.scale(-1, 1);
     ctx.drawImage(img, -ax, -s.h); ctx.restore();
   }

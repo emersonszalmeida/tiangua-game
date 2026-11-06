@@ -15,6 +15,7 @@ canvas{display:block;image-rendering:pixelated}
 <script src="sprites7.js"></script>
 <script src="idles.js"></script>
 <script src="personagem.js"></script>
+<script src="pista.js"></script>
 <script>
 const M = window.MAP, GW = M.w, GH = M.h;
 const raw = atob(M.b64), grid = new Uint8Array(raw.length);
@@ -78,6 +79,13 @@ const keys = {};
 addEventListener('keydown', e => { keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); });
 addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+const roadCells = PISTA.roadIndex(M.roads), CH = 128, chunks = new Map();   // asfalto em pedaços de 128×128 px, feitos sob demanda
+function drawRoads(camX, camY, vw, vh) {
+  for (let cy = Math.floor((camY - vh / 2) / CH); cy <= Math.floor((camY + vh / 2) / CH); cy++) for (let cx = Math.floor((camX - vw / 2) / CH); cx <= Math.floor((camX + vw / 2) / CH); cx++) {
+    const k = cx + ',' + cy; let c = chunks.get(k); if (!c) { c = PISTA.roadChunk(roadCells, cx * CH, cy * CH, CH); chunks.set(k, c); }
+    ctx.drawImage(c, cx * CH, cy * CH);
+  }
+}
 const blocked = (x, y) => type(Math.floor(x), Math.floor(y)) === 3;
 
 const hero = PERS.create('S');
@@ -129,16 +137,20 @@ function render() {
   // faixa de tiles visíveis: varre diagonais s = x+y
   const sMin = Math.max(0, Math.floor((camY - vh / 2) / (TH / 2)) - 2), sMax = Math.min(GW + GH - 2, Math.ceil((camY + vh / 2) / (TH / 2)) + 14); // +14: prédios de 3 andares abaixo da tela ainda aparecem
   const pS = px + py; let playerDrawn = false;
-  for (let s = sMin; s <= sMax; s++) {
+  // 2 passadas: primeiro todo o chão (nenhum tile de chão cobre o personagem), depois prédios e personagem de trás para frente
+  for (let pass = 0; pass < 2; pass++) for (let s = sMin; s <= sMax; s++) {
+    if (pass === 1 && s === sMin) drawRoads(camX, camY, vw, vh);   // o asfalto fica entre o chão e os prédios
     const xa = Math.max(0, s - (GH - 1)), xb = Math.min(GW - 1, s);
     // limita pelas colunas visíveis: sx = (x-y)*16 = (2x - s)*16
     const xmin = Math.max(xa, Math.ceil(((camX - vw / 2 - TW) / (TW / 2) + s) / 2)), xmax = Math.min(xb, Math.floor(((camX + vw / 2 + TW) / (TW / 2) + s) / 2));
     for (let x = xmin; x <= xmax; x++) {
       const y = s - x, t = type(x, y), sx = (x - y) * TW / 2, sy = (x + y) * TH / 2;
-      if (t === 3) drawBuilding(x, y, sx, sy, hgt(x, y));
+      if (t === 3) { if (pass) drawBuilding(x, y, sx, sy, hgt(x, y)); }
+      else if (pass) continue;
+      else if (t === 1) diamond(sx, sy, COL[0][(x + y) & 1]);   // sob a rua fica terra; o asfalto é desenhado por cima, com borda reta
       else diamond(sx, sy, COL[t][(x + y) & 1]);
     }
-    if (!playerDrawn && s >= Math.floor(pS) ) {
+    if (pass && !playerDrawn && s >= Math.floor(pS)) {
       PERS.draw(ctx, hero, (px - py) * TW / 2, (px + py) * TH / 2 + TH / 2); playerDrawn = true;
     }
   }

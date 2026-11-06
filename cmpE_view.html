@@ -1,6 +1,0 @@
-<!doctype html><html><head><meta charset="utf-8"><title>E</title><style>body{margin:0;background:#202020;color:#eee;font:13px system-ui;padding:10px;display:flex;gap:14px;align-items:flex-start}.c{background:#8c8c8c;color:#111;padding:6px;text-align:center;border-radius:4px}canvas,img{image-rendering:pixelated;display:block}</style></head><body>
-<script src="idles.js"></script><script>
-const a=document.createElement('div');a.className='c';const i=new Image();i.src='draw_E.png';i.style.height='560px';a.appendChild(i);a.append('o seu');document.body.appendChild(a);
-function mk(rows,k,flip){const c=document.createElement('canvas');c.width=rows[0].length*k;c.height=rows.length*k;const x=c.getContext('2d');if(flip){x.translate(c.width,0);x.scale(-1,1)}rows.forEach((r,y)=>{for(let q=0;q<r.length;q++)if(r[q]!=='.'){x.fillStyle=IDLES.pal[r[q]];x.fillRect(q*k,y*k,k,k)}});return c}
-const d=document.createElement('div');d.className='c';d.appendChild(mk(IDLES.W.rows,10,true));d.append('E no teste (W espelhado) '+IDLES.W.w+'x'+IDLES.W.h);document.body.appendChild(d);
-</script></body></html>

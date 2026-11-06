@@ -1,7 +1,0 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Candidatos NW parado</title>
-<style>body{margin:0;background:#202020;color:#eee;font:14px system-ui;padding:14px}.g{display:flex;gap:12px;flex-wrap:wrap}.c{background:#8c8c8c;padding:6px;text-align:center;color:#111;border-radius:6px}canvas{image-rendering:pixelated;display:block}</style></head>
-<body><h3>Costas em 3/4 (NW) — 8 quadros da folha limpa (andar)</h3><div class="g" id="a"></div><h3>Correndo (NW)</h3><div class="g" id="b"></div>
-<script src="sprites7.js"></script><script>
-function mk(slot,f,k){const s=SPR7.slots[slot],c=document.createElement('canvas');c.width=s.w*k;c.height=s.h*k;const x=c.getContext('2d');s.frames[f].forEach((r,y)=>{for(let i=0;i<r.length;i++)if(r[i]!=='.'){x.fillStyle=SPR7.pal[r[i]];x.fillRect(i*k,y*k,k,k)}});return c}
-for(const [id,slot] of [['a','walkNW'],['b','runNW']])for(let f=0;f<8;f++){const d=document.createElement('div');d.className='c';d.appendChild(mk(slot,f,5));d.append('quadro '+f+(SPR7.slots[slot].idle===f?' (pés mais juntos)':''));document.getElementById(id).appendChild(d)}
-</script></body></html>

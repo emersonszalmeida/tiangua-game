@@ -1,7 +1,0 @@
-<!doctype html><html><head><meta charset="utf-8"><title>idles</title><style>body{margin:0;background:#202020;color:#eee;font:13px system-ui;padding:10px;display:flex;gap:14px}.c{background:#8c8c8c;color:#111;padding:6px;text-align:center;border-radius:4px}canvas{image-rendering:pixelated;display:block}</style></head><body>
-<script src="sprites7.js"></script><script src="idles.js"></script><script>
-function mk(rows,k){const c=document.createElement('canvas');c.width=rows[0].length*k;c.height=rows.length*k;const x=c.getContext('2d');rows.forEach((r,y)=>{for(let i=0;i<r.length;i++)if(r[i]!=='.'){x.fillStyle=IDLES.pal[r[i]];x.fillRect(i*k,y*k,k,k)}});return c}
-for(const [n,src] of [['S',SPR7.slots.walkS.frames[0]],['N',SPR7.slots.walkN.frames[4]],['W',SPR7.slots.walkW.frames[0]],['SW',SPR7.slots.walkSW.frames[0]]]){
- const d=document.createElement('div');d.className='c';d.appendChild(mk(src,5));d.append(n+' antes');document.body.appendChild(d)}
-for(const n of ['S','N','W','SW','NW']){const d=document.createElement('div');d.className='c';d.appendChild(mk(IDLES[n].rows,5));d.append(n+' parado');document.body.appendChild(d)}
-</script></body></html>

@@ -45,7 +45,8 @@ for (const w of ways) {
   if (t.amenity === 'marketplace' || t.place === 'square' || t.highway === 'pedestrian' && t.area === 'yes')
     fillPoly(pts, (x, y) => { g[y * GW + x] = PLAZA; });
 }
-// 2) ruas
+// 2) ruas (também guarda os segmentos para o mapa desenhar a rua com borda reta, sem os degraus da grade de 3 m)
+const rsegs = [];
 for (const w of ways) {
   const t = w.tags || {};
   if (!t.highway || t.area === 'yes') continue;
@@ -53,6 +54,7 @@ for (const w of ways) {
   const pts = w.geometry.map(toG);
   for (let i = 0; i + 1 < pts.length; i++) {
     const [x1, y1] = pts[i], [x2, y2] = pts[i + 1];
+    rsegs.push([+x1.toFixed(2), +y1.toFixed(2), +x2.toFixed(2), +y2.toFixed(2), +Math.max(r, 0.7).toFixed(2)]);
     const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 0.4));
     for (let k = 0; k <= n; k++) stamp(x1 + (x2 - x1) * k / n, y1 + (y2 - y1) * k / n, Math.max(r, 0.7), ROAD);
   }
@@ -88,5 +90,5 @@ for (const w of ways) {
 }
 console.log({ streets: streets.length, places: places.length, ruasComNome: new Set(streets.map(s => s[2])).size });
 console.log(places.map(p => p[2]).join(' | '));
-fs.writeFileSync('map.js', `window.MAP={w:${GW},h:${GH},t:${T},streets:${JSON.stringify(streets)},places:${JSON.stringify(places)},b64:"${Buffer.from(g).toString('base64')}"};`);
+fs.writeFileSync('map.js', `window.MAP={w:${GW},h:${GH},t:${T},roads:${JSON.stringify(rsegs)},streets:${JSON.stringify(streets)},places:${JSON.stringify(places)},b64:"${Buffer.from(g).toString('base64')}"};`);
 console.log('map.js', (fs.statSync('map.js').size / 1024) | 0, 'KB');

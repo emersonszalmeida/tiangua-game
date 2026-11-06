@@ -1,6 +1,6 @@
 # Jogo de clãs de Tianguá — notas para continuar
 
-Última atualização: 2026-11-02. Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
+Última atualização: 2026-11-03 (pasta limpa: só o que o jogo e a conversão usam; o resto está no histórico do git). Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
 
 ## O que é o projeto
 Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **praças** são os objetivos.
@@ -15,10 +15,13 @@ Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **pra�
 | `teste_personagem.html` | **O personagem com 8 direções**: WASD/setas, Shift corre, painel com todas as poses (andar, correr, parado), reflexo no chão |
 | `tileset.html` | Amostra do tileset (chão, casas, árvore, poste, banco), com o personagem na mesma escala |
 | `index.html` | Mapa isométrico de Tianguá jogável **com o personagem principal** (8 direções, Shift corre). Mapa na escala do tileset (losango 128×64 = 3 m, andar ≈ 100 px); zoom só inteiro (1×/2×/3×) |
+| `pista.js` | As peças de asfalto em código (`PISTA.T`, `PISTA.tileFor`), usadas por `pista.html` e pelo mapa `index.html` (as ruas do mapa usam esse asfalto, mas desenhadas pixel a pixel a partir do eixo de cada via: `map.js` agora traz `roads` com os segmentos, e `PISTA.roadChunk` faz a borda reta, sem os degraus da grade de 3 m). Grama, praça e prédios ainda seguem a grade |
+| `praca.html` | **Praça pequena** (inspirada na Praça do Relógio de Tianguá, desenho próprio; não foi traçada do print do Google): chão pixel a pixel (lajes, calçada, ruas com faixa e faixa de pedestre), espelho d'água quadrado com anéis animados e estátua de bronze sobre pedestal com quedas d'água (`statueSprite`), 4 árvores redondas em canteiros de tijolo (`treeSprite`, `planterSprite`), 4 bancos com encosto, 2 postes, prédios dos lados. Usa `isoBox` (caixa isométrica por pixel) para prédios e torre. Parâmetros: `?x=&y=&z=0|1|2`. Ainda não está no mapa |
+| `poste.html` | Dois postes (iluminação e energia) na escala do personagem. Ainda não estão no mapa |
+| `arvore_ia.html` | Árvore gerada no Gemini (`arvore_gemini1.jpg`), convertida por `convert_arvore.mjs` em `arvore1.png`. Origem/licença a confirmar. Ainda não está no mapa |
 | `pista.html` | **Peças de asfalto que se encaixam** (4 asfaltos lisos, faixa tracejada ↘/↙, óleo, remendo, rachadura) montadas numa rua, com o personagem andando. Cenário claro, sem luz (o dono pediu para tirar a noite e a lanterna) |
 | `casa.html` | **Casa em corte, só paredes** (peças: parede ↘/↙, com vão de porta, cortada baixa, pilar). 3 cômodos em 15×12 m; a planta é a lista `PLAN` no código. Colisão e personagem atrás das paredes já funcionam. Referência: a cozinha escura |
-| `parados.html`, `comparar_ne_e.html`, `idles_all_view.html` | Páginas de comparação usadas para conferir poses |
-| `mato.html`, `fp.html` | Versões 3D antigas (primeira pessoa). Descartadas, o dono escolheu o isométrico |
+
 
 ## Mapa (OpenStreetMap)
 - `osm.json` → `build.mjs` → `map.js` (grade de tiles de 3 m: 0 terra, 1 rua, 3 prédio, 4 grama, 5 praça). Lugares: Praça do Eucalipto, Praça do Fiscal, Igreja Matriz, Praça Jacques Nunes, Praça São Francisco, Igreja N. Sra. Aparecida.
@@ -34,10 +37,10 @@ Sem capa. A "cor do clã" precisa de um lugar no corpo (ainda não definido).
 | Pose | Fonte |
 |---|---|
 | S | `cut_S.png` → `cutS.json` |
-| N | `cut_N2.png` → `cutN2.json` → `cutN.json` |
+| N | `cut_N2.png` → `cutN.json` |
 | E / W | `draw_E.png` → `drawE.json` (olha para a direita = E; W é o espelho) |
 | SE / SW | `cut_SE.png` → `cutSE.json` → `cutSW.json` (olha para a direita = SE; SW é o espelho) |
-| NW / NE | `draw_NW2.png` (desenho com o miolo vazado) → `nw2_raw.json` → `nw2_filled.json` (+2 linhas de perna para ficar com 55) |
+| NW / NE | `draw_NW2.png` (desenho com o miolo vazado) → `nw2_filled.json` (+2 linhas de perna para ficar com 55) |
 
 `make_idles.mjs` junta tudo e grava **`idles.js`** (`IDLES`). Rode `node make_idles.mjs` depois de mexer em qualquer fonte.
 
@@ -55,7 +58,6 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 ## Ferramentas
 - `cdpshot.mjs <url> <saida.png> [seg] [largura] [altura]`: tira print com Edge headless (Windows, Edge instalado). **Sempre salvar com nome novo** (o Claude cacheia imagens por nome) e **conferir que não sobrou Edge headless aberto** (acumulados já travaram o PC).
 - `pngdec.mjs`, `pngenc.mjs`, `jpgdec.mjs`, `gifdec.mjs`: leitura/escrita de imagens sem dependência pesada. `jpgdec`/`gifdec` precisam de `npm install` (jpeg-js, omggif).
-- Quase todos os `an*.mjs`, `grid*.mjs`, `match8.mjs`, `fid7.mjs` são scripts de investigação já usados; podem ser ignorados.
 
 ## Preferências do dono (importante)
 - Fala português, é experiente. Quer que o Claude **faça** (não mande instruções).
@@ -71,4 +73,16 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 5. Marcar as praças como objetivos; depois segundo jogador (multiplayer).
 
 ## Atenção: origem das imagens
-`sheet7.gif`, `sheet8.gif` e `sheet9.jpg` (e as poses derivadas) vieram de material enviado pelo dono, de **origem/licença desconhecida**. Servem como teste. Para o jogo final, usar personagem próprio ou com licença comercial (a conversão é a mesma).
+`sheet7.gif` (e as poses derivadas) vieram de material enviado pelo dono, de **origem/licença desconhecida**. Servem como teste. Para o jogo final, usar personagem próprio ou com licença comercial (a conversão é a mesma).
+
+
+## Terreno novo (grama baixa + terra) — estado em 2026-11-06, para retomar de outro computador
+**Onde abrir:** `chao.html` (Editor da cabana). Duplo clique, sem servidor. Paleta só com **Grama** e **Terra** (teclas 1 e 2) + árvores; mapa 24×24 começa limpo, personagem no centro. Salvo no navegador com a chave `cabana_mapa_v2` (os materiais antigos — grama, terra, floresta, lama, cascalho, madeira — estão escondidos da paleta, mas continuam no código; o mapa antigo foi ignorado).
+- **Pintar:** clicar/arrastar. Pincel 1×1, 2×2 ou 3×3. **Shift + arrastar** = linha reta de células ao longo dos eixos da grade (as diagonais da tela). Botão direito apaga objeto. T = grade, E = esconde o painel.
+- **Como o terreno funciona (`terreno_motor.js`, `terreno_dados.js`, pasta `terreno/`):** a terra fica numa camada de baixo (9 azulejos `terreno/terra_i_j.png`, escolhidos por posição mod 3, a textura repete a cada 3 células) e por cima vai só a grama (camada com transparência). A borda é **calculada no navegador** a partir dos vizinhos 5×5: terra ocupa a célula inteira, cantos arredondados por fora e por dentro (raio 0,46 de célula; 0,5 faz a trilha de 1 célula sumir), serrilhado fino (wobble .035), tufos de grama e faixa de sombra. Trilha de 1 célula, curva, ponta e ilha funcionam. Vizinho de outro material = borda reta.
+- **Removido a pedido do dono:** caminho contínuo nas diagonais (N/S/E/W) e o recorte de grama sobre ele. Motivo: não vira tileset exportável (só células). Se o jogo precisar de PNGs fixos, a ideia é a "grade deslocada" com 6 desenhos (vazio, 1 canto, 2 cantos lado a lado, 2 em diagonal, 3 cantos, cheio) — não feito.
+- **Exemplo pronto:** `chao.html?demot&x=12&y=13` (trilhas, ilhas, mancha). `teste_terreno.html` é a versão separada mais simples (só grama/terra).
+- **Arte aprovada pelo dono:** `arte_terreno/` (bloco de terra 3×3 que encaixa, grama baixa 128×64, 9 azulejos de terra, comparações). Textura da terra aprovada = a "mais salpicada e uniforme", `teste_encaixe_blocos_2x2.png`.
+- **Os scripts que geraram a arte (Node, na pasta temporária) se perderam;** os PNGs finais estão salvos. Método: ruído de valor periódico (rede em torno de 3 células), limiares por percentil (4/14/50 %), abertura morfológica para tirar fragmentos finos, 6 tons de `#745843` a `#9e7c57`.
+- **Pendente:** grama baixa que emenda sem linha (mesmo método da terra); peças PNG fixas (grade deslocada); transição com os materiais antigos (hoje borda reta); o dono ainda não testou arrastar com o mouse no último ajuste.
+- **Outros projetos salvos aqui por segurança:** `editor-pixel/` (editor de pixel art no estilo CorelDRAW, arquivo único). O fork `tracedraw-pixel` está no GitHub (repo privado `emersonszalmeida/tracedraw-pixel`, compila só pelo GitHub Actions).

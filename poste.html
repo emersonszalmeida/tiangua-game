@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Postes</title>
+<style>
+html,body{margin:0;background:#1a1612;color:#eee;font:14px system-ui,sans-serif}
+#bar{padding:10px 14px}
+canvas{display:block;margin:0 auto;image-rendering:pixelated}
+button{margin-right:6px;padding:4px 10px}
+</style></head>
+<body>
+<div id="bar">Dois postes na escala do personagem (55 px = 1,75 m): poste de iluminação com braço e luminária, e poste de energia com cruzeta e fios. Luz do alto à esquerda, concreto em 4 tons com pontilhado.
+ &nbsp; <button id="z1">1×</button><button id="z2">2×</button><button id="z3">3×</button></div>
+<canvas id="c"></canvas>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script>
+<script src="poste.js"></script>
+<script>
+const { lightPole, powerPole } = POSTE;
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'); let K = 2;
+const A = lightPole(), B = powerPole();
+function shadow(x, y, len, w) { ctx.fillStyle = 'rgba(78,68,122,.5)'; for (let i = 0; i < len; i++) ctx.fillRect(Math.round(x + i), Math.round(y + i * .3) - w / 2, 1, w); }
+function draw() {
+  const Wd = 520, Ht = 340; cv.width = Wd; cv.height = Ht; cv.style.width = Wd * K + 'px'; cv.style.height = Ht * K + 'px';
+  ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#b4ada3'; ctx.fillRect(0, 0, Wd, Ht);
+  const gy = Ht - 22, ax = 80, bx = 340;
+  shadow(ax, gy, 150, 7); shadow(bx, gy, 130, 6);
+  ctx.drawImage(A.c, ax - A.ax, gy - A.ay + 6); ctx.drawImage(B.c, bx - B.ax, gy - B.ay + 6);
+  PERS.draw(ctx, PERS.create('S'), 195, gy + 8);
+}
+for (const k of [1, 2, 3]) document.getElementById('z' + k).onclick = () => { K = k; draw(); };
+draw();
+</script></body></html>

@@ -1,6 +1,0 @@
-<!doctype html><html><head><meta charset="utf-8"><title>cmp11</title><style>body{margin:0;background:#858585;display:flex;gap:30px;padding:10px}canvas{image-rendering:pixelated}</style></head><body>
-<canvas id="o" width="428" height="780"></canvas><canvas id="c"></canvas>
-<script src="idle11.js"></script><script>
-const img=new Image();img.onload=()=>{const o=document.getElementById('o'),x=o.getContext('2d');x.imageSmoothingEnabled=false;x.drawImage(img,0,0,107*4,195*4)};img.src='idle11.png';
-const S=IDLE11,k=12,c=document.getElementById('c');c.width=S.w*k;c.height=S.h*k;const x=c.getContext('2d');S.rows.forEach((r,y)=>{for(let i=0;i<r.length;i++)if(r[i]!=='.'){x.fillStyle=S.pal[r[i]];x.fillRect(i*k,y*k,k,k)}});
-</script></body></html>

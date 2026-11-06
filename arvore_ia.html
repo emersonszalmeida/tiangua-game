@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Árvore da IA no jogo</title>
+<style>
+html,body{margin:0;background:#1a1612;color:#eee;font:14px system-ui,sans-serif}
+#bar{padding:10px 14px}
+canvas{display:block;margin:0 auto;image-rendering:pixelated}
+button{margin-right:6px;padding:4px 10px}
+</style></head>
+<body>
+<div id="bar">Árvore gerada no Gemini (<code>arvore_gemini1.jpg</code>), recortada do fundo e convertida para pixels grossos e 14 cores (<code>arvore1.png</code>, 415×282). O personagem tem 55 px (1,75 m), então a árvore tem uns 9 m.
+ &nbsp; <button id="z1">1×</button><button id="z2">2×</button><button id="z3">3×</button></div>
+<canvas id="c"></canvas>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script>
+<script>
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), img = new Image(); let K = 2;
+function draw() {
+  const W = img.width + 160, H = img.height + 50;
+  cv.width = W; cv.height = H; cv.style.width = W * K + 'px'; cv.style.height = H * K + 'px';
+  ctx.imageSmoothingEnabled = false; ctx.fillStyle = '#b4ada3'; ctx.fillRect(0, 0, W, H);
+  const gx = Math.round(img.width * .62), gy = H - 16;      // pé do tronco
+  // sombra no chão: oval roxa achatada, jogada para a direita
+  ctx.fillStyle = 'rgba(78,68,122,.5)';
+  for (let y = -26; y <= 26; y++) { const hw = Math.round(150 * Math.sqrt(1 - (y / 27) ** 2)); ctx.fillRect(gx + 40 - hw, gy - 4 + y, hw * 2, 1); }
+  ctx.drawImage(img, gx - Math.round(img.width * .62), gy - img.height + 2);
+  PERS.draw(ctx, PERS.create('S'), gx + 90, gy + 6);
+}
+img.onload = draw; img.src = 'arvore1.png';
+for (const k of [1, 2, 3]) document.getElementById('z' + k).onclick = () => { K = k; draw(); };
+</script></body></html>

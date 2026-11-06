@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Partes do personagem</title>
+<style>
+html,body{margin:0;background:#1a1612;color:#eee;font:14px system-ui,sans-serif}
+#bar{padding:10px 14px;display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+label{display:flex;align-items:center;gap:6px}
+input[type=color]{width:44px;height:28px;border:0;padding:0;background:none}
+canvas{display:block;margin:0 auto;image-rendering:pixelated}
+button{padding:4px 10px}
+</style></head>
+<body>
+<div id="bar"></div>
+<canvas id="c"></canvas>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="camadas.js"></script>
+<script>
+// 8 direções: vista desenhada e se é espelhada (igual ao personagem.js)
+const DIRS = [['S', 'S', 0], ['SW', 'SW', 0], ['W', 'W', 0], ['NW', 'NW', 0], ['N', 'N', 0], ['NE', 'NW', 1], ['E', 'W', 1], ['SE', 'SW', 1]];
+const D = SPR7, K = 4, CELL = 52, ROWH = 76;
+const bar = document.getElementById('bar'), cv = document.getElementById('c'), ctx = cv.getContext('2d');
+const orig = {}; for (const [k, def] of Object.entries(CAMADAS)) orig[k] = D.pal[def.ref];
+const cores = { ...orig }; let modo = 'walk', mostrar = Object.fromEntries(Object.keys(CAMADAS).map(k => [k, true]));
+function ui() {
+  bar.innerHTML = '';
+  for (const [k, def] of Object.entries(CAMADAS)) {
+    const l = document.createElement('label'), cb = document.createElement('input'), cc = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = mostrar[k]; cb.onchange = () => mostrar[k] = cb.checked;
+    cc.type = 'color'; cc.value = cores[k]; cc.oninput = () => cores[k] = cc.value; if (k === 'contorno') cc.disabled = true;
+    l.append(cb, def.nome, cc); bar.append(l);
+  }
+  const b1 = document.createElement('button'); b1.textContent = 'Cores originais'; b1.onclick = () => { Object.assign(cores, orig); ui(); };
+  const b2 = document.createElement('button'); b2.textContent = 'Sorteia cores'; b2.onclick = () => { for (const k of ['cabelo', 'pele', 'camiseta', 'calca', 'sapato']) cores[k] = '#' + [0, 0, 0].map(() => Math.floor(Math.random() * 200 + 30).toString(16).padStart(2, '0')).join(''); ui(); };
+  const b3 = document.createElement('button'); b3.textContent = 'Andar / Correr / Parado'; b3.onclick = () => { modo = modo === 'walk' ? 'run' : modo === 'run' ? 'idle' : 'walk'; };
+  bar.append(b1, b2, b3);
+}
+function frameDe(view, f) {
+  if (modo === 'idle') { const g = IDLES[view], rows = g.rows; let s = 0, n = 0; rows.slice(-6).forEach(r => { for (let i = 0; i < r.length; i++) if (r[i] !== '.') { s += i; n++; } }); return { rows, w: g.w, h: g.h, cx: s / n }; }
+  const s = D.slots[modo + view]; return { rows: s.frames[f], w: s.w, h: s.h, cx: s.cx };
+}
+function desenha(t) {
+  const W = CELL * K * 8, H = ROWH * K; if (cv.width !== W) { cv.width = W; cv.height = H; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
+  ctx.fillStyle = '#b4ada3'; ctx.fillRect(0, 0, W, H);
+  const pal = recolorPal(D.pal, cores), f = Math.floor(t / (modo === 'run' ? 70 : 90)) % 8;
+  DIRS.forEach(([nome, view, flip], n) => {
+    const s = frameDe(view, f), cx0 = n * CELL * K + CELL * K / 2, base = (ROWH - 8) * K;
+    ctx.fillStyle = 'rgba(20,20,24,.3)'; ctx.fillRect(cx0 - 9 * K, base - 2 * K, 18 * K, 3 * K);
+    s.rows.forEach((row, y) => { for (let x = 0; x < row.length; x++) { const ch = row[x]; if (ch === '.' || !mostrar[camadaDe(ch)]) continue;
+      const dx = flip ? -(x - s.cx - .5) - 1 : (x - s.cx - .5); ctx.fillStyle = pal[ch]; ctx.fillRect(Math.round(cx0 + dx * K), base - (s.h - y) * K, K, K); } });
+    ctx.fillStyle = '#222'; ctx.font = '13px system-ui'; ctx.textAlign = 'center'; ctx.fillText(nome, cx0, H - 6);
+  });
+  requestAnimationFrame(desenha);
+}
+ui(); requestAnimationFrame(desenha);
+</script></body></html>
