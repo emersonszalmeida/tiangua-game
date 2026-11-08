@@ -8,3 +8,8 @@ node_modules/
 !idle11_cut.png
 !para_recortar/*.png
 !frames8/*.png
+# arte do terreno e da árvore (usadas pelo jogo; precisam ir para o GitHub)
+!terreno/*.png
+!arte_terreno/*.png
+!arte_terreno/**/*.png
+!arvore1.png
