@@ -79,7 +79,7 @@ input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;backgro
     <div class="row"><button id="bMarcar" title="S: arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos). Alt ou botão direito tira da marcação.">Marcar pixels (S)</button><button id="bClonar" title="Ctrl+D: deixa uma cópia aqui; a seleção continua solta para mover">Clonar (Ctrl+D)</button></div>
     <div class="row"><button id="bSelEspH" title="H">Espelhar ↔ (H)</button><button id="bSelEspV" title="V">Espelhar ↕ (V)</button></div>
     <div class="row"><button id="bSelSolta" title="Enter">Soltar (Enter)</button><button id="bSelApaga" title="Delete">Apagar</button></div>
-    <div class="dica" style="margin:4px 0 8px"><b>Marcar pixels (S)</b>: arraste sobre os pixels que quer pegar; Alt ou botão direito tira. <b>Selecionar (Q)</b>: clique num grupo ou arraste um retângulo; <b>Shift soma</b>. Com a seleção: arraste para mover · <b>Alt+arrastar ou Ctrl+D = clonar</b> (deixa uma cópia) · H / V espelham · setas movem 1 px (Shift = 8) · Ctrl+C / Ctrl+V cola onde está o mouse · Enter solta · Delete apaga.</div>
+    <div class="dica" style="margin:4px 0 8px"><b>Marcar pixels (S)</b>: arraste sobre os pixels que quer pegar; Alt ou botão direito tira. <b>Selecionar (Q)</b>: clique num grupo ou arraste um retângulo; <b>Shift soma</b>. Com a seleção: arraste para mover · <b>Alt+arrastar, Ctrl+D ou clique direito durante o arrasto = clonar</b> (deixa uma cópia) · H / V espelham · setas movem 1 px (Shift = 8) · Ctrl+C / Ctrl+V cola onde está o mouse · Enter solta · Delete apaga.</div>
 
     <h4>Imagem de referência</h4>
     <div class="row"><button id="bRefImp">Importar imagens…</button><button id="bRefTira">Remover</button></div>
@@ -340,7 +340,10 @@ function adicionaPonto(pf) {   // duplo clique numa aresta (ferramenta Forma): c
 }
 cv.addEventListener('dblclick', e => { if (tool === 'forma' && selObj && !ehImg(selObj)) adicionaPonto(ptF(e)); });
 function pontoExtraEm(e) { const o = selObj; if (!o || ehImg(o)) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ps = o.pts || []; for (let i = 0; i < ps.length; i++) { const [X, Y] = paraMundo(o, ps[i][0], ps[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
-function marcaCopia() { if (drag && drag.k === 'omove' && !drag.copia) { drag.copia = true; cv.style.cursor = 'copy'; redraw(); } }
+function marcaCopia() {
+  if (drag && drag.k === 'selmove' && !drag.rd) { drag.rd = true; carimba(); cv.style.cursor = 'copy'; return; }   // pixels soltos: cada clique do botão direito (com o esquerdo apertado) deixa uma cópia aqui, e a seleção continua com você
+  if (drag && drag.k === 'omove' && !drag.copia) { drag.copia = true; cv.style.cursor = 'copy'; redraw(); }
+}
 function aplicaMover(d) {
   const o = selObj; if (!o || !d.moveu) return; pushUndo();
   if (d.copia) {
@@ -348,7 +351,7 @@ function aplicaMover(d) {
     else { const n = JSON.parse(JSON.stringify(o)); n.x += d.dx; n.y += d.dy; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
   } else { o.x += d.dx; o.y += d.dy; if (ehImg(o)) refUi(); toca(); }
 }
-addEventListener('mousedown', e => { if (e.button === 2) marcaCopia(); }); addEventListener('contextmenu', () => marcaCopia());
+addEventListener('mousedown', e => { if (e.button === 2) marcaCopia(); }); addEventListener('contextmenu', () => { if (!(drag && drag.k === 'selmove')) marcaCopia(); }); addEventListener('mouseup', e => { if (e.button === 2 && drag && drag.k === 'selmove') { drag.rd = false; cv.style.cursor = 'move'; } });
 // ---------- seleção de pixels soltos (quando não há objeto) ----------
 function commitSel() { if (!sel) return; L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; salvaAuto(); redraw(); }
 function levanta(mask, bx, by, bw, bh) {
@@ -504,6 +507,7 @@ function novoObjeto(t, px, py) { return { t, x: px, y: py, w: 1, h: 1, m: [1, 0,
 cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId); const [px, py] = toPx(e), pf = ptF(e);
   if (drag && drag.k === 'omove') { if (e.button === 2) marcaCopia(); return; }
+  if (drag && drag.k === 'selmove') { if (e.button === 2) marcaCopia(); return; }
   hoverNo = null;
   if (e.button === 1 || espaco) { drag = { k: 'pan', sx: e.clientX, sy: e.clientY, ox: view.ox, oy: view.oy }; return; }
 
@@ -644,6 +648,7 @@ function desenha() {
   ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(-.5, -.5, W * z + 1, H * z + 1);
   const ants = (x, y, w, h) => { ctx.setLineDash([]); ctx.strokeStyle = '#fff'; ctx.strokeRect(x + .5, y + .5, w, h); ctx.strokeStyle = '#000'; ctx.setLineDash([5, 5]); ctx.strokeRect(x + .5, y + .5, w, h); ctx.setLineDash([]); };
   if (sel) ants((sel.bx + sel.ox) * z, (sel.by + sel.oy) * z, sel.bw * z, sel.bh * z);
+  if (drag && drag.k === 'selmove' && drag.rd) { const hx = hover[0] * z + 14, hy = hover[1] * z - 14; ctx.fillStyle = '#fff'; ctx.fillRect(hx - 8, hy - 8, 16, 16); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(hx - 7.5, hy - 7.5, 15, 15); ctx.beginPath(); ctx.moveTo(hx - 4, hy); ctx.lineTo(hx + 4, hy); ctx.moveTo(hx, hy - 4); ctx.lineTo(hx, hy + 4); ctx.stroke(); }
   if (drag && drag.k === 'marcar') { ctx.fillStyle = drag.tira ? 'rgba(255,60,60,.5)' : 'rgba(47,140,255,.5)'; for (const i of drag.lista) ctx.fillRect((i % W) * z, ((i / W) | 0) * z, z, z); }
   if (drag && drag.k === 'marq') { const a = Math.min(drag.p0[0], drag.p1[0]), b = Math.min(drag.p0[1], drag.p1[1]); ants(a * z, b * z, (Math.abs(drag.p1[0] - drag.p0[0]) + 1) * z, (Math.abs(drag.p1[1] - drag.p0[1]) + 1) * z); }
   if (selObj && (tool === 'selecionar' || FORMAS.includes(tool))) {
@@ -675,7 +680,7 @@ function desenha() {
   }
   ctx.restore(); status(); salvaAuto();
 }
-function status() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
+function status() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · clique direito durante o arrasto, Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
 ['gGrade', 'gIso', 'gIsoW', 'gCentro'].forEach(i => $(i).onchange = redraw);
 addEventListener('resize', () => { desenha(); });
 // ---------- início ----------
