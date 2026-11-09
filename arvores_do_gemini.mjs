@@ -171,7 +171,9 @@ for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.
   const lar = []; let sxm = 0, nxm = 0; for (let y = Math.max(0, yb - 23); y <= Math.max(0, yb - 4); y++) { let n = 0; for (let x = 0; x < it.tw; x++) if (brown(x, y)) { n++; if (y >= yb - 16) { sxm += x + .5; nxm++; } } if (n) lar.push(n); } lar.sort((a, b) => a - b);
   // colisão só no miolo da base do tronco: centro = centro do marrom nas linhas yb-16..yb-4 (a ponta das raízes fica mais baixo), raio = meia largura do trecho mais estreito (30%)
   const raio = Math.round(Math.max(.1, (lar[Math.floor(lar.length * .3)] || 10) / 2 / 90) * 100) / 100, ox = Math.round(((nxm ? sxm / nxm : sx / sn) - Math.round(sx / sn * 2) / 2) * 2) / 2, oy = 4 - 10;
-  dados[it.nome] = { raio, ox, oy, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
+  const Hp = Math.max(8, Math.min(30, Math.round((lar[Math.floor(lar.length * .3)] || 20) * .5))), pl = [], pr = []; let ul = null, ur = null;
+  for (let y = yb - Hp; y <= yb; y++) { let a = -1, b = -1; for (let x = 0; x < it.tw; x++) if (brown(x, y)) { if (a < 0) a = x; b = x; } if (a >= 0) { ul = a; ur = b; } pl.push(ul === null ? 0 : ul - 1); pr.push(ur === null ? -1 : ur + 2); }   // pegada = do marrom mais à esquerda ao mais à direita de cada linha (raízes inclusas)
+  dados[it.nome] = { pe: { y0: yb - Hp, l: pl, r: pr }, raio, ox, oy, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
 }
 fs.writeFileSync(path('./arvore_dados.js'), '// gerado por arvores_do_gemini.mjs\nconst ARV_DADOS = ' + JSON.stringify(dados) + ';\n');
 // folha de conferência (zoom 3)
