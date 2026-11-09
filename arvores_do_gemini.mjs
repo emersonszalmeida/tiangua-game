@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
 const MULT = +process.argv[2] || 1, NCOR = +process.argv[3] || 22;
-const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO !== '0';   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
+const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO || 'tom', SOBRETOM = +process.env.SOBRETOM || .76;   // CONTORNO: 'tom' (sobretom na borda, padrão) · 'fora' (linha escura de 1 px por fora) · '0' (nenhum)   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
 const path = u => new URL(u, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const OUT = path('./arvore/'), SRC = path('./arte_terreno/arvores_gemini_ref.png');
 fs.mkdirSync(OUT, { recursive: true });
@@ -68,7 +68,11 @@ const dados = {};
 for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
   const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
   for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) { const c = perto(it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]); it.o[i * 4] = c[0]; it.o[i * 4 + 1] = c[1]; it.o[i * 4 + 2] = c[2]; }
-  if (CONTORNO && it.tipo === 'arvore') {   // contorno de 1 px: tom escuro da cor do pixel vizinho (marrom-escuro no tronco, verde-escuro na copa)
+  if (CONTORNO === 'tom' && it.tipo === 'arvore') {   // sobretom: o pixel de borda (que tem vazio ao lado) vira um tom mais escuro da própria cor, escolhido na paleta da peça; o tamanho da árvore não muda
+    const orig = it.o.slice(), vaz = (x, y) => x < 0 || y < 0 || x >= it.tw || y >= it.th || !orig[(y * it.tw + x) * 4 + 3];
+    for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!orig[p + 3]) continue; if (!(vaz(x - 1, y) || vaz(x + 1, y) || vaz(x, y - 1) || vaz(x, y + 1))) continue;
+      const baixo = vaz(x, y + 1) || vaz(x + 1, y), f = baixo ? SOBRETOM * .9 : SOBRETOM, c = perto(orig[p] * f, orig[p + 1] * f, orig[p + 2] * f); it.o[p] = c[0]; it.o[p + 1] = c[1]; it.o[p + 2] = c[2]; } }
+  if (CONTORNO === 'fora' && it.tipo === 'arvore') {   // contorno de 1 px: tom escuro da cor do pixel vizinho (marrom-escuro no tronco, verde-escuro na copa)
     const tw2 = it.tw + 2, th2 = it.th + 2, o2 = new Uint8Array(tw2 * th2 * 4);
     for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) o2.set(it.o.subarray((y * it.tw + x) * 4, (y * it.tw + x) * 4 + 4), ((y + 1) * tw2 + x + 1) * 4);
     const orig = o2.slice();   // lê só da imagem original, senão o contorno vira vizinho e se espalha
