@@ -27,6 +27,11 @@ comps.sort((a, b) => (Math.round(a.y0 / 90) - Math.round(b.y0 / 90)) || a.x0 - b
 // ordem na folha: grama ×4, flores ×8, pedras ×6, cogumelos ×10, extras ×4
 const NOMES = ['grama_alta_1', 'grama_alta_2', 'grama_alta_3', 'grama_alta_4', 'flor_margarida', 'flor_amarela', 'flor_lavanda', 'flor_papoula', 'flor_azul', 'flor_mista', 'flor_papoula_b', 'flor_azul_b', 'pedra_mini', 'pedra_pequena', 'pedra_grande', 'pedra_dupla', 'pedra_chata', 'pedra_trio', 'cogumelo_1', 'cogumelo_2', 'cogumelo_3', 'cogumelo_4', 'cogumelo_5', 'cogumelo_6', 'cogumelo_7', 'cogumelo_8', 'cogumelo_9', 'cogumelo_10', 'folha_1', 'folhas_monte', 'galho', 'trevo'];
 if (comps.length !== NOMES.length) throw new Error('esperava ' + NOMES.length + ' itens, achei ' + comps.length);
+// verdes das folhagens: mantém só o brilho do pixel e pinta com a rampa de verdes do chão (#6c7f50 #7a8e5a #849766), para não destoar
+const hx2 = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const RAMPA = [[0, '#3f4e30'], [.3, '#566a3f'], [.55, '#6c7f50'], [.78, '#7a8e5a'], [.92, '#849766'], [1, '#98ab78']].map(([t, h]) => [t, hx2(h)]);
+function esverdeia(r, g, b) { const mx = Math.max(r, g, b), mn = Math.min(r, g, b); if (!(g >= r && g >= b && mx - mn > 12)) return [r, g, b];   // só o que é verde (flores, pedras, cogumelos e galhos ficam como estão)
+  const Y = .3 * r + .59 * g + .11 * b, t = Math.max(0, Math.min(1, (Y - 45) / 110)); for (let i = 1; i < RAMPA.length; i++) if (t <= RAMPA[i][0]) { const [t0, c0] = RAMPA[i - 1], [t1, c1] = RAMPA[i], k = (t - t0) / (t1 - t0); return c0.map((v, j) => v + (c1[j] - v) * k); } return RAMPA[RAMPA.length - 1][1]; }
 // 3) recorta, tira franja, reduz
 const itens = comps.map((c, idx) => {
   const nome = NOMES[idx], FAT = FATOR[nome.split('_')[0]] * MULT, cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1, d = new Uint8Array(cw * ch * 4);
@@ -41,7 +46,7 @@ const itens = comps.map((c, idx) => {
   const tw = Math.max(3, Math.round(cw * FAT)), th = Math.max(2, Math.round(ch * FAT)), o = new Uint8Array(tw * th * 4);
   for (let ty = 0; ty < th; ty++) for (let tx = 0; tx < tw; tx++) { let a = 0, r = 0, g = 0, b = 0, m = 0;
     for (let y = Math.floor(ty / FAT); y < Math.min(ch, Math.ceil((ty + 1) / FAT)); y++) for (let x = Math.floor(tx / FAT); x < Math.min(cw, Math.ceil((tx + 1) / FAT)); x++) { const p = (y * cw + x) * 4; m++; if (d[p + 3]) { a++; r += d[p]; g += d[p + 1]; b += d[p + 2]; } }
-    if (a && a / m >= .5) { const q = (ty * tw + tx) * 4; let R2 = r / a, G2 = g / a, B2 = b / a; if (nome.startsWith('grama_alta')) { R2 *= .82; G2 *= .84; B2 *= .8; } o[q] = R2; o[q + 1] = G2; o[q + 2] = B2; o[q + 3] = 255; } }
+    if (a && a / m >= .5) { const q = (ty * tw + tx) * 4; let R2 = r / a, G2 = g / a, B2 = b / a; [R2, G2, B2] = esverdeia(R2, G2, B2); o[q] = R2; o[q + 1] = G2; o[q + 2] = B2; o[q + 3] = 255; } }
   return { nome, tw, th, o };
 });
 // 4) paleta própria de cada item (median cut) e pixel duro: assim as cores vivas das flores e cogumelos não se perdem
