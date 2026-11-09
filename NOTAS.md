@@ -86,3 +86,9 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - **Os scripts que geraram a arte (Node, na pasta temporária) se perderam;** os PNGs finais estão salvos. Método: ruído de valor periódico (rede em torno de 3 células), limiares por percentil (4/14/50 %), abertura morfológica para tirar fragmentos finos, 6 tons de `#745843` a `#9e7c57`.
 - **Pendente:** grama baixa que emenda sem linha (mesmo método da terra); peças PNG fixas (grade deslocada); transição com os materiais antigos (hoje borda reta); o dono ainda não testou arrastar com o mouse no último ajuste.
 - **Outros projetos salvos aqui por segurança:** `editor-pixel/` (editor de pixel art no estilo CorelDRAW, arquivo único). O fork `tracedraw-pixel` está no GitHub (repo privado `emersonszalmeida/tracedraw-pixel`, compila só pelo GitHub Actions).
+
+## Decorações de chão — 2026-11-09
+- 32 decorações em **pixel art feita por código** (grama alta ×4, flores ×8, pedras ×6, cogumelos ×10, folhas/galho/trevo ×4). Não são recortes do Gemini: a folha do Gemini serviu só de referência de desenho.
+- Gerador: `gerar_decoracao.mjs` (`node gerar_decoracao.mjs`) → `decoracao/*.png` + `decoracao/_conferencia.png`. Paleta no topo do arquivo (`P`). Para mudar um desenho, edite o gerador e rode de novo.
+- No `chao.html`: seção "Decorações" no painel; cada uma ocupa uma célula (centro), desenhada em 2× o pixel como o personagem e as árvores.
+- Pendentes: pincel de espalhar (flores/grama alta aleatórias), recolorir árvores para a paleta nova, decorações sobre terra (hoje ficam bem só na grama).

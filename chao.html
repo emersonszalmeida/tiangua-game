@@ -36,10 +36,12 @@ function pinta(cx, cy, m) {
 const matDe = (cx, cy) => (cx < 0 || cy < 0 || cx >= M || cy >= M) ? null : MAP[cy][cx];
 // ---------- objetos (árvores) ----------
 const OBJS = { arvore1: { nome: 'Árvore 1', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103 }, arvore2: { nome: 'Árvore 2', src: 'arvore_pl0.png', cx: 63, by: 90 }, arvore3: { nome: 'Árvore 3', src: 'arvore_v1_sem_galho.png', cx: 63, by: 106 }, arvore4: { nome: 'Árvore 1 espelhada', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103, flip: true } };
+const DECOS = [['grama_alta_1', 'Grama alta 1'], ['grama_alta_2', 'Grama alta 2'], ['grama_alta_3', 'Grama alta 3'], ['grama_alta_4', 'Grama alta 4'], ['flor_margarida', 'Margarida'], ['flor_amarela', 'Flor amarela'], ['flor_lavanda', 'Lavanda'], ['flor_papoula', 'Papoula'], ['flor_papoula_b', 'Papoula 2'], ['flor_azul', 'Flor azul'], ['flor_azul_b', 'Flor azul 2'], ['flor_mista', 'Flores mistas'], ['pedra_mini', 'Pedrinha'], ['pedra_pequena', 'Pedra pequena'], ['pedra_grande', 'Pedra grande'], ['pedra_dupla', 'Pedras juntas'], ['pedra_chata', 'Pedra chata'], ['pedra_trio', 'Três pedras'], ['cogumelo_1', 'Cogumelo marrom'], ['cogumelo_2', 'Cogumelo vermelho'], ['cogumelo_3', 'Marrons juntos'], ['cogumelo_4', 'Cogumelo bege'], ['cogumelo_5', 'Vermelhos juntos'], ['cogumelo_6', 'Marrom grande'], ['cogumelo_7', 'Vermelho grande'], ['cogumelo_8', 'Marrons grandes'], ['cogumelo_9', 'Bege grande'], ['cogumelo_10', 'Vermelhos grandes'], ['folha_1', 'Folha seca'], ['folhas_monte', 'Folhas secas'], ['galho', 'Galho'], ['trevo', 'Trevos']];
+for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: 'decoracao/' + id + '.png', deco: true };
 for (const o of Object.values(OBJS)) { o.im = new Image(); o.im.src = o.src; }
 let objetos = [];   // { x, y, id } — x,y = célula inteira
 const objEm = (cx, cy) => objetos.findIndex(o => o.x === cx && o.y === cy);
-function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); c.translate(sx, sy + 4 - d.by * 2); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -d.cx * 2, 0, 256, 256); c.restore(); }
+function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; c.translate(sx, sy + 4 - by0 * 2); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * 2, 0, nw * 2, nh * 2); c.restore(); }
 // ---------- salvar / abrir ----------
 function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, }; }
 function deJson(j) {
@@ -72,7 +74,8 @@ const atualizaUi = () => {
   const bt = (t, id, img, nome) => '<button data-t="' + t + '" data-id="' + id + '" class="' + (ferr.t === t && ferr.id === id ? 'on' : '') + '"><img src="' + img + '">' + nome + '</button>';
   pn.innerHTML = '<h4>Chão (teclas 1 e 2)</h4><div class="g">' + VISIVEIS.map(m => bt('chao', m, MATS[m].icone, MATS[m].nome || m)).join('') + '</div>' +
     '<h4>' + 'Pincel · Shift + arrastar = linha reta' + '</h4><div class="g">' + [1, 2, 3].map(w => '<button data-w="' + w + '" class="' + (larg === w ? 'on' : '') + '">' + w + '×' + w + '</button>').join('') + '</div>' +
-    '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
+    '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
+    '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
     '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Botão direito apaga um objeto. O mapa também fica guardado sozinho neste navegador.</div>';
   pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
