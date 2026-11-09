@@ -114,7 +114,10 @@ function itensCasa() {
     const vA = p.a === 'x' ? [p.n, p.c] : [p.c, p.n], vB = p.a === 'x' ? [p.n + 1, p.c] : [p.c, p.n + 1], pernaA = corta && encosta(vA, p.a), pernaB = corta && encosta(vB, p.a), cheiaP = w.cheia;
     { const alt = p.k === 'low' ? CASA.LOW : corta ? CASA.CUT : CASA.HIGH; for (const [v, perna] of [[vA, pernaA], [vB, pernaB]]) { const k = v[0] + ',' + v[1], aa = perna ? CASA.HIGH : alt; if (!(altV.get(k) >= aa)) altV.set(k, aa); } }
     const desenha = () => {
-      const dx = p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n); if (p.a === 'x') ctx.save(), ctx.translate(dx, sy(p.n, p.c)); else ctx.save(), ctx.translate(dx, sy(p.c, p.n)), ctx.scale(-1, 1);
+      const S0 = p.a === 'x' ? [sx(p.n, p.c), sy(p.n, p.c)] : [sx(p.c, p.n), sy(p.c, p.n)];
+      // ponta da perna = a PEÇA DO CANTO desenhada pelo dono (ponta_dir nas paredes ↘, ponta_esq nas ↙), posta onde a perna termina; vem ANTES da parede cortada, que cobre a parte de baixo e deixa só a face da espessura acima dela
+      if (pernaA) { const o = cantoPeca(p.a === 'x' ? 'ponta_dir' : 'ponta_esq', CASA.HIGH); if (o) ctx.drawImage(o.c, S0[0] + (p.a === 'x' ? PERNA : -PERNA) - o.ax, S0[1] + (PERNA >> 1) - o.ay); }
+      ctx.save(); ctx.translate(S0[0], S0[1]); if (p.a !== 'x') ctx.scale(-1, 1);
       ctx.drawImage(pc.c, 0, -pc.oy + 1);
       const W = cheiaP.c.width, H0 = cheiaP.c.height;   // as perninhas inteiras por cima da parede cortada: colunas da ponta da peça alta
       if (pernaA) ctx.drawImage(cheiaP.c, 0, 0, PERNA, H0, 0, -cheiaP.oy + 1, PERNA, H0);
