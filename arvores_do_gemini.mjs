@@ -6,15 +6,15 @@ import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
 const MULT = +process.argv[2] || 1, NCOR = +process.argv[3] || 22;
-const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO || 'tom', SOBRETOM = +process.env.SOBRETOM || .76;   // CONTORNO: 'tom' (sobretom na borda, padrão) · 'fora' (linha escura de 1 px por fora) · '0' (nenhum)   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
+const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO || 'tom', SOBRETOM = +process.env.SOBRETOM || .87;   // CONTORNO: 'tom' (sobretom na borda, padrão) · 'fora' (linha escura de 1 px por fora) · '0' (nenhum)   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
 const path = u => new URL(u, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const OUT = path('./arvore/'), SRC = path('./arte_terreno/arvores_gemini_ref.png');
 fs.mkdirSync(OUT, { recursive: true });
 // itens da folha, na ordem em que o recorte os acha (linha a linha, da esquerda para a direita).
 // tipo 'arvore' = objeto de célula inteira (bloqueia, 2x) · 'deco' = decoração livre (não bloqueia, 1x)
 const ITENS = [
-  ['arvore_carvalho', 'Carvalho', 'arvore', .45], ['arvore_curva', 'Árvore torta', 'arvore', .45],
-  ['arvore_pinheiro', 'Pinheiro', 'arvore', .45], ['arvore_fina', 'Árvore fina', 'arvore', .45], ['arvore_seca', 'Árvore seca', 'arvore', .45],
+  ['arvore_carvalho', 'Carvalho', 'arvore', .9], ['arvore_curva', 'Árvore torta', 'arvore', .9],
+  ['arvore_pinheiro', 'Pinheiro', 'arvore', .9], ['arvore_fina', 'Árvore fina', 'arvore', .9], ['arvore_seca', 'Árvore seca', 'arvore', .9],
   ['arbusto', 'Arbusto', 'deco', .4], ['arbusto_flores', 'Arbusto com flores', 'deco', .4], ['samambaia', 'Samambaia', 'deco', .4], ['toco', 'Toco', 'deco', .4], ['tronco', 'Tronco caído', 'deco', .4],
   ['arbusto_b', 'Arbusto 2', 'deco', .4], ['arbusto_flores_b', 'Arbusto com flores 2', 'deco', .4], ['samambaia_b', 'Samambaia 2', 'deco', .4], ['toco_b', 'Toco 2', 'deco', .4], ['tronco_b', 'Tronco caído 2', 'deco', .4],
 ];
@@ -71,7 +71,7 @@ for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++)
   if (CONTORNO === 'tom' && it.tipo === 'arvore') {   // sobretom: o pixel de borda (que tem vazio ao lado) vira um tom mais escuro da própria cor, calculado direto da cor do pixel (não da paleta: o verde escuro achava um marrom como "mais próximo"); o tamanho da árvore não muda
     const orig = it.o.slice(), vaz = (x, y) => x < 0 || y < 0 || x >= it.tw || y >= it.th || !orig[(y * it.tw + x) * 4 + 3];
     for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!orig[p + 3]) continue; if (!(vaz(x - 1, y) || vaz(x + 1, y) || vaz(x, y - 1) || vaz(x, y + 1))) continue;
-      const baixo = vaz(x, y + 1) || vaz(x + 1, y), f = baixo ? SOBRETOM * .9 : SOBRETOM, c = [orig[p] * f, orig[p + 1] * f, orig[p + 2] * f]; it.o[p] = Math.round(c[0]); it.o[p + 1] = Math.round(c[1]); it.o[p + 2] = Math.round(c[2]); } }
+      const baixo = vaz(x, y + 1) || vaz(x + 1, y), f = baixo ? SOBRETOM * .94 : SOBRETOM, c = [orig[p] * f, orig[p + 1] * f, orig[p + 2] * f]; it.o[p] = Math.round(c[0]); it.o[p + 1] = Math.round(c[1]); it.o[p + 2] = Math.round(c[2]); } }
   if (CONTORNO === 'fora' && it.tipo === 'arvore') {   // contorno de 1 px: tom escuro da cor do pixel vizinho (marrom-escuro no tronco, verde-escuro na copa)
     const tw2 = it.tw + 2, th2 = it.th + 2, o2 = new Uint8Array(tw2 * th2 * 4);
     for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) o2.set(it.o.subarray((y * it.tw + x) * 4, (y * it.tw + x) * 4 + 4), ((y + 1) * tw2 + x + 1) * 4);
@@ -84,7 +84,7 @@ for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++)
   // ponto de apoio do tronco: base da última linha com arte, centro das 3 últimas linhas
   let yb = it.th - 1; while (yb > 0 && ![...Array(it.tw).keys()].some(x => it.o[(yb * it.tw + x) * 4 + 3])) yb--;
   let sx = 0, sn = 0; for (let y = Math.max(0, yb - 2); y <= yb; y++) for (let x = 0; x < it.tw; x++) if (it.o[(y * it.tw + x) * 4 + 3]) { sx += x + .5; sn++; }
-  dados[it.nome] = { nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th };
+  dados[it.nome] = { nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
 }
 fs.writeFileSync(path('./arvore_dados.js'), '// gerado por arvores_do_gemini.mjs\nconst ARV_DADOS = ' + JSON.stringify(dados) + ';\n');
 // folha de conferência (zoom 3)
