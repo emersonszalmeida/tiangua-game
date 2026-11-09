@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
 const MULT = +process.argv[2] || 1, NCOR = +process.argv[3] || 22;
+const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO !== '0';   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
 const path = u => new URL(u, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const OUT = path('./arvore/'), SRC = path('./arte_terreno/arvores_gemini_ref.png');
 fs.mkdirSync(OUT, { recursive: true });
@@ -65,8 +66,16 @@ function paleta(px, n) { let caixas = [px]; while (caixas.length < n) { caixas.s
   return caixas.map(bx => [0, 1, 2].map(k => Math.round(bx.reduce((s, p) => s + p[k], 0) / bx.length))); }
 const dados = {};
 for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
-  const PAL = paleta(px, NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
+  const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
   for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) { const c = perto(it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]); it.o[i * 4] = c[0]; it.o[i * 4 + 1] = c[1]; it.o[i * 4 + 2] = c[2]; }
+  if (CONTORNO && it.tipo === 'arvore') {   // contorno de 1 px: tom escuro da cor do pixel vizinho (marrom-escuro no tronco, verde-escuro na copa)
+    const tw2 = it.tw + 2, th2 = it.th + 2, o2 = new Uint8Array(tw2 * th2 * 4);
+    for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) o2.set(it.o.subarray((y * it.tw + x) * 4, (y * it.tw + x) * 4 + 4), ((y + 1) * tw2 + x + 1) * 4);
+    const orig = o2.slice();   // lê só da imagem original, senão o contorno vira vizinho e se espalha
+    for (let y = 0; y < th2; y++) for (let x = 0; x < tw2; x++) { if (orig[(y * tw2 + x) * 4 + 3]) continue; let viz = null, lum = 1e9;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= tw2 || yy >= th2) continue; const p = (yy * tw2 + xx) * 4; if (orig[p + 3] === 255) { const l = orig[p] + orig[p + 1] + orig[p + 2]; if (l < lum) { lum = l; viz = [orig[p], orig[p + 1], orig[p + 2]]; } } }
+      if (viz) o2.set([Math.round(viz[0] * .42), Math.round(viz[1] * .42), Math.round(viz[2] * .42), 255], (y * tw2 + x) * 4); }
+    it.o = o2; it.tw = tw2; it.th = th2; }
   const png = encodePNG(it.tw, it.th, it.o); fs.writeFileSync(OUT + it.nome + '.png', png);
   // ponto de apoio do tronco: base da última linha com arte, centro das 3 últimas linhas
   let yb = it.th - 1; while (yb > 0 && ![...Array(it.tw).keys()].some(x => it.o[(yb * it.tw + x) * 4 + 3])) yb--;

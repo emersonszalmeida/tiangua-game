@@ -107,3 +107,4 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - Verde ajustado à rampa do chão (`esverdeia`, igual às decorações). Tamanhos por item na lista `ITENS` (fator .45 árvores, .4 o resto); o multiplicador do script muda tudo de uma vez.
 - Árvores antigas (arvore_v*.png, arvore_pl0.png) continuam no painel; apagar quando o dono decidir.
 - Limpeza do cinza preso nas copas: só na Árvore torta e na Árvore fina (variável `LIMPA` em `arvores_do_gemini.mjs`: a = nenhuma, c = só cinza liso claro [padrão], b = também quase-cinza). O Carvalho e as outras peças não passam por essa limpeza extra (os tons claros da copa são folha).
+- Árvores (5 grandes): 56 cores por peça (`CORES_ARVORE`, antes 22: o tronco ficava em degraus) e **contorno de 1 px** em tom escuro (42%) da cor do pixel vizinho. `CONTORNO=0 node arvores_do_gemini.mjs` desliga; o 0.42 está no passo do contorno. Arbustos/toco/tronco ainda sem contorno.
