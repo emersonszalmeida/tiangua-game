@@ -88,6 +88,26 @@ for (const it of itens) if (it.tipo === 'arvore') {
     let nv = 0, sr = 0, sg = 0, sb = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W2 || yy >= H2) continue; const q = yy * W2 + xx; if (copia[q * 4 + 3] && isVerde(copia[q * 4], copia[q * 4 + 1], copia[q * 4 + 2])) { nv++; sr += copia[q * 4]; sg += copia[q * 4 + 1]; sb += copia[q * 4 + 2]; } }
     if (nv >= 6) { it.o[p * 4] = Math.round(sr / nv * 1.04); it.o[p * 4 + 1] = Math.round(sg / nv * 1.04); it.o[p * 4 + 2] = Math.round(sb / nv * 1.04); } }
 }
+// pixel que não é verde mas está cercado de verde (borda escura/acinzentada da folha) é folha: vira a média dos verdes vizinhos.
+// Sem isso, o casamento de cores logo abaixo o jogaria para os marrons do toco (pontinhos marrons/laranja na borda da copa).
+for (const it of itens) if (it.tipo === 'arvore') for (let rodada = 0; rodada < 2; rodada++) {
+  const cp = it.o.slice(), vd = (r, gg, b) => gg >= r && gg >= b && Math.max(r, gg, b) - Math.min(r, gg, b) > 12;
+  for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!cp[p + 3] || vd(cp[p], cp[p + 1], cp[p + 2])) continue;
+    let nv = 0, nn = 0, sr = 0, sg = 0, sb = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= it.tw || yy >= it.th) continue; const q = (yy * it.tw + xx) * 4; if (!cp[q + 3]) continue; if (vd(cp[q], cp[q + 1], cp[q + 2])) { nv++; sr += cp[q]; sg += cp[q + 1]; sb += cp[q + 2]; } else nn++; }
+    const bord = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => { const xx = x + dx, yy = y + dy; return xx < 0 || yy < 0 || xx >= it.tw || yy >= it.th || !cp[(yy * it.tw + xx) * 4 + 3]; });   // na ponta da folha há poucos vizinhos: exige menos
+    if (bord ? (nv >= 2 && nv > nn) : (nv >= 5 && nv > 1.6 * nn)) { it.o[p] = Math.round(sr / nv * .94); it.o[p + 1] = Math.round(sg / nv * .94); it.o[p + 2] = Math.round(sb / nv * .94); } }
+}
+// tocos marrons minúsculos (até 14 px, 8-conexos) colados na folhagem: ponta de galho que sobrou na borda; saem
+for (const it of itens) if (it.tipo === 'arvore') { const vd = (r, gg, b) => gg >= r && gg >= b && Math.max(r, gg, b) - Math.min(r, gg, b) > 12, W3 = it.tw, H3 = it.th, vis = new Uint8Array(W3 * H3), op = i => it.o[i * 4 + 3] > 0, verde = i => vd(it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]);
+  for (let s = 0; s < W3 * H3; s++) { if (!op(s) || vis[s] || verde(s)) continue; const comp = [s], pil = [s]; vis[s] = 1; let toca = false;
+    while (pil.length) { const p = pil.pop(), x = p % W3, y = (p / W3) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W3 || yy >= H3) continue; const q = yy * W3 + xx; if (!op(q)) continue; if (verde(q)) { toca = true; continue; } if (!vis[q]) { vis[q] = 1; comp.push(q); pil.push(q); } } }
+    if (comp.length <= 14 && toca) comp.forEach(q => it.o[q * 4 + 3] = 0); } }
+// pontinhas de 1-2 px que não são verdes, encostam na folhagem e quase não têm vizinho marrom: sobra de borda, saem (1 passada)
+for (const it of itens) if (it.tipo === 'arvore') for (let rod = 0; rod < 2; rod++) { const cp = it.o.slice(), vd = (r, gg, b) => gg >= r && gg >= b && Math.max(r, gg, b) - Math.min(r, gg, b) > 12, tem = (x, y) => x >= 0 && y >= 0 && x < it.tw && y < it.th && cp[(y * it.tw + x) * 4 + 3] > 0;
+  for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!cp[p + 3] || vd(cp[p], cp[p + 1], cp[p + 2])) continue; let vazios = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!tem(x + dx, y + dy)) vazios++; if (vazios < 2) continue;
+    let verdes = 0, outros = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if ((!dx && !dy) || !tem(x + dx, y + dy)) continue; const q = ((y + dy) * it.tw + x + dx) * 4; if (vd(cp[q], cp[q + 1], cp[q + 2])) verdes++; else outros++; }
+    if (verdes >= 1 && outros <= 2) it.o[p + 3] = 0;
+    else if (verdes >= 1 && outros <= 3) { let sr = 0, sg = 0, sb = 0, n = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { if ((!dx && !dy) || !tem(x + dx, y + dy)) continue; const q = ((y + dy) * it.tw + x + dx) * 4; if (vd(cp[q], cp[q + 1], cp[q + 2])) { sr += cp[q]; sg += cp[q + 1]; sb += cp[q + 2]; n++; } } if (n) { it.o[p] = Math.round(sr / n * .94); it.o[p + 1] = Math.round(sg / n * .94); it.o[p + 2] = Math.round(sb / n * .94); } } } }
 // cores das árvores = cores do arbusto (verde) e do toco/tronco (marrom), que são as que encaixam no cenário:
 // casamento de histograma por brilho (o claro/escuro continua na mesma ordem, mas os tons passam a ser os do arbusto e do toco).
 // As árvores são tratadas juntas (o pinheiro continua mais escuro que o carvalho, etc.).
