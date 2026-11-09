@@ -93,6 +93,7 @@ const atualizaUi = () => {
   document.getElementById('bSalvar').onclick = baixa; document.getElementById('bAbrir').onclick = () => document.getElementById('fArq').click(); document.getElementById('fArq').onchange = e => e.target.files[0] && abre(e.target.files[0]);
 }; atualizaUi();
 addEventListener('wheel', e => { K = Math.max(1, Math.min(4, K + (e.deltaY < 0 ? 1 : -1))); });
+const COL_BASE = .5;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
 const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
 function pintaMouse(e) {
   if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
@@ -118,7 +119,7 @@ function frame(now) {
   PERS.step(P, dx, dy, run, now);
   if (dx || dy) { const v = (run ? 190 : 110) * dt; // pixels de tela
     const sxv = dx / Math.hypot(dx, dy) * v, syv = dy / Math.hypot(dx, dy) * v * .5;
-    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => { const d = OBJS[o.id]; if (d.deco) return false; const r = (d.raio || .3) + .08, ex = x - (o.x + .5), ey = y - (o.y + .56); return ex * ex + ey * ey < r * r; }); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
+    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => { const d = OBJS[o.id]; if (d.deco) return false; const r = (d.raio || .3) * COL_BASE + .03, ex = x - (o.x + .5), ey = y - (o.y + .56); return ex * ex + ey * ey < r * r; }); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
   hsx = (hx - hy) * 64 + M * 64; hsy = (hx + hy) * 32; const cx = cv.width / 2, cy = cv.height / 2;
   ctx.fillStyle = '#16120e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(cx - hsx * K), Math.round(cy - hsy * K)); ctx.scale(K, K);
   if (TERR.cv) ctx.drawImage(TERR.cv, 0, 0);
