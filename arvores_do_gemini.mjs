@@ -64,6 +64,12 @@ function paleta(px, n) { let caixas = [px]; while (caixas.length < n) { caixas.s
     const ranges = [0, 1, 2].map(k => { let lo = 255, hi = 0; for (const p of bx) { lo = Math.min(lo, p[k]); hi = Math.max(hi, p[k]); } return hi - lo; }), k = ranges.indexOf(Math.max(...ranges));
     bx.sort((a, b) => a[k] - b[k]); const m = bx.length >> 1; caixas.push(bx.slice(0, m), bx.slice(m)); }
   return caixas.map(bx => [0, 1, 2].map(k => Math.round(bx.reduce((s, p) => s + p[k], 0) / bx.length))); }
+// franja cinza-clara na borda das árvores (mistura do fundo com a folha): pixel de borda claro e quase sem cor sai; 2 passadas
+for (const it of itens) if (it.tipo === 'arvore') for (let pass = 0; pass < 2; pass++) { const kill = [];
+  for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!it.o[p + 3]) continue;
+    let borda = false; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= it.tw || yy >= it.th || !it.o[(yy * it.tw + xx) * 4 + 3]) borda = true; }
+    if (!borda) continue; const r = it.o[p], gg = it.o[p + 1], b = it.o[p + 2], sat = Math.max(r, gg, b) - Math.min(r, gg, b); if (sat < 34 && (r + gg + b) / 3 > 150) kill.push(p); }
+  kill.forEach(p => it.o[p + 3] = 0); }
 const dados = {};
 for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
   const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
@@ -71,7 +77,11 @@ for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++)
   if (CONTORNO === 'tom' && it.tipo === 'arvore') {   // sobretom: o pixel de borda (que tem vazio ao lado) vira um tom mais escuro da própria cor, calculado direto da cor do pixel (não da paleta: o verde escuro achava um marrom como "mais próximo"); o tamanho da árvore não muda
     const orig = it.o.slice(), vaz = (x, y) => x < 0 || y < 0 || x >= it.tw || y >= it.th || !orig[(y * it.tw + x) * 4 + 3];
     for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (!orig[p + 3]) continue; if (!(vaz(x - 1, y) || vaz(x + 1, y) || vaz(x, y - 1) || vaz(x, y + 1))) continue;
-      const baixo = vaz(x, y + 1) || vaz(x + 1, y), f = baixo ? SOBRETOM * .94 : SOBRETOM, c = [orig[p] * f, orig[p + 1] * f, orig[p + 2] * f]; it.o[p] = Math.round(c[0]); it.o[p + 1] = Math.round(c[1]); it.o[p + 2] = Math.round(c[2]); } }
+      const baixo = vaz(x, y + 1) || vaz(x + 1, y), f = baixo ? SOBRETOM * .94 : SOBRETOM;
+      let nv = 0, nm = 0, sr = 0, sg = 0, sb = 0;   // vizinhos 5x5: quantos são verde de folha e quantos são marrom/outros
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { if (!dx && !dy) continue; const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= it.tw || yy >= it.th) continue; const q = (yy * it.tw + xx) * 4; if (!orig[q + 3]) continue; const r2 = orig[q], g2 = orig[q + 1], b2 = orig[q + 2];
+        if (g2 >= r2 && g2 >= b2 && Math.max(r2, g2, b2) - Math.min(r2, g2, b2) > 12) { nv++; sr += r2; sg += g2; sb += b2; } else nm++; }
+      const copa = nv >= 5 && nv > 2 * nm, c = copa ? [sr / nv * f, sg / nv * f, sb / nv * f] : [orig[p] * f, orig[p + 1] * f, orig[p + 2] * f]; it.o[p] = Math.round(c[0]); it.o[p + 1] = Math.round(c[1]); it.o[p + 2] = Math.round(c[2]); } }
   if (CONTORNO === 'fora' && it.tipo === 'arvore') {   // contorno de 1 px: tom escuro da cor do pixel vizinho (marrom-escuro no tronco, verde-escuro na copa)
     const tw2 = it.tw + 2, th2 = it.th + 2, o2 = new Uint8Array(tw2 * th2 * 4);
     for (let y = 0; y < it.th; y++) for (let x = 0; x < it.tw; x++) o2.set(it.o.subarray((y * it.tw + x) * 4, (y * it.tw + x) * 4 + 4), ((y + 1) * tw2 + x + 1) * 4);
