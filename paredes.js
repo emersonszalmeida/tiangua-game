@@ -29,6 +29,7 @@
       if (door && i >= DOOR_A && i < DOOR_B && d >= h - DOOR_H) continue;
       put(x, i, oy + Math.floor(i / 2) - h + d, faceColor(F, i, d, h));
     }
+    for (let i = 0; i < 64; i++) if (!(door && i >= DOOR_A && i < DOOR_B)) put(x, i, oy + Math.floor(i / 2), F.line);   // linha extra embaixo: cobre a emenda com o piso
     if (door) for (let k = 0; k < TP; k++) for (let d = 0; d < DOOR_H; d++)   // lateral do vão (a espessura da parede)
       put(x, DOOR_A + k, oy + Math.floor((DOOR_A + k) / 2) - k - d - 1, JAMB);
     for (let i = 0; i < 64 + TP; i++) {   // topo escuro
