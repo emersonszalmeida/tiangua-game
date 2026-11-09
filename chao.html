@@ -118,7 +118,7 @@ function frame(now) {
   PERS.step(P, dx, dy, run, now);
   if (dx || dy) { const v = (run ? 190 : 110) * dt; // pixels de tela
     const sxv = dx / Math.hypot(dx, dy) * v, syv = dy / Math.hypot(dx, dy) * v * .5;
-    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => { const d = OBJS[o.id]; if (d.deco) return false; const r = (d.raio || .3) + .08, ex = x - (o.x + .5), ey = y - (o.y + .56); return ex * ex + ey * ey < r * r; });   // colisão só na base do tronco if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
+    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => { const d = OBJS[o.id]; if (d.deco) return false; const r = (d.raio || .3) + .08, ex = x - (o.x + .5), ey = y - (o.y + .56); return ex * ex + ey * ey < r * r; }); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
   hsx = (hx - hy) * 64 + M * 64; hsy = (hx + hy) * 32; const cx = cv.width / 2, cy = cv.height / 2;
   ctx.fillStyle = '#16120e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(cx - hsx * K), Math.round(cy - hsy * K)); ctx.scale(K, K);
   if (TERR.cv) ctx.drawImage(TERR.cv, 0, 0);
