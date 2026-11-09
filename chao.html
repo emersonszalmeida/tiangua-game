@@ -106,14 +106,15 @@ function itensCasa() {
   // alvos que não podem ficar escondidos por parede alta: o personagem e as portas da sala dele
   const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: rectDe(w.p, w.cheia), key: w.key }); }
   const cobreAlvo = (r, key) => alvos.some(t => (t.jog || key > t.key) && ov(r, t.r));   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
+  const altV = new Map();   // altura REAL (como cada parede é desenhada agora) que chega em cada vértice: a peça do canto usa a maior delas, para a tampa dela casar com a da parede
   for (const w of inf) {
     const p = w.p, corta = !w.atras && p.k !== 'low' && (w.adj || (sala && cobreAlvo(rectDe(p, w.cheia), w.key))), pc = PIECE[p.a + (p.k === 'door' ? (corta ? 'DoorMid' : 'Door') : p.k === 'low' ? 'Low' : corta ? 'Mid' : 'High')];
+    { const alt = p.k === 'low' ? CASA.LOW : corta ? CASA.CUT : CASA.HIGH; for (const [vx, vy] of (p.a === 'x' ? [[p.n, p.c], [p.n + 1, p.c]] : [[p.c, p.n], [p.c, p.n + 1]])) { const k = vx + ',' + vy; if (!(altV.get(k) >= alt)) altV.set(k, alt); } }
     out.push({ d: w.key, atras: w.atras, r: rectDe(p, pc), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
   }
   for (const q of postes) {   // peças únicas dos cantos/pontas (desenhadas pelo dono)
     const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, ax0 = sx(q.x, q.y), ay0 = sy(q.x, q.y), cheia = cantoPeca(q.cfg, CASA.HIGH); if (!cheia) continue;
-    const rc = [ax0 - cheia.ax, ay0 - cheia.ay, cheia.c.width || cheia.c.naturalWidth, cheia.c.height || cheia.c.naturalHeight];
-    const corta = !atras && q.alta && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = cantoPeca(q.cfg, corta ? CASA.CUT : q.alta ? CASA.HIGH : CASA.LOW) || cheia;
+    const pc = cantoPeca(q.cfg, altV.get(q.x + ',' + q.y) || CASA.LOW) || cheia;   // altura = a da parede mais alta que chega aqui, como está sendo desenhada
     out.push({ d: key, atras, r: [ax0 - pc.ax, ay0 - pc.ay, pc.c.width || pc.c.naturalWidth, pc.c.height || pc.c.naturalHeight], f: () => ctx.drawImage(pc.c, ax0 - pc.ax, ay0 - pc.ay) });
   }
   return out;
