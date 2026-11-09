@@ -40,7 +40,7 @@ input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;backgro
 <body>
 <div id="app">
   <div id="top">
-    <button id="bNovo">Novo…</button><button id="bTam">Tamanho da tela…</button><button id="bAbrir">Abrir PNG</button><button id="bProj">Abrir projeto</button><button id="bSalvaProj">Salvar projeto</button><button id="bPng">Exportar PNG</button><button id="bPngC">Exportar só a camada</button>
+    <button id="bNovo">Novo…</button><button id="bTam">Tamanho da tela…</button><button id="bAbrir">Abrir PNG</button><button id="bProj">Abrir projeto</button><button id="bSalvaProj">Salvar projeto</button><button id="bPng">Exportar PNG</button><select id="fundoVis" title="Fundo só para ver (não entra no PNG)" style="background:#3a3430;color:#eee;border:1px solid #14110f;border-radius:4px;padding:4px"><option value="xadrez">Fundo: xadrez</option><option value="#0a5cff">Fundo: azul vivo</option><option value="#849766">Fundo: verde do chão</option><option value="#9e7c57">Fundo: terra</option><option value="#ffffff">Fundo: branco</option><option value="#000000">Fundo: preto</option></select><button id="bPngC">Exportar só a camada</button>
     <span style="flex:1"></span><button id="bDes">↶ Desfazer</button><button id="bRef">↷ Refazer</button>
     <input type="file" id="fPng" accept="image/*" style="display:none"><input type="file" id="fProj" accept=".json" style="display:none">
   </div>
@@ -603,11 +603,12 @@ addEventListener('keydown', e => {
 });
 addEventListener('keyup', e => { if (e.code === 'Space') espaco = false; });
 // ---------- desenho da tela ----------
+let fundoVis = 'xadrez'; $('fundoVis').onchange = e => { fundoVis = e.target.value; redraw(); };
 let pedido = false; function redraw() { if (!pedido) { pedido = true; requestAnimationFrame(() => { pedido = false; desenha(); }); } }
 function desenha() {
   const r = wrap.getBoundingClientRect(); if (cv.width !== r.width | 0 || cv.height !== r.height | 0) { cv.width = r.width | 0; cv.height = r.height | 0; } const z = view.z; ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.save(); ctx.translate(view.ox, view.oy);
-  const q = Math.max(1, Math.ceil(8 / z)); ctx.fillStyle = '#cfcfcf'; ctx.fillRect(0, 0, W * z, H * z); ctx.fillStyle = '#a8a8a8'; for (let y = 0; y < H; y += q) for (let x = ((y / q) & 1) * q; x < W; x += q * 2) ctx.fillRect(x * z, y * z, Math.min(q, W - x) * z, Math.min(q, H - y) * z);
+  const q = Math.max(1, Math.ceil(8 / z)); if (fundoVis !== 'xadrez') { ctx.fillStyle = fundoVis; ctx.fillRect(0, 0, W * z, H * z); } else { ctx.fillStyle = '#cfcfcf'; ctx.fillRect(0, 0, W * z, H * z); ctx.fillStyle = '#a8a8a8'; for (let y = 0; y < H; y += q) for (let x = ((y / q) & 1) * q; x < W; x += q * 2) ctx.fillRect(x * z, y * z, Math.min(q, W - x) * z, Math.min(q, H - y) * z); }
   ctx.scale(z, z); desenhaRef(false); layers.forEach((l, i) => { if (!l.vis) return; ctx.drawImage(l.c, 0, 0); if (i === cur && sel) ctx.drawImage(sel.c, sel.ox, sel.oy); });
   desenhaItens();
   ctx.scale(1 / z, 1 / z);

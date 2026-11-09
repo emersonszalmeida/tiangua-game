@@ -121,8 +121,11 @@ if (process.env.CORES_DO_CENARIO !== '0') {
   for (const [lista, tgt] of [[pool.v, alvoVerde], [pool.m, alvoMarrom]]) { lista.sort((a, b) => a[0] - b[0]); const n = lista.length; if (!tgt.length) continue;
     lista.forEach(([, ii, i], k) => { const c = tgt[Math.min(tgt.length - 1, Math.floor(k / n * tgt.length))], o = itA.o; o[i * 4] = c[0]; o[i * 4 + 1] = c[1]; o[i * 4 + 2] = c[2]; }); } }
 }
+// peças editadas à mão (no editor-pixel, via arvores_aplicar_edicoes.mjs): ficam em arvore_editadas/<nome>.png e valem no lugar do que o gerador faria
+const EDIT = path('./arvore_editadas/');
+for (const it of itens) { const fe = EDIT + it.nome + '.png'; if (fs.existsSync(fe)) { const im = decodePNG(fe); it.o = Uint8Array.from(im.data); it.tw = im.w; it.th = im.h; it.fixa = true; console.log('  (editada à mão) ' + it.nome); } }
 const dados = {};
-for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
+for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
   const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
   for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) { const c = perto(it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]); it.o[i * 4] = c[0]; it.o[i * 4 + 1] = c[1]; it.o[i * 4 + 2] = c[2]; }
   if (CONTORNO === 'tom' && it.tipo === 'arvore') {   // sobretom: o pixel de borda (que tem vazio ao lado) vira um tom mais escuro da própria cor, calculado direto da cor do pixel (não da paleta: o verde escuro achava um marrom como "mais próximo"); o tamanho da árvore não muda
@@ -141,7 +144,7 @@ for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++)
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= tw2 || yy >= th2) continue; const p = (yy * tw2 + xx) * 4; if (orig[p + 3] === 255) { const l = orig[p] + orig[p + 1] + orig[p + 2]; if (l < lum) { lum = l; viz = [orig[p], orig[p + 1], orig[p + 2]]; } } }
       if (viz) o2.set([Math.round(viz[0] * .42), Math.round(viz[1] * .42), Math.round(viz[2] * .42), 255], (y * tw2 + x) * 4); }
     it.o = o2; it.tw = tw2; it.th = th2; }
-  const png = encodePNG(it.tw, it.th, it.o); fs.writeFileSync(OUT + it.nome + '.png', png);
+  } const png = encodePNG(it.tw, it.th, it.o); fs.writeFileSync(OUT + it.nome + '.png', png);
   // ponto de apoio do tronco: base da última linha com arte, centro das 3 últimas linhas
   let yb = it.th - 1; while (yb > 0 && ![...Array(it.tw).keys()].some(x => it.o[(yb * it.tw + x) * 4 + 3])) yb--;
   let sx = 0, sn = 0; for (let y = Math.max(0, yb - 2); y <= yb; y++) for (let x = 0; x < it.tw; x++) if (it.o[(y * it.tw + x) * 4 + 3]) { sx += x + .5; sn++; }
