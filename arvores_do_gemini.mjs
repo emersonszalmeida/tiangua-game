@@ -167,9 +167,11 @@ for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.
   // ponto de apoio do tronco: base da última linha com arte, centro das 3 últimas linhas
   let yb = it.th - 1; while (yb > 0 && ![...Array(it.tw).keys()].some(x => it.o[(yb * it.tw + x) * 4 + 3])) yb--;
   let sx = 0, sn = 0; for (let y = Math.max(0, yb - 2); y <= yb; y++) for (let x = 0; x < it.tw; x++) if (it.o[(y * it.tw + x) * 4 + 3]) { sx += x + .5; sn++; }
-  const lar = []; for (let y = Math.max(0, yb - 23); y <= Math.max(0, yb - 4); y++) { let n = 0; for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (it.o[p + 3] && !(it.o[p + 1] >= it.o[p] && it.o[p + 1] >= it.o[p + 2] && Math.max(it.o[p], it.o[p + 1], it.o[p + 2]) - Math.min(it.o[p], it.o[p + 1], it.o[p + 2]) > 12)) n++; } if (n) lar.push(n); } lar.sort((a, b) => a - b);   // largura do tronco (só marrom) acima das pontas das raízes
-  const raio = Math.round(Math.max(.1, (lar[lar.length >> 1] || 10) / 2 / 90) * 100) / 100;   // só a base do tronco (colisão); o personagem soma a própria folga
-  dados[it.nome] = { raio, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
+  const brown = (x, y) => { const p = (y * it.tw + x) * 4; return it.o[p + 3] && !(it.o[p + 1] >= it.o[p] && it.o[p + 1] >= it.o[p + 2] && Math.max(it.o[p], it.o[p + 1], it.o[p + 2]) - Math.min(it.o[p], it.o[p + 1], it.o[p + 2]) > 12); };
+  const lar = []; let sxm = 0, nxm = 0; for (let y = Math.max(0, yb - 23); y <= Math.max(0, yb - 4); y++) { let n = 0; for (let x = 0; x < it.tw; x++) if (brown(x, y)) { n++; if (y >= yb - 16) { sxm += x + .5; nxm++; } } if (n) lar.push(n); } lar.sort((a, b) => a - b);
+  // colisão só no miolo da base do tronco: centro = centro do marrom nas linhas yb-16..yb-4 (a ponta das raízes fica mais baixo), raio = meia largura do trecho mais estreito (30%)
+  const raio = Math.round(Math.max(.1, (lar[Math.floor(lar.length * .3)] || 10) / 2 / 90) * 100) / 100, ox = Math.round(((nxm ? sxm / nxm : sx / sn) - Math.round(sx / sn * 2) / 2) * 2) / 2, oy = 4 - 10;
+  dados[it.nome] = { raio, ox, oy, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
 }
 fs.writeFileSync(path('./arvore_dados.js'), '// gerado por arvores_do_gemini.mjs\nconst ARV_DADOS = ' + JSON.stringify(dados) + ';\n');
 // folha de conferência (zoom 3)
