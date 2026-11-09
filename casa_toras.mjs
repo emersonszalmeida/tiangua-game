@@ -1,67 +1,54 @@
-// Parede da cabana pelo CONCEITO DO DONO (desenho de 2026-11-09): uma TORA fina (cilindro de 9 px de altura, 64 de comprimento = 1 aresta do losango) empilhada
-// N=8 vezes + tampa de 5 linhas = 77 px de parede (a altura que ele marcou com as linhas azuis). Nas pontas livres aparece a coluna de DISCOS (a ponta redonda das toras).
-// Onde duas paredes se encontram não há poste: elas só se encostam. (A versão com canto grosso do Gemini ficou em casa_toras_v1_canto.mjs.)
-// uso: node casa_do_gemini.mjs && node casa_piso.mjs && node casa_toras.mjs      N=9 node casa_toras.mjs deixa a parede mais alta
-// Módulos desenháveis (folha do editor, casa_para_editar.mjs): tora, capa, disco. Se existir arte_casa/editadas/<nome>.png, vale o desenho do dono.
+// Parede da cabana pelo MODELO DO DONO (arte_casa/conceito_dono.png, desenho de 2026-11-09): a TORA é UMA peça só (bastão inclinado 2:1 com as duas pontas
+// arredondadas, desenhado por ele) e a parede é essa tora empilhada com passo de 9 px. Nada de disco separado: a ponta redonda faz parte da tora.
+// Só as CORES são do Claude: contorno vermelho -> marrom-escuro, faixa escura de baixo -> sombra, corpo -> marrom com luz em cima.
+// A parede ↘ (parede_se) é a tora como ele desenhou; a ↙ (parede_sw) é a tora espelhada. Mesmo N de toras em todas.
+// uso: node casa_piso.mjs && node casa_toras.mjs      N=9 node casa_toras.mjs deixa a parede mais alta
+// Módulo desenhável (folha do editor, casa_para_editar.mjs): "tora" (já colorida). Se existir arte_casa/editadas/tora.png, vale o desenho/cores do dono.
 import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
-const D = './arte_casa/pecas/', EDIT = './arte_casa/editadas/', N = +process.env.N || 8, P = 9, W = 64, DW = 6;   // N toras de P=9 linhas; disco de ponta com DW=6 de largura
+const D = './arte_casa/pecas/', EDIT = './arte_casa/editadas/', N = +process.env.N || 8, PASSO = 9;
+// cores da cabana (as do Gemini): do arquivo parede_gemini.png
 if (!fs.existsSync(D + 'parede_gemini.png')) fs.copyFileSync(D + 'parede_se.png', D + 'parede_gemini.png');
-const src = decodePNG(D + 'parede_gemini.png'), cnt = new Map();
-for (let i = 0; i < src.w * src.h; i++) if (src.data[i * 4 + 3]) { const k = [src.data[i * 4], src.data[i * 4 + 1], src.data[i * 4 + 2]].join(); cnt.set(k, (cnt.get(k) || 0) + 1); }
-const lum = c => .3 * c[0] + .59 * c[1] + .11 * c[2], cores = [...cnt.keys()].map(k => k.split(',').map(Number)).sort((a, b) => lum(a) - lum(b));
+const src = decodePNG(D + 'parede_gemini.png'), cnt = new Set();
+for (let i = 0; i < src.w * src.h; i++) if (src.data[i * 4 + 3]) cnt.add([src.data[i * 4], src.data[i * 4 + 1], src.data[i * 4 + 2]].join());
+const lum = c => .3 * c[0] + .59 * c[1] + .11 * c[2], cores = [...cnt].map(k => k.split(',').map(Number)).sort((a, b) => lum(a) - lum(b));
 const perto = (r, g, b) => { let bst = cores[0], e = 1e9; for (const c of cores) { const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (d < e) { e = d; bst = c; } } return bst; };
 const R = { borda: perto(66, 44, 33), escuro: perto(82, 55, 39), sombra: perto(99, 74, 59), meioEsc: perto(112, 86, 66), meio: perto(128, 101, 79), luz: perto(143, 117, 95), brilho: perto(156, 128, 104) };
-const RAMPA = [R.borda, R.escuro, R.sombra, R.meioEsc, R.meio, R.luz, R.brilho];
-const hash = (a, b) => { let h = (Math.imul(a + 7, 374761393) + Math.imul(b + 13, 668265263)) >>> 0; h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-const mod = (a, m) => ((a % m) + m) % m;
-const ruido = (x, y, esc, sd) => { const gx = x / esc, x0 = Math.floor(gx), f = gx - x0, s = f * f * (3 - 2 * f), n = Math.round(W / esc), a = hash(mod(x0, n), y + sd * 97), b = hash(mod(x0 + 1, n), y + sd * 97); return a * (1 - s) + b * s; };   // periódico em 64
-const ed = n => fs.existsSync(EDIT + n + '.png') ? decodePNG(EDIT + n + '.png') : null, E_TORA = ed('tora'), E_CAPA = ed('capa'), E_DISCO = ed('disco');
-const pxIm = (im, x, y) => { const p = (y * im.w + x) * 4; return im.data[p + 3] ? [im.data[p], im.data[p + 1], im.data[p + 2]] : R.borda; };
-// tora fina: contorno escuro em cima e embaixo, corpo marrom com a parte de cima um pouco mais clara, veio fino
-const PERFIL = [0, 5, 5, 4, 4, 3, 3, 2, 1];
-function corTora(x, y, j) {
-  if (E_TORA) return pxIm(E_TORA, mod(x + j * 21, W), y);
-  const xs = mod(x + j * 21, W); let i = PERFIL[y]; const veio = ruido(xs, y, 6, 1);
-  if (y >= 2 && y <= 7) { if (veio > .8) i -= 1; else if (veio < .2) i += 1; }
-  if (y >= 2 && y <= 7 && hash(Math.floor(xs / 8), y * 3 + j) > .97) i -= 2;
-  const nx = mod(14 + j * 29, W); if (xs === nx && y === 4) i = 1;   // um nó
-  return RAMPA[Math.max(0, Math.min(6, i))];
+// 1) a tora do dono: o bastão solto no desenho (região x 226..300, y 132..180); papéis pelas cores do desenho dele
+const dono = decodePNG('./arte_casa/conceito_dono.png'), X0 = 226, Y0 = 132, X1 = 300, Y1 = 180;
+const PAPEL = { '192,57,43': 'A', '121,95,77': 'B', '81,57,44': 'H' };   // A contorno, B corpo, H faixa escura
+let bx0 = 1e9, by0 = 1e9, bx1 = -1, by1 = -1; const papelBruto = (x, y) => { const p = (y * dono.w + x) * 4; return dono.data[p + 3] ? PAPEL[[dono.data[p], dono.data[p + 1], dono.data[p + 2]].join()] || null : null; };
+// só a tora: preenche a partir de um pixel dela (260,150), assim não entra pedaço da parede/do chão que esteja na mesma região
+const NA = new Set(), pilha = [[260, 150]]; while (pilha.length) { const [x, y] = pilha.pop(), k = x + ',' + y; if (NA.has(k) || x < X0 || x > X1 || y < Y0 || y > Y1 || !papelBruto(x, y)) continue; NA.add(k); for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pilha.push([x + dx, y + dy]); }
+for (const k of NA) { const [x, y] = k.split(',').map(Number); bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y); }
+const papel = (x, y) => NA.has(x + ',' + y) ? papelBruto(x, y) : null;
+const RW = bx1 - bx0 + 1, RH = by1 - by0 + 1, ROLE = []; for (let y = 0; y < RH; y++) { ROLE.push([]); for (let x = 0; x < RW; x++) ROLE[y].push(papel(bx0 + x, by0 + y)); }
+// 2) cores: regra por coluna (contorno de cima, 2 linhas de luz, corpo, faixa de sombra embaixo, contorno de baixo)
+function colore() {
+  const o = new Uint8Array(RW * RH * 4);
+  for (let x = 0; x < RW; x++) { let top = -1; for (let y = 0; y < RH; y++) if (ROLE[y][x]) { top = y; break; } if (top < 0) continue; let bot = top; for (let y = top; y < RH; y++) if (ROLE[y][x]) bot = y;
+    for (let y = top; y <= bot; y++) { const r = ROLE[y][x]; if (!r) continue; const d = y - top, corpoAlt = bot - top; let c;
+      if (r === 'A') c = R.borda; else if (r === 'H') c = R.sombra; else c = d <= 2 ? R.luz : d <= 3 ? R.meio : (bot - y) <= 5 ? R.meioEsc : R.meio;
+      o.set([c[0], c[1], c[2], 255], (y * RW + x) * 4); } }
+  return o;
 }
-const CAPA = [0, 6, 5, 4, 2];   // tampa: a face de cima da tora mais alta (linha clara) e a sombra da frente
-function corCapa(x, y) { if (E_CAPA) return pxIm(E_CAPA, x, y); let i = CAPA[y]; if (y === 1 && ruido(mod(x + 10, W), y, 7, 5) > .62) i -= 1; return RAMPA[Math.max(0, Math.min(6, i))]; }
-// disco: a ponta redonda de uma tora (6 de largura x 9 de altura): contorno, face clara em cima/esquerda, anel
-const DISCO = ['.0000.', '012210', '021110', '011111', '011211', '011111', '012110', '001100', '.0000.'];   // 0 contorno, 1 face, 2 anel
-function corDisco(x, y) {
-  if (E_DISCO) { const p = (y * E_DISCO.w + x) * 4; return E_DISCO.data[p + 3] ? [E_DISCO.data[p], E_DISCO.data[p + 1], E_DISCO.data[p + 2]] : null; }
-  const c = DISCO[y][x]; if (c === '.') return null; return c === '0' ? R.borda : c === '2' ? R.sombra : (x + y < 6 ? R.luz : R.meio);
-}
-const dy = (x, sinal) => sinal > 0 ? (x + 1) >> 1 : 32 - ((x + 1) >> 1);   // degrau 2:1 em pares de colunas (par ímpar->par: as pontas de dois pedaços casam)
-function parede(sinal) {
-  const Hr = CAPA.length + N * P, tot = Hr + 32, o = new Uint8Array(W * tot * 4);
-  for (let x = 0; x < W; x++) for (let y = 0; y < Hr; y++) { const c = y < CAPA.length ? corCapa(x, y) : corTora(x, (y - CAPA.length) % P, Math.floor((y - CAPA.length) / P)); o.set([c[0], c[1], c[2], 255], ((y + dy(x, sinal)) * W + x) * 4); }
-  return { w: W, h: tot, o, ax: 0, ay: Hr - 1 + dy(0, sinal) };
-}
-// ponta: coluna de N discos na ponta mais perto da câmera. "/" (sw): à esquerda do x=0; "\" (se): à direita do x=63. Mesma altura e mesma âncora da parede.
-function ponta(sinal) {
-  const Hr = CAPA.length + N * P, tot = Hr + 32, o = new Uint8Array(DW * tot * 4), x0 = sinal > 0 ? W - 1 : 0, off = dy(x0, sinal);
-  for (let k = 0; k < N; k++) for (let y = 0; y < P; y++) for (let x = 0; x < DW; x++) { const c = corDisco(x, y); if (!c) continue; const yy = CAPA.length + k * P + y + off; o.set([c[0], c[1], c[2], 255], (yy * DW + x) * 4); }
-  return { w: DW, h: tot, o, ax: sinal > 0 ? -W : DW, ay: Hr - 1 + dy(0, sinal) };   // ax: onde fica o canto esquerdo da ponta em relação ao ponto de apoio da parede
-}
-// módulos como estão agora (ponto de partida da folha do editor)
+const E_TORA = fs.existsSync(EDIT + 'tora.png') ? decodePNG(EDIT + 'tora.png') : null;
+const tora = E_TORA ? { w: E_TORA.w, h: E_TORA.h, o: E_TORA.data } : { w: RW, h: RH, o: colore() };
 fs.mkdirSync('./arte_casa/modulos', { recursive: true });
-{
-  const mk = (w, h, f) => { const o = new Uint8Array(w * h * 4); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const c = f(x, y); if (c) o.set([c[0], c[1], c[2], 255], (y * w + x) * 4); } return o; };
-  fs.writeFileSync('./arte_casa/modulos/tora.png', encodePNG(W, P, mk(W, P, (x, y) => corTora(x, y, 0))));
-  fs.writeFileSync('./arte_casa/modulos/capa.png', encodePNG(W, CAPA.length, mk(W, CAPA.length, corCapa)));
-  fs.writeFileSync('./arte_casa/modulos/disco.png', encodePNG(DW, P, mk(DW, P, corDisco)));
-  for (const n of ['canto_topo', 'canto_camada', 'canto_base']) fs.rmSync('./arte_casa/modulos/' + n + '.png', { force: true });
-}
+fs.writeFileSync('./arte_casa/modulos/tora.png', encodePNG(RW, RH, colore()));   // ponto de partida da folha do editor (sempre a versão gerada)
+for (const n of ['capa', 'disco', 'canto_topo', 'canto_camada', 'canto_base']) fs.rmSync('./arte_casa/modulos/' + n + '.png', { force: true });
+// 3) empilha N toras (passo 9): as de baixo por cima das de cima (o contorno de baixo de uma coincide com o de cima da seguinte)
+const espelha = im => { const o = new Uint8Array(im.w * im.h * 4); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) o.set(im.o.subarray((y * im.w + x) * 4, (y * im.w + x) * 4 + 4), (y * im.w + (im.w - 1 - x)) * 4); return { w: im.w, h: im.h, o }; };
+function empilha(t) { const h = t.h + (N - 1) * PASSO, o = new Uint8Array(t.w * h * 4);
+  for (let k = 0; k < N; k++) for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) { const p = (y * t.w + x) * 4; if (t.o[p + 3]) o.set(t.o.subarray(p, p + 4), ((y + k * PASSO) * t.w + x) * 4); }
+  return { w: t.w, h, o }; }
+// ponto de apoio: o pixel mais baixo da coluna xa da última tora (contorno de baixo) fica sobre a aresta do losango
+const XA = 4;
+function apoio(im) { let y = im.h - 1; while (y > 0 && !im.o[(y * im.w + XA) * 4 + 3]) y--; return { ax: XA, ay: y }; }
 const info = JSON.parse(fs.readFileSync('./arte_casa/pecas.json', 'utf8'));
-for (const [nome, im] of [['parede_se', parede(1)], ['parede_sw', parede(-1)], ['ponta_se', ponta(1)], ['ponta_sw', ponta(-1)]]) {
-  fs.writeFileSync(D + nome + '.png', encodePNG(im.w, im.h, im.o)); info[nome] = { w: im.w, h: im.h, ax: im.ax, ay: im.ay }; console.log(nome, im.w + 'x' + im.h, 'apoio', im.ax, im.ay);
-}
-fs.rmSync(D + 'canto.png', { force: true }); delete info.canto;
+const se = empilha(tora), sw = espelha(se);
+for (const [nome, im] of [['parede_se', se], ['parede_sw', sw]]) { fs.writeFileSync(D + nome + '.png', encodePNG(im.w, im.h, im.o)); const a = apoio(im); info[nome] = { w: im.w, h: im.h, ...a }; console.log(nome, im.w + 'x' + im.h, 'apoio', a.ax, a.ay); }
+for (const n of ['ponta_se', 'ponta_sw', 'canto']) { fs.rmSync(D + n + '.png', { force: true }); delete info[n]; }
 fs.writeFileSync('./arte_casa/pecas.json', JSON.stringify(info));
-console.log('parede: tampa ' + CAPA.length + ' + ' + N + ' toras x ' + P + ' = ' + (CAPA.length + N * P) + ' px');
+console.log('tora do dono: ' + RW + 'x' + RH + ' px · parede = ' + N + ' toras (passo ' + PASSO + ') · altura ' + (RH + (N - 1) * PASSO) + ' px (parede ↘ ' + se.h + ')');

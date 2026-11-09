@@ -4,9 +4,9 @@
 <script>
 // teste de encaixe das peças da cabana (arte_casa/pecas, geradas por casa_do_gemini.mjs) com o personagem na mesma escala
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
-const nomes = ['parede_sw', 'parede_se', 'ponta_sw', 'ponta_se', 'piso_1', 'piso_2', 'piso_3'], IMG = {}; let falta = nomes.length;
+const nomes = ['parede_sw', 'parede_se', 'piso_1', 'piso_2', 'piso_3'], IMG = {}; let falta = nomes.length;
 fetch('arte_casa/pecas.json').catch(() => null);
-const INFO = { parede_sw: { ax: 0, ay: 108 }, parede_se: { ax: 0, ay: 76 }, ponta_sw: { ax: 6, ay: 108 }, ponta_se: { ax: -64, ay: 76 } };
+const INFO = { parede_sw: { ax: 4, ay: 103 }, parede_se: { ax: 4, ay: 73 } };
 for (const n of nomes) { const i = new Image(); i.onload = () => { if (!--falta) desenha(); }; i.src = 'arte_casa/pecas/' + n + '.png'; IMG[n] = i; }
 function desenha() {
   const Z = +new URLSearchParams(location.search).get('z') || 2; ctx.fillStyle = '#849766'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.scale(Z, Z);
@@ -16,9 +16,7 @@ function desenha() {
   const DYW = +new URLSearchParams(location.search).get('dyw') || 0, peca = (nome, vx, vy, d) => { const a = INFO[nome], im = IMG[nome]; lista.push({ d, f: () => ctx.drawImage(im, Math.round(vx - a.ax), Math.round(vy - a.ay + DYW)) }); };
   for (let i = 0; i < NI; i++) { const [x, y] = cel(i, 0); peca('parede_se', x, y - 32, i + 0 + .1); }        // aresta NE de cada célula da fileira de trás
   for (let j = 0; j < NJ; j++) { const [x, y] = cel(0, j); peca('parede_sw', x - 64, y, j + 0 + .1); }      // aresta NW de cada célula da coluna da esquerda
-  // pontas redondas das toras (coluna de discos) nas pontas livres perto da câmera: esquerda da parede ↙ do canto de baixo e direita da última parede ↘
-  { const [x, y] = cel(0, NJ - 1); peca('ponta_sw', x - 64, y, NJ - 1 + .2); } { const [x, y] = cel(NI - 1, 0); peca('ponta_se', x, y - 32, NI - 1 + .2); }
-  const P = PERS.create('S'), [px, py] = cel(1, 1); lista.push({ d: 1.5, f: () => PERS.draw(ctx, P, px, py) });
+    const P = PERS.create('S'), [px, py] = cel(1, 1); lista.push({ d: 1.5, f: () => PERS.draw(ctx, P, px, py) });
   lista.sort((a, b) => a.d - b.d).forEach(o => o.f()); ctx.restore();
 }
 </script></html>

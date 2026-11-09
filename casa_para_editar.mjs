@@ -1,5 +1,5 @@
 // Monta UMA folha PNG com os MÓDULOS da cabana para abrir no editor-pixel, desenhar à mão e exportar.
-// Módulos: tora (64x9, comprimento = 1 aresta do losango), capa (tampa da parede, 64x5), disco (a ponta redonda de uma tora, 6x9) e piso.
+// Módulos: tora (o bastão que o dono desenhou, 69x41, com as pontas redondas; a parede é a tora empilhada com passo 9) e piso. A ponta redonda é parte da tora, não é peça separada.
 // Cada módulo fica num quadro com o contexto em volta (as vizinhas repetidas, para ver como emenda). A moldura MAGENTA marca o módulo de verdade:
 // só o que está DENTRO da moldura vale; o contexto em volta é só para olhar. Depois de exportar: node casa_aplicar_edicoes.mjs <png exportado>
 // Saída: arte_casa/editadas/folha_para_editar.png, folha_layout.json e uma cópia em Downloads/casa_para_editar.png
@@ -11,18 +11,14 @@ const MOD = './arte_casa/modulos/', OUT = './arte_casa/editadas/', LARG = 520;
 fs.mkdirSync(OUT, { recursive: true });
 const ler = f => decodePNG(f), mod = (a, m) => ((a % m) + m) % m;
 const itens = [
-  { nome: 'tora', im: ler(MOD + 'tora.png'), mx: 14, my: 20 },
-  { nome: 'capa', im: ler(MOD + 'capa.png'), mx: 14, my: 20 },
-  { nome: 'disco', im: ler(MOD + 'disco.png'), mx: 14, my: 20 },
+  { nome: 'tora', im: ler(MOD + 'tora.png'), mx: 40, my: 40 },
   { nome: 'piso', im: ler('./arte_casa/pecas/piso_1.png'), mx: 30, my: 34 },
 ];
-const tora = itens[0].im, disco = itens[2].im, piso = itens[3].im;
+const tora = itens[0].im, piso = itens[1].im;
 const px = (im, x, y) => { if (x < 0 || y < 0 || x >= im.w || y >= im.h) return null; const p = (y * im.w + x) * 4; return im.data[p + 3] ? [im.data[p], im.data[p + 1], im.data[p + 2]] : null; };
-// contexto: cor na posição (x,y) relativa ao módulo, fora dele
+// contexto: cor na posição (x,y) relativa ao módulo, fora dele. A parede é a tora empilhada (passo 9 para baixo); o pedaço seguinte começa 64 px à direita e 32 abaixo (a tora seguinte da mesma fila)
 const CTX = {
-  tora: (x, y) => { const j = Math.floor(y / 9), xs = mod(x + j * 21, 64); return px(tora, xs, mod(y, 9)); },                                   // toras de cima e de baixo, deslocadas; as pontas dão a volta
-  capa: (x, y) => y >= 5 ? px(tora, mod(x + Math.floor((y - 5) / 9) * 21, 64), (y - 5) % 9) : null,                                            // as toras que ficam embaixo da tampa
-  disco: (x, y) => x >= 0 && x < disco.w ? px(disco, x, mod(y, 9)) : null,                                                                      // a coluna de discos continua para cima e para baixo
+  tora: (x, y) => { for (const [ox, oy] of [[0, 9], [0, -9], [0, 18], [0, -18], [0, 27], [0, -27], [64, 32], [-64, -32], [64, 41], [-64, -23], [64, 23], [-64, -41]]) { const c = px(tora, x - ox, y - oy); if (c) return c; } return null; },
   piso: (x, y) => { for (const [ox, oy] of [[-64, -32], [64, -32], [-64, 32], [64, 32], [0, -64], [0, 64], [-128, 0], [128, 0]]) { const c = px(piso, x - ox, y - oy); if (c) return c; } return null; },
 };
 let x = 0, y = 0, rh = 0; const lay = {};
