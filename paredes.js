@@ -25,16 +25,20 @@
   // trecho de 1 tile correndo para ↘; a parede virada para ↙ é este mesmo desenho espelhado
   function wallPiece(F, h, door) {
     const oy = h + TP / 2, c = mk(64 + TP, oy + 33), x = c.getContext('2d');
+    // faixa vertical [cima, baixo] da tampa escura na coluna i. Na porta cortada (sem travessão) a tampa termina dos dois lados do vão com a mesma ponta fina e inclinada da ponta da parede (4,3,2,1 linhas), em vez de um corte reto
+    const capRange = i => { const up = i < TP ? -Math.floor(i / 2) : -TP / 2 + Math.floor((i - TP) / 2); let lo = i < 64 ? Math.floor(i / 2) : 32 - Math.ceil((i - 64) / 2);
+      if (door && h <= DOOR_H) { const E = DOOR_A + TP; if (i >= E - TP && i < E) lo = up + [4, 3, 2, 1][i - (E - TP)] - 1; else if (i >= DOOR_B && i < DOOR_B + TP) lo = up + [1, 2, 3, 4][i - DOOR_B] - 1; }
+      return [up, lo]; };
     for (let i = 0; i < 64; i++) for (let d = 0; d < h; d++) {
       if (door && i >= DOOR_A && i < DOOR_B && d >= h - DOOR_H) continue;
       put(x, i, oy + Math.floor(i / 2) - h + d, faceColor(F, i, d, h));
     }
     for (let i = 0; i < 64; i++) if (!(door && i >= DOOR_A && i < DOOR_B)) put(x, i, oy + Math.floor(i / 2), F.line);   // linha extra embaixo: cobre a emenda com o piso
     if (door) for (let k = 0; k < TP; k++) for (let d = 0; d < Math.min(DOOR_H, h); d++)   // lateral do vão (a espessura da parede); no corte baixo o batente também fica baixo
-      { const yy = oy + Math.floor((DOOR_A + k) / 2) - k - d - 1; if (yy >= oy + Math.floor((DOOR_A + k) / 2) - h + 1) put(x, DOOR_A + k, yy, JAMB); }
+      { const yy = oy + Math.floor((DOOR_A + k) / 2) - k - d - 1; if (yy >= oy - h + capRange(DOOR_A + k)[1] + 1) put(x, DOOR_A + k, yy, JAMB); }
     for (let i = 0; i < 64 + TP; i++) {   // topo escuro
       if (door && h <= DOOR_H && i >= DOOR_A + TP && i < DOOR_B) continue;   // sem travessão (parede cortada): o vão fica livre, sem linha escura no meio
-      const up = i < TP ? -Math.floor(i / 2) : -TP / 2 + Math.floor((i - TP) / 2), lo = i < 64 ? Math.floor(i / 2) : 32 - Math.ceil((i - 64) / 2);
+      const [up, lo] = capRange(i);
       for (let j = up; j <= lo; j++) put(x, i, oy - h + j, j === lo && i < 64 ? CAP_L : CAP);
     }
     return { c, oy };

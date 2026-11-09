@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=7"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=9"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -69,7 +69,7 @@ function recalcParedes() {
     if (p.k === 'door') { add(p.n, p.n + .25); add(p.n + .75, p.n + 1); } else add(p.n, p.n + 1);
   }
   postes = [];   // pilar em toda ponta e em todo encontro; só no meio de uma reta não tem
-  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; postes.push({ x: q.x, y: q.y, k: q.alto ? 'postHigh' : 'postLow' }); rectsP.push([q.x - T, q.y - T, q.x, q.y]); }
+  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; postes.push({ x: q.x, y: q.y, k: q.alto ? 'postHigh' : 'postLow', livre: q.L + q.R + q.U + q.D === 1 }); rectsP.push([q.x - T, q.y - T, q.x, q.y]); }
 }
 const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d);
 // itens de desenho da casa (ordenados junto com árvores e personagem): a parede passa na frente do personagem só quando ele está atrás do plano dela
@@ -99,6 +99,7 @@ function itensCasa() {
   for (const q of postes) {
     const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, cheia = PIECE.postHigh, rc = [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - cheia.oy + 1, cheia.c.width, cheia.c.height];
     const corta = !atras && q.k === 'postHigh' && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = PIECE[corta ? 'postMid' : q.k];
+    if (q.livre && (corta || q.k === 'postLow')) continue;   // ponta livre de parede baixa ou cortada: sem pilarzinho, a ponta fica só com a tampa afilada da própria parede
     out.push({ d: key, atras, r: [rc[0], sy(q.x, q.y) - pc.oy + 1, pc.c.width, pc.c.height], f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1) });
   }
   return out;
