@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=5"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=6"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -86,11 +86,21 @@ function itensCasa() {
   const T = CASA.T, out = [], sx = (x, y) => (x - y) * 64 + M * 64, sy = (x, y) => (x + y) * 32;
   const sala = salaDoPersonagem();   // paredes da frente dessa sala descem até a cintura (a sala "se abre"); nas outras salas a parede fica inteira
   const naSala = (...cel) => sala && cel.some(([a, b]) => sala.has(a + ',' + b));
-  for (const p of paredes) {
-    const atras = p.a === 'x' ? hy > p.c - T / 2 : hx > p.c - T / 2, corta = !atras && p.k !== 'low' && naSala(...(p.a === 'x' ? [[p.n, p.c - 1], [p.n, p.c]] : [[p.c - 1, p.n], [p.c, p.n]])), pc = PIECE[p.a + (p.k === 'door' ? (corta ? 'DoorMid' : 'Door') : p.k === 'low' ? 'Low' : corta ? 'Mid' : 'High')], key = p.n + .5 + p.c;
-    out.push({ d: key, atras, r: [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - pc.c.width, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - pc.oy + 1, pc.c.width, pc.c.height], f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
+  const H0 = [hsx - 16, hsy - 64, 32, 68], ov = (r, s) => r[0] < s[0] + s[2] && r[0] + r[2] > s[0] && r[1] < s[1] + s[3] && r[1] + r[3] > s[1];
+  const rectDe = (p, pc) => [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - pc.c.width, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - pc.oy + 1, pc.c.width, pc.c.height];
+  const inf = paredes.map(p => ({ p, atras: p.a === 'x' ? hy > p.c - T / 2 : hx > p.c - T / 2, key: p.n + .5 + p.c, adj: naSala(...(p.a === 'x' ? [[p.n, p.c - 1], [p.n, p.c]] : [[p.c - 1, p.n], [p.c, p.n]])), cheia: PIECE[p.a + (p.k === 'door' ? 'Door' : 'High')] }));
+  // alvos que não podem ficar escondidos por parede alta: o personagem e as portas da sala dele
+  const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: rectDe(w.p, w.cheia), key: w.key }); }
+  const cobreAlvo = (r, key) => alvos.some(t => (t.jog || key > t.key) && ov(r, t.r));   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
+  for (const w of inf) {
+    const p = w.p, corta = !w.atras && p.k !== 'low' && (w.adj || (sala && cobreAlvo(rectDe(p, w.cheia), w.key))), pc = PIECE[p.a + (p.k === 'door' ? (corta ? 'DoorMid' : 'Door') : p.k === 'low' ? 'Low' : corta ? 'Mid' : 'High')];
+    out.push({ d: w.key, atras: w.atras, r: rectDe(p, pc), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
   }
-  for (const q of postes) { const atras = hy > q.y - T / 2 || hx > q.x - T / 2, pc = PIECE[!atras && q.k === 'postHigh' && naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) ? 'postMid' : q.k]; out.push({ d: q.x + q.y - T, atras, r: [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1, pc.c.width, pc.c.height], f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1) }); }
+  for (const q of postes) {
+    const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, cheia = PIECE.postHigh, rc = [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - cheia.oy + 1, cheia.c.width, cheia.c.height];
+    const corta = !atras && q.k === 'postHigh' && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = PIECE[corta ? 'postMid' : q.k];
+    out.push({ d: key, atras, r: [rc[0], sy(q.x, q.y) - pc.oy + 1, pc.c.width, pc.c.height], f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1) });
+  }
   return out;
 }
 // aresta de célula mais perto do ponto (fx, fy) do mundo

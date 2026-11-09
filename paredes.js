@@ -33,6 +33,7 @@
     if (door) for (let k = 0; k < TP; k++) for (let d = 0; d < Math.min(DOOR_H, h); d++)   // lateral do vão (a espessura da parede); no corte baixo o batente também fica baixo
       put(x, DOOR_A + k, oy + Math.floor((DOOR_A + k) / 2) - k - d - 1, JAMB);
     for (let i = 0; i < 64 + TP; i++) {   // topo escuro
+      if (door && h <= DOOR_H && i >= DOOR_A && i < DOOR_B) continue;   // sem travessão (parede cortada): o vão fica livre, sem linha escura no meio
       const up = i < TP ? -Math.floor(i / 2) : -TP / 2 + Math.floor((i - TP) / 2), lo = i < 64 ? Math.floor(i / 2) : 32 - Math.ceil((i - 64) / 2);
       for (let j = up; j <= lo; j++) put(x, i, oy - h + j, j === lo && i < 64 ? CAP_L : CAP);
     }
