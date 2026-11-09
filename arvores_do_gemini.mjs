@@ -88,6 +88,19 @@ for (const it of itens) if (it.tipo === 'arvore') {
     let nv = 0, sr = 0, sg = 0, sb = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W2 || yy >= H2) continue; const q = yy * W2 + xx; if (copia[q * 4 + 3] && isVerde(copia[q * 4], copia[q * 4 + 1], copia[q * 4 + 2])) { nv++; sr += copia[q * 4]; sg += copia[q * 4 + 1]; sb += copia[q * 4 + 2]; } }
     if (nv >= 6) { it.o[p * 4] = Math.round(sr / nv * 1.04); it.o[p * 4 + 1] = Math.round(sg / nv * 1.04); it.o[p * 4 + 2] = Math.round(sb / nv * 1.04); } }
 }
+// cores das árvores = cores do arbusto (verde) e do toco/tronco (marrom), que são as que encaixam no cenário:
+// casamento de histograma por brilho (o claro/escuro continua na mesma ordem, mas os tons passam a ser os do arbusto e do toco).
+// As árvores são tratadas juntas (o pinheiro continua mais escuro que o carvalho, etc.).
+if (process.env.CORES_DO_CENARIO !== '0') {
+  const Yc = (r, gg, b) => .3 * r + .59 * gg + .11 * b, verdeCl = (r, gg, b) => gg >= r && gg >= b && Math.max(r, gg, b) - Math.min(r, gg, b) > 12;
+  const alvo = (nomes, quer) => { const L = []; for (const it of itens) if (nomes.includes(it.nome)) for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) { const c = [it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]; if (quer === undefined || verdeCl(...c) === quer) L.push(c); } return L.sort((a, b) => Yc(...a) - Yc(...b)); };
+  const alvoVerde0 = alvo(['arbusto', 'arbusto_b'], true), alvoVerde = alvoVerde0.slice(0, Math.floor(alvoVerde0.length * (+process.env.CLARO_MAX || .88))), alvoMarrom = alvo(['toco', 'toco_b', 'tronco', 'tronco_b'], false);
+  const arv = itens.filter(it => it.tipo === 'arvore');
+  for (const itA of arv) { const pool = { v: [], m: [] };
+  { const it = itA, ii = 0; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) { const c = [it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]; (verdeCl(...c) ? pool.v : pool.m).push([Yc(...c), ii, i]); } }
+  for (const [lista, tgt] of [[pool.v, alvoVerde], [pool.m, alvoMarrom]]) { lista.sort((a, b) => a[0] - b[0]); const n = lista.length; if (!tgt.length) continue;
+    lista.forEach(([, ii, i], k) => { const c = tgt[Math.min(tgt.length - 1, Math.floor(k / n * tgt.length))], o = itA.o; o[i * 4] = c[0]; o[i * 4 + 1] = c[1]; o[i * 4 + 2] = c[2]; }); } }
+}
 const dados = {};
 for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
   const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
