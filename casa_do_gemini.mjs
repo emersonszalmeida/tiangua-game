@@ -39,7 +39,7 @@ const [wEsq, wDir, canto] = tres;   // da esquerda para a direita: "/" (↙), "\
 { pecas.parede_se = reduz(apara(recorta(wDir, x => x < Lw)), S); }                                // "\" : ponta redonda à direita → fica a esquerda
 pecas.canto = reduz(apara(recorta(canto)), S);
 // pisos: só a face de cima (losango), sem a espessura da laje
-piso.slice(0, 4).forEach((c, i) => { const cx = c.w / 2, cy = c.w / 4; pecas['piso_' + (i + 1)] = reduz(apara(recorta(c, (x, y) => Math.abs(x + .5 - cx) / cx + Math.abs(y + .5 - cy) / cy <= 1.03)), S); });
+piso.slice(0, 4).forEach((c, i) => { const cx = c.w / 2, cy = c.w / 4; pecas['pisoG_' + (i + 1)] = reduz(apara(recorta(c, (x, y) => Math.abs(x + .5 - cx) / cx + Math.abs(y + .5 - cy) / cy <= 1.03)), S); });
 // largura exata para as peças encaixarem sem fresta: parede = 64 px (uma aresta do losango), piso = 128 px (o losango inteiro); estica por vizinho mais próximo (1 ou 2 colunas repetidas)
 function largura(im, w2) { const o = new Uint8Array(w2 * im.h * 4); for (let y = 0; y < im.h; y++) for (let x = 0; x < w2; x++) { const u = Math.min(im.w - 1, Math.floor((x + .5) * im.w / w2)); o.set(im.o.subarray((y * im.w + u) * 4, (y * im.w + u) * 4 + 4), (y * w2 + x) * 4); } return { w: w2, h: im.h, o }; }
 for (const n of Object.keys(pecas)) { if (n.startsWith('parede')) pecas[n] = largura(pecas[n], 64); else if (n.startsWith('piso')) pecas[n] = largura(pecas[n], 128); }
@@ -48,6 +48,9 @@ function cisalha(im, sinal) { const topo = x => { for (let y = 0; y < im.h; y++)
   const m = (topo(im.w - 3) - topo(2)) / (im.w - 5), k = sinal * .5 - m, dys = Array.from({ length: im.w }, (_, x) => Math.round((x - 2) * k)), mn = Math.min(...dys), mx = Math.max(...dys), h2 = im.h + mx - mn, o = new Uint8Array(im.w * h2 * 4);
   for (let x = 0; x < im.w; x++) for (let y = 0; y < im.h; y++) { const q = ((y + dys[x] - mn) * im.w + x) * 4; o.set(im.o.subarray((y * im.w + x) * 4, (y * im.w + x) * 4 + 4), q); } return { w: im.w, h: h2, o }; }
 pecas.parede_se = cisalha(pecas.parede_se, 1); pecas.parede_sw = cisalha(pecas.parede_sw, -1);
+// pontas cheias: repete a coluna 2 (e a w-3) nas 2 colunas de cada ponta, só onde a coluna vizinha tem pixel; assim dois pedaços lado a lado se tocam sem fresta
+for (const n of ['parede_se', 'parede_sw']) { const im = pecas[n], W2 = im.w;
+  for (const [from, to] of [[2, [1, 0]], [W2 - 3, [W2 - 2, W2 - 1]]]) for (const x of to) for (let y = 0; y < im.h; y++) { if (im.o[(y * W2 + from) * 4 + 3]) im.o.set(im.o.subarray((y * W2 + from) * 4, (y * W2 + from) * 4 + 4), (y * W2 + x) * 4); } }
 // o canto do Gemini sobra ~35 px acima da parede: tira 2 camadas de toras (25 linhas = 2 períodos do padrão) do meio, para ficar só um pouco mais alto que a parede
 { const c = pecas.canto, corte0 = +process.env.CANTO_CORTE0 || 40, n = +process.env.CANTO_CORTE || 25, h2 = c.h - n, o = new Uint8Array(c.w * h2 * 4); for (let y = 0; y < h2; y++) { const sy = y < corte0 ? y : y + n; o.set(c.o.subarray(sy * c.w * 4, (sy + 1) * c.w * 4), y * c.w * 4); } pecas.canto = { w: c.w, h: h2, o }; }
 // paleta única (mediana de cor) para dar coerência
@@ -59,5 +62,6 @@ for (const [nome, im] of Object.entries(pecas)) { for (let i = 0; i < im.w * im.
   fs.writeFileSync('./arte_casa/pecas/' + nome + '.png', encodePNG(im.w, im.h, im.o));
   // ponto de apoio: parede = pixel mais baixo da coluna da esquerda (início da linha de base); canto = meio da base; piso = ponta de cima
   let ax = 0, ay = 0; if (nome.startsWith('parede')) { let y = im.h - 1; while (y > 0 && !im.o[(y * im.w + 2) * 4 + 3]) y--; ay = y; ax = 2; } else if (nome === 'canto') { ax = Math.round(im.w / 2); ay = im.h - 1; }
+  if (nome.startsWith('parede') || nome === 'canto') ay -= 4;   // assenta 4 px abaixo (ver NOTAS)
   info[nome] = { w: im.w, h: im.h, ax, ay }; console.log(nome, im.w + 'x' + im.h, 'apoio', ax, ay); }
 fs.writeFileSync('./arte_casa/pecas.json', JSON.stringify(info));

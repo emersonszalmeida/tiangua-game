@@ -1,19 +1,19 @@
 <!doctype html><html lang="pt-br"><meta charset="utf-8"><title>Peças da cabana</title>
-<body style="margin:0;background:#849766"><canvas id="c" width="900" height="620"></canvas>
+<body style="margin:0;background:#849766"><canvas id="c" width="1100" height="700"></canvas>
 <script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script>
 <script>
 // teste de encaixe das peças da cabana (arte_casa/pecas, geradas por casa_do_gemini.mjs) com o personagem na mesma escala
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
-const nomes = ['parede_sw', 'parede_se', 'canto', 'piso_1', 'piso_2', 'piso_3', 'piso_4'], IMG = {}; let falta = nomes.length;
+const nomes = ['parede_sw', 'parede_se', 'canto', 'piso_1', 'piso_2', 'piso_3'], IMG = {}; let falta = nomes.length;
 fetch('arte_casa/pecas.json').catch(() => null);
-const INFO = { parede_sw: { ax: 2, ay: 119 }, parede_se: { ax: 2, ay: 82 }, canto: { ax: 18, ay: 92 } };
+const INFO = { parede_sw: { ax: 0, ay: 120 }, parede_se: { ax: 0, ay: 88 }, canto: { ax: 18, ay: 102 } };
 for (const n of nomes) { const i = new Image(); i.onload = () => { if (!--falta) desenha(); }; i.src = 'arte_casa/pecas/' + n + '.png'; IMG[n] = i; }
 function desenha() {
   const Z = +new URLSearchParams(location.search).get('z') || 2; ctx.fillStyle = '#849766'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.scale(Z, Z);
   const OX = 450 / Z, OY = 200 / Z, NI = 3, NJ = 2, cel = (i, j) => [OX + (i - j) * 64, OY + (i + j + 1) * 32];   // centro do losango da célula (i ↘, j ↙)
   const lista = [];
-  for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const [x, y] = cel(i, j), im = IMG['piso_' + (1 + ((i * 3 + j * 5) % 4))]; lista.push({ d: -1, f: () => ctx.drawImage(im, Math.round(x - im.width / 2), Math.round(y - 32)) }); }
-  const peca = (nome, vx, vy, d) => { const a = INFO[nome], im = IMG[nome]; lista.push({ d, f: () => ctx.drawImage(im, Math.round(vx - a.ax), Math.round(vy - a.ay)) }); };
+  for (let i = 0; i < NI; i++) for (let j = 0; j < NJ; j++) { const [x, y] = cel(i, j), im = IMG['piso_' + (1 + ((i * 3 + j * 5) % 3))]; lista.push({ d: -1, f: () => ctx.drawImage(im, Math.round(x - im.width / 2), Math.round(y - 32)) }); }
+  const DYW = +new URLSearchParams(location.search).get('dyw') || 0, peca = (nome, vx, vy, d) => { const a = INFO[nome], im = IMG[nome]; lista.push({ d, f: () => ctx.drawImage(im, Math.round(vx - a.ax), Math.round(vy - a.ay + DYW)) }); };
   for (let i = 0; i < NI; i++) { const [x, y] = cel(i, 0); peca('parede_se', x, y - 32, i + 0 + .1); }        // aresta NE de cada célula da fileira de trás
   for (let j = 0; j < NJ; j++) { const [x, y] = cel(0, j); peca('parede_sw', x - 64, y, j + 0 + .1); }      // aresta NW de cada célula da coluna da esquerda
   const cantoEm = (vx, vy, d) => lista.push({ d, f: () => ctx.drawImage(IMG.canto, Math.round(vx - INFO.canto.ax), Math.round(vy - INFO.canto.ay)) });
