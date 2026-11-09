@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -52,12 +52,48 @@ function sobrepoe(id, fx, fy) { const m = maskDe(id); if (!m) return false; cons
   if (!viz.length) return false; for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) if (m.a[j * m.w + i]) { const wx = bx + (i - m.w / 2 + .5) * ESCD, wy = by + (j - (m.h - 1) + .5) * ESCD; for (const o of viz) if (opaco(o, wx, wy)) return true; } return false; }
 const objEm = (cx, cy) => objetos.findIndex(o => !OBJS[o.id].deco && o.x === cx && o.y === cy);
 function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? ESCD : (d.esc || 2); c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
+// ---------- casa: paredes e piso (peças vindas do casa.html, em paredes.js) ----------
+const CASA = PAREDES, PIECE = CASA.PIECE;
+let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'door' | 'low'
+let pisos = new Set();     // células com piso de casa: 'cx,cy'
+let postes = [], rectsP = [];   // pilares (automáticos) e retângulos de colisão
+const RP = .15;            // raio do personagem para as paredes
+function recalcParedes() {
+  const T = CASA.T, v = new Map(), no = (x, y) => { const k = x + ',' + y; if (!v.has(k)) v.set(k, { x, y, L: 0, R: 0, U: 0, D: 0, alto: false }); return v.get(k); };
+  rectsP = [];
+  for (const p of paredes) {
+    const alto = p.k !== 'low';
+    if (p.a === 'x') { const a = no(p.n, p.c), b = no(p.n + 1, p.c); a.R = 1; b.L = 1; if (alto) a.alto = b.alto = true; }
+    else { const a = no(p.c, p.n), b = no(p.c, p.n + 1); a.D = 1; b.U = 1; if (alto) a.alto = b.alto = true; }
+    const add = (n0, n1) => rectsP.push(p.a === 'x' ? [n0, p.c - T, n1, p.c] : [p.c - T, n0, p.c, n1]);
+    if (p.k === 'door') { add(p.n, p.n + .25); add(p.n + .75, p.n + 1); } else add(p.n, p.n + 1);
+  }
+  postes = [];   // pilar em toda ponta e em todo encontro; só no meio de uma reta não tem
+  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; postes.push({ x: q.x, y: q.y, k: q.alto ? 'postHigh' : 'postLow' }); rectsP.push([q.x - T, q.y - T, q.x, q.y]); }
+}
+const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d);
+// itens de desenho da casa (ordenados junto com árvores e personagem): a parede passa na frente do personagem só quando ele está atrás do plano dela
+function itensCasa() {
+  const T = CASA.T, out = [], sx = (x, y) => (x - y) * 64 + M * 64, sy = (x, y) => (x + y) * 32;
+  for (const p of paredes) {
+    const pc = PIECE[p.a + (p.k === 'door' ? 'Door' : p.k === 'low' ? 'Low' : 'High')], key = p.n + .5 + p.c, atras = p.a === 'x' ? hy > p.c - T / 2 : hx > p.c - T / 2;
+    out.push({ d: atras ? Math.min(key, hx + hy - .01) : Math.max(key, hx + hy + .01), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
+  }
+  for (const q of postes) { const pc = PIECE[q.k], atras = hy > q.y - T / 2 || hx > q.x - T / 2; out.push({ d: atras ? Math.min(q.x + q.y - T, hx + hy - .01) : Math.max(q.x + q.y - T, hx + hy + .01), f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy) }); }
+  return out;
+}
+// aresta de célula mais perto do ponto (fx, fy) do mundo
+function arestaPerto(fx, fy) {
+  const cX = Math.round(fy), dX = Math.abs(fy - cX), cY = Math.round(fx), dY = Math.abs(fx - cY);
+  return dX <= dY ? { a: 'x', c: cX, n: Math.floor(fx), d: dX } : { a: 'y', c: cY, n: Math.floor(fy), d: dY };
+}
 // ---------- salvar / abrir ----------
-function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, }; }
+function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, paredes, pisos: [...pisos] }; }
 function deJson(j) {
   if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
   const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
   objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
+  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); recalcParedes();
   TERR.render();
 }
 const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
@@ -86,8 +122,9 @@ const atualizaUi = () => {
     '<h4>' + 'Pincel · Shift + arrastar = linha reta' + '</h4><div class="g">' + [1, 2, 3].map(w => '<button data-w="' + w + '" class="' + (larg === w ? 'on' : '') + '">' + w + '×' + w + '</button>').join('') + '</div>' +
     '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
     '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
+    '<h4>Casa (paredes e piso)</h4><div class="g">' + bt('parede', 'high', CASA.prev('high'), 'Parede alta') + bt('parede', 'door', CASA.prev('door'), 'Parede com porta') + bt('parede', 'low', CASA.prev('low'), 'Parede baixa') + bt('piso', 'piso', CASA.prev('piso'), 'Piso') + bt('apagap', 'x', 'terreno/terra_0_0.png', 'Tirar parede') + bt('tirapiso', 'x', 'terreno/terra_0_0.png', 'Tirar piso') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
-    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. O mapa também fica guardado sozinho neste navegador.</div>';
+    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. Paredes: clique perto da aresta que quer (arraste para fazer uma fileira); os pilares aparecem sozinhos nas pontas e nos encontros. Piso e "Tirar piso" usam o pincel 1×1, 2×2, 3×3. Botão direito apaga a parede mais perto. O mapa também fica guardado sozinho neste navegador.</div>';
   pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
   pn.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ferr = { t: b.dataset.t, id: b.dataset.id }; atualizaUi(); });
   document.getElementById('bSalvar').onclick = baixa; document.getElementById('bAbrir').onclick = () => document.getElementById('fArq').click(); document.getElementById('fArq').onchange = e => e.target.files[0] && abre(e.target.files[0]);
@@ -105,9 +142,19 @@ function bateArv(o, wx, wy) { const d = OBJS[o.id]; if (d.deco && !d.pe) return 
   return false; }
 let mostraCol = false;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
 const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyC') mostraCol = !mostraCol; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
+function tratarCasa(e, fx, fy, cx, cy) {
+  const ar = arestaPerto(fx, fy), i = paredes.findIndex(p => p.a === ar.a && p.c === ar.c && p.n === ar.n);
+  if (e.button === 2) { if (i >= 0 && ar.d < .3) { paredes.splice(i, 1); recalcParedes(); autosave(); return true; } return false; }   // botão direito: apaga a parede mais perto; senão segue para os objetos
+  if (ferr.t === 'apagap') { if (i >= 0) { paredes.splice(i, 1); recalcParedes(); autosave(); } return true; }
+  if (ferr.t === 'parede') { if (ar.c < 0 || ar.c > M || ar.n < 0 || ar.n >= M) return true; if (i >= 0) { if (paredes[i].k === ferr.id) return true; paredes[i].k = ferr.id; } else paredes.push({ a: ar.a, c: ar.c, n: ar.n, k: ferr.id }); recalcParedes(); autosave(); return true; }
+  const o = Math.floor((larg - 1) / 2);   // piso / tirar piso com o pincel
+  for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) { const x = cx - o + k, y = cy - o + j; if (x < 0 || y < 0 || x >= M || y >= M) continue; if (ferr.t === 'piso') pisos.add(x + ',' + y); else pisos.delete(x + ',' + y); }
+  autosave(); return true;
+}
 function pintaMouse(e) {
   if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
   if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy), fx = (gx / 64 + gy / 32) / 2, fy = (gy / 32 - gx / 64) / 2;
+  if (ferr.t === 'parede' || ferr.t === 'apagap' || ferr.t === 'piso' || ferr.t === 'tirapiso' || e.button === 2) { if (tratarCasa(e, fx, fy, cx, cy)) return; }
   if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bz = -1e9; objetos.forEach((o, k) => { if (OBJS[o.id].deco && o.x + o.y > bz && opaco(o, gx, gy, 1)) { bz = o.x + o.y; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
   if (ferr.t === 'chao') {
     const carimba = (x, y) => { const o = Math.floor((larg - 1) / 2); for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) pinta(x - o + k, y - o + j, ferr.id); };
@@ -129,13 +176,14 @@ function frame(now) {
   PERS.step(P, dx, dy, run, now);
   if (dx || dy) { const v = (run ? 190 : 110) * dt; // pixels de tela
     const sxv = dx / Math.hypot(dx, dy) * v, syv = dy / Math.hypot(dx, dy) * v * .5;
-    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => bateArv(o, x, y)); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
+    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => x > .3 && y > .3 && x < M - .3 && y < M - .3 && !objetos.some(o => bateArv(o, x, y)) && !bateParede(x, y); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
   hsx = (hx - hy) * 64 + M * 64; hsy = (hx + hy) * 32; const cx = cv.width / 2, cy = cv.height / 2;
   ctx.fillStyle = '#16120e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(cx - hsx * K), Math.round(cy - hsy * K)); ctx.scale(K, K);
   if (TERR.cv) ctx.drawImage(TERR.cv, 0, 0);
+  for (const k of pisos) { const [px0, py0] = k.split(',').map(Number); ctx.drawImage(CASA.floorTile, (px0 - py0) * 64 + M * 64 - 64, (px0 + py0) * 32); }
   if (grade) { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1 / K; ctx.beginPath(); for (let i = 0; i <= M; i++) { ctx.moveTo(M * 64 + i * 64, i * 32); ctx.lineTo(M * 64 + i * 64 - M * 64, i * 32 + M * 32); ctx.moveTo(M * 64 - i * 64, i * 32); ctx.lineTo(M * 64 - i * 64 + M * 64, i * 32 + M * 32); } ctx.stroke(); }
   const lista = objetos.map(o => OBJS[o.id].deco ? { d: o.x + o.y + (OBJS[o.id].pe ? (OBJS[o.id].pe.y0 - (OBJS[o.id].im.naturalHeight - 1)) * ESCD / 32 : 0), f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y) * 32)) } : { d: o.x + o.y + 1 + ((OBJS[o.id].pe ? OBJS[o.id].pe.y0 - OBJS[o.id].by + 4 : 0) * (OBJS[o.id].esc || 2)) / 32, f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y + 1) * 32)) });
-  lista.push({ d: hx + hy, f: () => PERS.draw(ctx, P, hsx, hsy) }); if (mostraCol) lista.push({ d: 1e9, f: () => { ctx.strokeStyle = '#ff2d2d'; ctx.lineWidth = 1 / K; for (const o of objetos) { const d = OBJS[o.id]; if (!d.pe) continue; const A = ancora(o), X = px => A.sx + (px - A.cx) * A.e, Y = k => A.sy + (d.pe.y0 + k - A.by) * A.e; ctx.beginPath(); d.pe.l.forEach((v, k) => { k ? ctx.lineTo(X(v), Y(k)) : ctx.moveTo(X(v), Y(k)); }); for (let k = d.pe.r.length - 1; k >= 0; k--) ctx.lineTo(X(d.pe.r[k]), Y(k)); ctx.closePath(); ctx.stroke(); } ctx.fillStyle = '#2dff2d'; ctx.fillRect(hsx - 1, hsy - 1, 2, 2); } }); lista.sort((a, b) => a.d - b.d).forEach(it => it.f()); ctx.restore(); requestAnimationFrame(frame);
+  lista.push(...itensCasa()); lista.push({ d: hx + hy, f: () => PERS.draw(ctx, P, hsx, hsy) }); if (mostraCol) lista.push({ d: 1e9, f: () => { ctx.strokeStyle = '#ff2d2d'; ctx.lineWidth = 1 / K; for (const o of objetos) { const d = OBJS[o.id]; if (!d.pe) continue; const A = ancora(o), X = px => A.sx + (px - A.cx) * A.e, Y = k => A.sy + (d.pe.y0 + k - A.by) * A.e; ctx.beginPath(); d.pe.l.forEach((v, k) => { k ? ctx.lineTo(X(v), Y(k)) : ctx.moveTo(X(v), Y(k)); }); for (let k = d.pe.r.length - 1; k >= 0; k--) ctx.lineTo(X(d.pe.r[k]), Y(k)); ctx.closePath(); ctx.stroke(); } ctx.beginPath(); for (const [a, b, c, d] of rectsP) { const P2 = (x, y) => [(x - y) * 64 + M * 64, (x + y) * 32]; const q = [P2(a, b), P2(c, b), P2(c, d), P2(a, d)]; ctx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach(([x, y]) => ctx.lineTo(x, y)); ctx.closePath(); } ctx.stroke(); ctx.fillStyle = '#2dff2d'; ctx.fillRect(hsx - 1, hsy - 1, 2, 2); } }); lista.sort((a, b) => a.d - b.d).forEach(it => it.f()); ctx.restore(); requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script></body></html>
