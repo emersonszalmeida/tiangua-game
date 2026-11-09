@@ -1,6 +1,6 @@
 // Monta UMA folha PNG com as peças de parede/pilar/piso como estavam ANTES dos ajustes do Claude (código original do casa.html, commit 14efd59 de paredes.js),
 // cada uma num quadro com margem, para abrir no editor-pixel (arrastar o PNG), consertar à mão e exportar.
-// Peças: parede alta / com porta / baixa / CORTADA (26 px) / porta CORTADA, nas duas direções (x = corre em ↘, y = corre em ↙; as cores são diferentes), pilares e o piso.
+// Peças (as ↙, "y", aparecem espelhadas, como no jogo): parede alta / com porta / baixa / CORTADA (26 px) / porta CORTADA, nas duas direções (x = corre em ↘, y = corre em ↙; as cores são diferentes), pilares e o piso.
 // Saída: paredes_editar/folha_para_editar.png, paredes_editar/folha_layout.json e cópia em Downloads/paredes_para_editar.png
 // Depois de editar e exportar: node paredes_aplicar_edicoes.mjs <png exportado>
 import { spawn, spawnSync, execFileSync } from 'node:child_process';
@@ -27,10 +27,11 @@ try {
   await send('Runtime.enable'); await send('Page.enable'); await send('Page.navigate', { url: pathToFileURL(pag).href }); await sleep(1500);
   const expr = `(() => { const P = PAREDES, M = ${MARGEM}, LARG = ${LARG}, CUT = 26;
     const itens = [];
-    for (const [d, F] of [['x', P.FACE_Y], ['y', P.FACE_X]]) { itens.push([d + '_alta', P.wallPiece(F, P.HIGH)], [d + '_porta', P.wallPiece(F, P.HIGH, true)], [d + '_baixa', P.wallPiece(F, P.LOW)], [d + '_cortada', P.wallPiece(F, CUT)], [d + '_porta_cortada', P.wallPiece(F, CUT, true)]); }
+    const espelha = p => { const c = document.createElement('canvas'); c.width = p.c.width; c.height = p.c.height; const k = c.getContext('2d'); k.translate(c.width, 0); k.scale(-1, 1); k.drawImage(p.c, 0, 0); return { c, oy: p.oy, espelhada: true }; };   // a parede ↙ é desenhada espelhada no jogo: na folha ela aparece como você a vê (correndo para ↙)
+    for (const [d, F] of [['x', P.FACE_Y], ['y', P.FACE_X]]) { const ini = itens.length; itens.push([d + '_alta', P.wallPiece(F, P.HIGH)], [d + '_porta', P.wallPiece(F, P.HIGH, true)], [d + '_baixa', P.wallPiece(F, P.LOW)], [d + '_cortada', P.wallPiece(F, CUT)], [d + '_porta_cortada', P.wallPiece(F, CUT, true)]); if (d === 'y') for (let k = ini; k < itens.length; k++) itens[k][1] = espelha(itens[k][1]); }
     itens.push(['pilar_alto', P.postPiece(P.HIGH)], ['pilar_baixo', P.postPiece(P.LOW)], ['pilar_cortado', P.postPiece(CUT)]); itens.push(['piso', { c: P.floorTile, oy: 0 }]);
     let x = 0, y = 0, rh = 0; const lay = {};
-    for (const [n, p] of itens) { const w = p.c.width, h = p.c.height, cw = w + 2 * M, ch = h + 2 * M; if (x + cw > LARG) { x = 0; y += rh; rh = 0; } lay[n] = { x, y, w: cw, h: ch, ix: x + M, iy: y + M, iw: w, ih: h, oy: p.oy }; x += cw; rh = Math.max(rh, ch); }
+    for (const [n, p] of itens) { const w = p.c.width, h = p.c.height, cw = w + 2 * M, ch = h + 2 * M; if (x + cw > LARG) { x = 0; y += rh; rh = 0; } lay[n] = { x, y, w: cw, h: ch, ix: x + M, iy: y + M, iw: w, ih: h, oy: p.oy, espelhada: !!p.espelhada }; x += cw; rh = Math.max(rh, ch); }
     const H = y + rh, cv = document.createElement('canvas'); cv.width = LARG; cv.height = H; const c = cv.getContext('2d');
     for (const [n, p] of itens) c.drawImage(p.c, lay[n].ix, lay[n].iy);
     return JSON.stringify({ png: cv.toDataURL('image/png'), lay, LARG, H }); })()`;
