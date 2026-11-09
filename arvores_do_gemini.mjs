@@ -173,7 +173,12 @@ for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.
   const raio = Math.round(Math.max(.1, (lar[Math.floor(lar.length * .3)] || 10) / 2 / 90) * 100) / 100, ox = Math.round(((nxm ? sxm / nxm : sx / sn) - Math.round(sx / sn * 2) / 2) * 2) / 2, oy = 4 - 10;
   const Hp = Math.max(8, Math.min(30, Math.round((lar[Math.floor(lar.length * .3)] || 20) * .5))), pl = [], pr = []; let ul = null, ur = null;
   for (let y = yb - Hp; y <= yb; y++) { let a = -1, b = -1; for (let x = 0; x < it.tw; x++) if (brown(x, y)) { if (a < 0) a = x; b = x; } if (a >= 0) { ul = a; ur = b; } pl.push(ul === null ? 0 : ul - 1); pr.push(ur === null ? -1 : ur + 2); }   // pegada = do marrom mais à esquerda ao mais à direita de cada linha (raízes inclusas)
-  dados[it.nome] = { pe: { y0: yb - Hp, l: pl, r: pr }, raio, ox, oy, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
+  let peF = { y0: yb - Hp, l: pl, r: pr };
+  if (it.tipo === 'deco') { peF = undefined; if (/^(toco|tronco)/.test(it.nome)) {   // colisão: toco = base (≈45% da largura de altura); tronco caído = quase o corpo todo (sem a ponta do galho de cima)
+    const Hd = it.nome.startsWith('toco') ? Math.round(it.tw * .45) : it.th - 5, y0 = it.th - Hd, l = [], r = []; let ua = 0, ub = -1;
+    for (let y = y0; y < it.th; y++) { let a = -1, b = -1; for (let x = 0; x < it.tw; x++) if (it.o[(y * it.tw + x) * 4 + 3]) { if (a < 0) a = x; b = x; } if (a >= 0) { ua = a; ub = b; } l.push(ua - 1); r.push(ub + 2); }
+    peF = { y0, l, r }; } }
+  dados[it.nome] = { pe: peF, raio, ox, oy, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
 }
 fs.writeFileSync(path('./arvore_dados.js'), '// gerado por arvores_do_gemini.mjs\nconst ARV_DADOS = ' + JSON.stringify(dados) + ';\n');
 // folha de conferência (zoom 3)
