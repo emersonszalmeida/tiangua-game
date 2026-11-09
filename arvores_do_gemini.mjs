@@ -121,8 +121,27 @@ if (process.env.CORES_DO_CENARIO !== '0') {
   for (const [lista, tgt] of [[pool.v, alvoVerde], [pool.m, alvoMarrom]]) { lista.sort((a, b) => a[0] - b[0]); const n = lista.length; if (!tgt.length) continue;
     lista.forEach(([, ii, i], k) => { const c = tgt[Math.min(tgt.length - 1, Math.floor(k / n * tgt.length))], o = itA.o; o[i * 4] = c[0]; o[i * 4 + 1] = c[1]; o[i * 4 + 2] = c[2]; }); } }
 }
+// APRENDIDO COM A EDIÇÃO DO DONO (2026-11-09, ver NOTAS.md): na madeira (tronco/galhos) o pixel de borda bem mais claro que o interior é a
+// franja do desenho original e o dono sempre a tira. Regra: pixel de madeira com vizinho 4 vazio, mais claro que a média do interior
+// (não-borda, 5x5) em > .12 e que o do 3x3 em > .08 → sai. Contra o gabarito do dono: ~78% de acerto, pega ~59% do que ele tirou (depois, 2ª parte: escurece a borda restante).
+if (process.env.FRANJA_MADEIRA !== '0') for (const it of itens) if (it.tipo === 'arvore') {
+  const W5 = it.tw, H5 = it.th, op = (x, y) => x >= 0 && y >= 0 && x < W5 && y < H5 && it.o[(y * W5 + x) * 4 + 3] > 0, cor = (x, y) => { const p = (y * W5 + x) * 4; return [it.o[p], it.o[p + 1], it.o[p + 2]]; };
+  const verd = c => c[1] >= c[0] && c[1] >= c[2] && Math.max(...c) - Math.min(...c) > 12, Yl = c => (.3 * c[0] + .59 * c[1] + .11 * c[2]) / 255;
+  const bd = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !op(x + dx, y + dy)), tirar = [];
+  for (let y = 0; y < H5; y++) for (let x = 0; x < W5; x++) { if (!op(x, y) || verd(cor(x, y)) || !bd(x, y)) continue; let n2 = 0, s2 = 0, n1 = 0, s1 = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { if ((!dx && !dy) || !op(x + dx, y + dy) || bd(x + dx, y + dy) || verd(cor(x + dx, y + dy))) continue; const yy = Yl(cor(x + dx, y + dy)); n2++; s2 += yy; if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) { n1++; s1 += yy; } }
+    if (n2 && n1) { const yp = Yl(cor(x, y)); if (yp - s2 / n2 > .12 && yp - s1 / n1 > .08) tirar.push([x, y]); } }
+  tirar.forEach(([x, y]) => it.o[(y * W5 + x) * 4 + 3] = 0);
+  // 2ª parte do que o dono fez: o que sobrou na borda da madeira nunca fica mais claro que o interior (borda = um tom abaixo do tronco).
+  // Medido no trabalho dele: desvio do brilho da borda caiu de ~.12 para ~.05 e o p90 de +.2 para ~+.02. Aqui: se ΔBrilho > +.02 (o dono deixa até ~+.02), escurece até (interior - .01), mantendo a cor.
+  const esc = [];
+  for (let y = 0; y < H5; y++) for (let x = 0; x < W5; x++) { if (!op(x, y) || verd(cor(x, y)) || !bd(x, y)) continue; let n = 0, s = 0;
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { if ((!dx && !dy) || !op(x + dx, y + dy) || bd(x + dx, y + dy) || verd(cor(x + dx, y + dy))) continue; n++; s += Yl(cor(x + dx, y + dy)); }
+    if (n >= 3) { const c = cor(x, y), yp = Yl(c), alvo = s / n - .01; if (yp - s / n > .02 && yp > 0) { const f = Math.max(.55, Math.min(1, alvo / yp)); esc.push([x, y, c.map(v => Math.round(v * f))]); } } }
+  esc.forEach(([x, y, c]) => { const p = (y * W5 + x) * 4; it.o[p] = c[0]; it.o[p + 1] = c[1]; it.o[p + 2] = c[2]; });
+}
 // peças editadas à mão (no editor-pixel, via arvores_aplicar_edicoes.mjs): ficam em arvore_editadas/<nome>.png e valem no lugar do que o gerador faria
-const EDIT = path('./arvore_editadas/');
+const EDIT = process.env.EDIT_DIR || path('./arvore_editadas/');   // EDIT_DIR=<pasta inexistente> ignora as peças editadas (para testar o gerador sozinho)
 for (const it of itens) { const fe = EDIT + it.nome + '.png'; if (fs.existsSync(fe)) { const im = decodePNG(fe); it.o = Uint8Array.from(im.data); it.tw = im.w; it.th = im.h; it.fixa = true; console.log('  (editada à mão) ' + it.nome); } }
 const dados = {};
 for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
