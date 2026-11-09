@@ -39,15 +39,16 @@ const OBJS = { arvore1: { nome: 'Árvore 1', src: 'arvore_v3_sem_galho.png', cx:
 const DECOS = [['grama_alta_1', 'Grama alta 1'], ['grama_alta_2', 'Grama alta 2'], ['grama_alta_3', 'Grama alta 3'], ['grama_alta_4', 'Grama alta 4'], ['flor_margarida', 'Margarida'], ['flor_amarela', 'Flor amarela'], ['flor_lavanda', 'Lavanda'], ['flor_papoula', 'Papoula'], ['flor_papoula_b', 'Papoula 2'], ['flor_azul', 'Flor azul'], ['flor_azul_b', 'Flor azul 2'], ['flor_mista', 'Flores mistas'], ['pedra_mini', 'Pedrinha'], ['pedra_pequena', 'Pedra pequena'], ['pedra_grande', 'Pedra grande'], ['pedra_dupla', 'Pedras juntas'], ['pedra_chata', 'Pedra chata'], ['pedra_trio', 'Três pedras'], ['cogumelo_1', 'Cogumelo marrom'], ['cogumelo_2', 'Cogumelo vermelho'], ['cogumelo_3', 'Marrons juntos'], ['cogumelo_4', 'Cogumelo bege'], ['cogumelo_5', 'Vermelhos juntos'], ['cogumelo_6', 'Marrom grande'], ['cogumelo_7', 'Vermelho grande'], ['cogumelo_8', 'Marrons grandes'], ['cogumelo_9', 'Bege grande'], ['cogumelo_10', 'Vermelhos grandes'], ['folha_1', 'Folha seca'], ['folhas_monte', 'Folhas secas'], ['galho', 'Galho'], ['trevo', 'Trevos']];
 for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: 'decoracao/' + id + '.png', deco: true };
 for (const o of Object.values(OBJS)) { o.im = new Image(); o.im.src = o.src; }
-let objetos = [];   // { x, y, id } — x,y = célula inteira
-const objEm = (cx, cy) => objetos.findIndex(o => o.x === cx && o.y === cy);
-function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? 1 : 2; c.translate(sx, sy + 4 - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
+let objetos = [];   // árvores: { x, y, id } com x,y = célula inteira · decorações: { x, y, id, f: 1 } com x,y = posição livre dentro do mapa (várias por célula, não bloqueiam)
+let ultDeco = null;
+const objEm = (cx, cy) => objetos.findIndex(o => !OBJS[o.id].deco && o.x === cx && o.y === cy);
+function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? 1 : 2; c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
 // ---------- salvar / abrir ----------
 function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, }; }
 function deJson(j) {
   if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
   const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
-  objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M);
+  objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
   TERR.render();
 }
 const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
@@ -77,7 +78,7 @@ const atualizaUi = () => {
     '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
     '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
-    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Botão direito apaga um objeto. O mapa também fica guardado sozinho neste navegador.</div>';
+    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica (arraste para espalhar). Botão direito apaga o objeto ou a decoração mais próxima. O mapa também fica guardado sozinho neste navegador.</div>';
   pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
   pn.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ferr = { t: b.dataset.t, id: b.dataset.id }; atualizaUi(); });
   document.getElementById('bSalvar').onclick = baixa; document.getElementById('bAbrir').onclick = () => document.getElementById('fArq').click(); document.getElementById('fArq').onchange = e => e.target.files[0] && abre(e.target.files[0]);
@@ -86,8 +87,8 @@ addEventListener('wheel', e => { K = Math.max(1, Math.min(4, K + (e.deltaY < 0 ?
 const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
 function pintaMouse(e) {
   if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
-  if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy);
-  if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); } return; }
+  if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy), fx = (gx / 64 + gy / 32) / 2, fy = (gy / 32 - gx / 64) / 2;
+  if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bd = .5; objetos.forEach((o, k) => { if (!OBJS[o.id].deco) return; const dd = Math.hypot(o.x - fx, o.y - fy); if (dd < bd) { bd = dd; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
   if (ferr.t === 'chao') {
     const carimba = (x, y) => { const o = Math.floor((larg - 1) / 2); for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) pinta(x - o + k, y - o + j, ferr.id); };
     if (e.type === 'pointerdown') { inicio = [cx, cy]; snap = MAP.map(r => r.slice()); }
@@ -96,7 +97,7 @@ function pintaMouse(e) {
       const dx = cx - inicio[0], dy = cy - inicio[1], n = Math.max(Math.abs(dx), Math.abs(dy)), sx = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 0, sy = sx ? 0 : Math.sign(dy);
       for (let t = 0; t <= n; t++) carimba(inicio[0] + sx * t, inicio[1] + sy * t);
     } else carimba(cx, cy);
-    autosave(); } else if (ferr.t === 'obj') { if (i >= 0) objetos.splice(i, 1); objetos.push({ x: cx, y: cy, id: ferr.id }); autosave(); }
+    autosave(); } else if (ferr.t === 'obj') { if (OBJS[ferr.id].deco) { if (e.type === 'pointerdown') ultDeco = null; if (!ultDeco || Math.hypot(fx - ultDeco[0], fy - ultDeco[1]) > .5) { objetos.push({ x: Math.round(fx * 100) / 100, y: Math.round(fy * 100) / 100, id: ferr.id, f: 1 }); ultDeco = [fx, fy]; autosave(); } } else { if (i >= 0) objetos.splice(i, 1); objetos.push({ x: cx, y: cy, id: ferr.id }); autosave(); } }
 }
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
@@ -113,7 +114,7 @@ function frame(now) {
   ctx.fillStyle = '#16120e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(cx - hsx * K), Math.round(cy - hsy * K)); ctx.scale(K, K);
   if (TERR.cv) ctx.drawImage(TERR.cv, 0, 0);
   if (grade) { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1 / K; ctx.beginPath(); for (let i = 0; i <= M; i++) { ctx.moveTo(M * 64 + i * 64, i * 32); ctx.lineTo(M * 64 + i * 64 - M * 64, i * 32 + M * 32); ctx.moveTo(M * 64 - i * 64, i * 32); ctx.lineTo(M * 64 - i * 64 + M * 64, i * 32 + M * 32); } ctx.stroke(); }
-  const lista = objetos.map(o => ({ d: o.x + o.y + 1, f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y + 1) * 32)) }));
+  const lista = objetos.map(o => OBJS[o.id].deco ? { d: o.x + o.y, f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y) * 32)) } : { d: o.x + o.y + 1, f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y + 1) * 32)) });
   lista.push({ d: hx + hy, f: () => PERS.draw(ctx, P, hsx, hsy) }); lista.sort((a, b) => a.d - b.d).forEach(it => it.f()); ctx.restore(); requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
