@@ -92,3 +92,5 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - Gerador: `gerar_decoracao.mjs` (`node gerar_decoracao.mjs`) → `decoracao/*.png` + `decoracao/_conferencia.png`. Paleta no topo do arquivo (`P`). Para mudar um desenho, edite o gerador e rode de novo.
 - No `chao.html`: seção "Decorações" no painel; cada uma ocupa uma célula (centro), desenhada em 2× o pixel como o personagem e as árvores.
 - Pendentes: pincel de espalhar (flores/grama alta aleatórias), recolorir árvores para a paleta nova, decorações sobre terra (hoje ficam bem só na grama).
+- **Versão em uso (decoracao/)**: a folha do Gemini (`arte_terreno/decoracoes_gemini_ref.png`) convertida por `decoracao_do_gemini.mjs` (`node decoracao_do_gemini.mjs [fator=0.2] [cores=14]`): recorta, tira fundo/franja, reduz, trava paleta por item, pixel duro. Foi a que o dono preferiu.
+- A versão desenhada por código ficou guardada em `decoracao_codigo/` (gerada por `gerar_decoracao.mjs`; ele grava em `decoracao/`, então copie para `decoracao_codigo/` antes de rodar se quiser preservar).
