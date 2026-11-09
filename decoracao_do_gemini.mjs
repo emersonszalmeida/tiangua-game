@@ -49,6 +49,14 @@ const itens = comps.map((c, idx) => {
     if (a && a / m >= .5) { const q = (ty * tw + tx) * 4; let R2 = r / a, G2 = g / a, B2 = b / a; [R2, G2, B2] = esverdeia(R2, G2, B2); o[q] = R2; o[q + 1] = G2; o[q + 2] = B2; o[q + 3] = 255; } }
   return { nome, tw, th, o };
 });
+// 3b) grama média e baixa: só a parte de baixo dos tufos altos, com o corte irregular (as pontas das folhas já têm 1 px)
+const hz = (x, s) => { let h = (x * 374761393 + s * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+for (const [nome, de, frac, seed] of [['grama_media_1', 'grama_alta_1', .55, 1], ['grama_media_2', 'grama_alta_2', .5, 2], ['grama_media_3', 'grama_alta_3', .55, 3], ['grama_baixa_1', 'grama_alta_4', .4, 4], ['grama_baixa_2', 'grama_alta_1', .32, 5]]) {
+  const src = itens.find(i => i.nome === de), o = Uint8Array.from(src.o), corte = src.th - Math.round(src.th * frac);
+  for (let x = 0; x < src.tw; x++) { const c = corte + Math.round((hz(x, seed) - .5) * 3); for (let y = 0; y < Math.min(src.th, c); y++) o[(y * src.tw + x) * 4 + 3] = 0; }
+  let x0 = src.tw, x1 = -1, y0 = src.th, y1 = -1; for (let y = 0; y < src.th; y++) for (let x = 0; x < src.tw; x++) if (o[(y * src.tw + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const tw = x1 - x0 + 1, th = y1 - y0 + 1, n2 = new Uint8Array(tw * th * 4); for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) n2.set(o.subarray(((y0 + y) * src.tw + x0 + x) * 4, ((y0 + y) * src.tw + x0 + x) * 4 + 4), (y * tw + x) * 4);
+  itens.push({ nome, tw, th, o: n2 }); }
 // 4) paleta própria de cada item (median cut) e pixel duro: assim as cores vivas das flores e cogumelos não se perdem
 function paleta(px, n) { let caixas = [px]; while (caixas.length < n) { caixas.sort((a, b) => b.length - a.length); const bx = caixas.shift(); if (bx.length < 2) { caixas.push(bx); break; }
     const ranges = [0, 1, 2].map(k => { let lo = 255, hi = 0; for (const p of bx) { lo = Math.min(lo, p[k]); hi = Math.max(hi, p[k]); } return hi - lo; }), k = ranges.indexOf(Math.max(...ranges));
@@ -66,5 +74,5 @@ for (const [it, ox, oy] of pos) for (let j = 0; j < it.th * Z; j++) for (let i =
 fs.writeFileSync(OUT + '_conferencia.png', encodePNG(W, H, im));
 console.log(itens.length + ' itens, ' + NCOR + ' cores por item: ' + itens.map(i => i.nome + ' ' + i.tw + 'x' + i.th).join(', '));
 // embute as imagens em decoracao_dados.js (data URI): o editor lê os pixels para saber onde há arte (apagar/espalhar) e file:// bloqueia a leitura de PNG solto
-const B64 = {}; for (const it of itens) B64[it.nome] = 'data:image/png;base64,' + fs.readFileSync(OUT + it.nome + '.png').toString('base64');
+const B64 = {}; for (const f of fs.readdirSync(OUT).filter(f => f.endsWith('.png') && !f.startsWith('_'))) B64[f.slice(0, -4)] = 'data:image/png;base64,' + fs.readFileSync(OUT + f).toString('base64');   // inclui também a grama média/baixa feita por código
 fs.writeFileSync(new URL('./decoracao_dados.js', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '// gerado por decoracao_do_gemini.mjs\nconst DECO_B64 = ' + JSON.stringify(B64) + ';\n');

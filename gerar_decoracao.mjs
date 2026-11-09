@@ -8,7 +8,7 @@ fs.mkdirSync(OUT, { recursive: true });
 
 // ---------- paleta (mesma família do chão: verdes #849766/#7a8e5a/#6c7f50, marrons da terra) ----------
 const P = {
-  g0: '#36442a', g1: '#445535', g2: '#566a3d', g3: '#6b8149', g4: '#86a063', g5: '#a3b883',
+  g0: '#3f4e30', g1: '#566a3f', g2: '#6c7f50', g3: '#7a8e5a', g4: '#849766', g5: '#98ab78',
   y1: '#8a7a45', y2: '#a8925a', y3: '#c2ab70',
   ear1: '#a8905a', ear2: '#7e6a3c',
   b0: '#4a3626', b1: '#654c38', b2: '#745843', b3: '#8a6a4c', b4: '#a07e58', b5: '#b89a72',
@@ -140,13 +140,20 @@ S.folhas_monte = (() => { const g = novo(20, 11); folha(g, 1, 3, [P.l2, P.l1, P.
 S.galho = galho(21, 12);
 S.trevo = trevo(18, 14, 4);
 
+S.grama_media_1 = tufo(12, 12, 6, 61);
+S.grama_media_2 = tufo(14, 13, 8, 62, { espigas: 1 });
+S.grama_media_3 = tufo(10, 11, 5, 63, { magro: true });
+S.grama_baixa_1 = tufo(9, 7, 4, 64);
+S.grama_baixa_2 = tufo(12, 8, 6, 65, { seco: true });
+// "node gerar_decoracao.mjs grama_media" grava só a grama média/baixa (não mexe nas decorações do Gemini)
+const SO = process.argv[2] === 'grama_media';
 // ---------- grava ----------
-const lista = Object.entries(S);
+const lista = Object.entries(S).filter(([n]) => !SO || /^grama_(media|baixa)/.test(n));
 for (const [nome, g] of lista) { const d = new Uint8Array(g.w * g.h * 4); g.d.forEach((c, i) => { if (c) { const v = rgb(c); d.set([v[0], v[1], v[2], 255], i * 4); } }); fs.writeFileSync(OUT + nome + '.png', encodePNG(g.w, g.h, d)); }
 // folha de conferência (zoom 5, sobre a cor da grama)
 const Z = 5, W = 1100; let x = 8, y = 8, rh = 0; const pos = [];
 for (const [nome, g] of lista) { if (x + g.w * Z > W - 8) { x = 8; y += rh + 10; rh = 0; } pos.push([g, x, y]); x += g.w * Z + 10; rh = Math.max(rh, g.h * Z); }
 const H = y + rh + 8, im = new Uint8Array(W * H * 4); for (let i = 0; i < W * H; i++) im.set([0x84, 0x97, 0x66, 255], i * 4);
 for (const [g, ox, oy] of pos) for (let j = 0; j < g.h * Z; j++) for (let i = 0; i < g.w * Z; i++) { const c = get(g, (i / Z) | 0, (j / Z) | 0); if (c) im.set([...rgb(c), 255], ((oy + j) * W + ox + i) * 4); }
-fs.writeFileSync(OUT + '_conferencia.png', encodePNG(W, H, im));
+fs.writeFileSync(OUT + (SO ? '_conferencia_grama_media.png' : '_conferencia.png'), encodePNG(W, H, im));
 console.log(lista.map(([n, g]) => n + ' ' + g.w + 'x' + g.h).join(', '));
