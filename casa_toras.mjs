@@ -30,26 +30,37 @@ function tora(x, y, j) {   // pixel (índice da rampa) da tora j na coluna x, li
 }
 // tampa da parede (face de cima, mais clara), 5 linhas
 const CAPA = [0, 6, 6, 5, 3];
+// MÓDULOS desenháveis (a folha do editor, casa_para_editar.mjs): tora, capa, canto_topo, canto_camada, canto_base. Se existir arte_casa/editadas/<nome>.png (desenho do dono), vale ele.
+const EDIT = './arte_casa/editadas/', ed = n => fs.existsSync(EDIT + n + '.png') ? decodePNG(EDIT + n + '.png') : null;
+const E_TORA = ed('tora'), E_CAPA = ed('capa');
+const pxIm = (im, x, y) => { const p = (y * im.w + x) * 4; return im.data[p + 3] ? [im.data[p], im.data[p + 1], im.data[p + 2]] : R.borda; };
+function corTora(x, y, j) { return E_TORA ? pxIm(E_TORA, mod(x + j * 21, W), y) : RAMPA[tora(x, y, j)]; }   // a mesma tora, deslocada no comprimento a cada camada (o desenho é periódico)
+function corCapa(x, y) { if (E_CAPA) return pxIm(E_CAPA, x, y); let i = CAPA[y]; const t = ruido(mod(x + 10, W), y, 6, 5); if (y === 1 || y === 2) i += t > .62 ? -1 : 0; return RAMPA[Math.max(0, Math.min(6, i))]; }
 function parede(sinal) {
   const Hr = CAPA.length + N * P, M = W, tot = Hr + 32, o = new Uint8Array(M * tot * 4);
   const dy = x => sinal > 0 ? (x + 1) >> 1 : 32 - ((x + 1) >> 1);   // degrau de 2:1 em pares de colunas; as duas pontas casam com a do vizinho
-  for (let x = 0; x < M; x++) for (let y = 0; y < Hr; y++) { let i; if (y < CAPA.length) { i = CAPA[y]; const t = ruido(mod(x + 10, W), y, 6, 5); if (y === 1 || y === 2) i += t > .62 ? -1 : 0; } else { const k = Math.floor((y - CAPA.length) / P); i = tora(x, (y - CAPA.length) % P, k); }
-    const c = RAMPA[Math.max(0, Math.min(6, i))], yy = y + dy(x); o.set([c[0], c[1], c[2], 255], (yy * M + x) * 4); }
+  for (let x = 0; x < M; x++) for (let y = 0; y < Hr; y++) { const c = y < CAPA.length ? corCapa(x, y) : corTora(x, (y - CAPA.length) % P, Math.floor((y - CAPA.length) / P)); o.set([c[0], c[1], c[2], 255], ((y + dy(x)) * M + x) * 4); }
   return { w: M, h: tot, o, baseY: Hr - 1 + dy(0) };
 }
-// CANTO: parte do canto do Gemini (cantoG.png, já na escala em que cada camada tem 12 linhas = passo das toras da parede). Uma camada do miolo é repetida:
-// topo (tora de cima e as duas barras) + camada x Nc + base. Acha-se onde começa o padrão repetido comparando a camada com a seguinte.
-function canto() {
-  const G = decodePNG(D + 'cantoG.png'), w = G.w, h = G.h, linha = y => G.data.subarray(y * w * 4, (y + 1) * w * 4);
-  const dif = (y1, y2) => { let e = 0; for (let x = 0; x < w * 4; x++) if (x % 4 !== 3) e += Math.abs(G.data[y1 * w * 4 + x] - G.data[y2 * w * 4 + x]); return e; };
+// CANTO: topo + camada x Nc + base. Os 3 pedaços vêm do canto do Gemini (cantoG.png, escala em que cada camada tem 12 linhas = passo das toras) ou do desenho do dono.
+const rec = (im, y0, y1) => ({ w: im.w, h: y1 - y0, data: im.data.slice(y0 * im.w * 4, y1 * im.w * 4) });
+function partesCanto() {
+  const G = decodePNG(D + 'cantoG.png'), w = G.w, h = G.h, dif = (y1, y2) => { let e = 0; for (let x = 0; x < w * 4; x++) if (x % 4 !== 3) e += Math.abs(G.data[y1 * w * 4 + x] - G.data[y2 * w * 4 + x]); return e; };
   let a0 = 14, melhor = 1e18; for (let a = 14; a <= 34; a++) { let e = 0; for (let i = 0; i < P; i++) e += dif(a + i, a + P + i); if (e < melhor) { melhor = e; a0 = a; } }
-  const m = Math.floor((h - a0) / P) - 1, B = h - a0 - P * m, Hw = CAPA.length + N * P, Nc = Math.max(1, Math.round((Hw + 4 - a0 - B) / P));
-  const H = a0 + Nc * P + B, o = new Uint8Array(w * H * 4);
-  let y = 0; const copia = (de, n) => { for (let i = 0; i < n; i++) { o.set(linha(de + i), (y + i) * w * 4); } y += n; };
-  copia(0, a0); for (let k = 0; k < Nc; k++) copia(a0, P); copia(a0 + P * m, B);
-  console.log('canto: topo', a0, 'linhas, camada', P, 'x', Nc, ', base', B, '→ altura', H, '(parede', Hw + ')');
+  const m = Math.floor((h - a0) / P) - 1;
+  return { topo: ed('canto_topo') || rec(G, 0, a0), camada: ed('canto_camada') || rec(G, a0, a0 + P), base: ed('canto_base') || rec(G, a0 + P * m, h), geradas: { topo: rec(G, 0, a0), camada: rec(G, a0, a0 + P), base: rec(G, a0 + P * m, h) } };
+}
+function canto() {
+  const { topo, camada, base } = partesCanto(), w = topo.w, Hw = CAPA.length + N * P, Nc = Math.max(1, Math.round((Hw + 4 - topo.h - base.h) / P)), H = topo.h + Nc * camada.h + base.h, o = new Uint8Array(w * H * 4);
+  let y = 0; const cola = im => { o.set(im.data, y * w * 4); y += im.h; }; cola(topo); for (let k = 0; k < Nc; k++) cola(camada); cola(base);
+  console.log('canto: topo', topo.h, 'linhas, camada', camada.h, 'x', Nc, ', base', base.h, '→ altura', H, '(parede', Hw + ')');
   return { w, h: H, o, baseX: Math.round(w / 2), baseY: H - 1 };
 }
+// grava os módulos como estão agora (ponto de partida da folha do editor)
+fs.mkdirSync('./arte_casa/modulos', { recursive: true });
+{ const t = new Uint8Array(W * P * 4), c = new Uint8Array(W * CAPA.length * 4); for (let y = 0; y < P; y++) for (let x = 0; x < W; x++) { const k = corTora(x, y, 0); t.set([k[0], k[1], k[2], 255], (y * W + x) * 4); } for (let y = 0; y < CAPA.length; y++) for (let x = 0; x < W; x++) { const k = corCapa(x, y); c.set([k[0], k[1], k[2], 255], (y * W + x) * 4); }
+  fs.writeFileSync('./arte_casa/modulos/tora.png', encodePNG(W, P, t)); fs.writeFileSync('./arte_casa/modulos/capa.png', encodePNG(W, CAPA.length, c));
+  const pc = partesCanto().geradas; for (const [n, im] of Object.entries(pc)) fs.writeFileSync('./arte_casa/modulos/canto_' + n + '.png', encodePNG(im.w, im.h, im.data)); }
 const info = JSON.parse(fs.readFileSync('./arte_casa/pecas.json', 'utf8'));
 for (const [nome, im] of [['parede_se', parede(1)], ['parede_sw', parede(-1)], ['canto', canto()]]) { fs.writeFileSync(D + nome + '.png', encodePNG(im.w, im.h, im.o));
   info[nome] = nome === 'canto' ? { w: im.w, h: im.h, ax: im.baseX, ay: im.baseY } : { w: im.w, h: im.h, ax: 0, ay: im.baseY }; console.log(nome, im.w + 'x' + im.h, 'apoio', info[nome].ax, info[nome].ay); }

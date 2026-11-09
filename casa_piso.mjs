@@ -29,3 +29,5 @@ function pixel(x, y, variante) {
 fs.mkdirSync('./arte_casa/pecas', { recursive: true });
 for (const [n, vv] of [[1, 1], [2, 2], [3, 3]]) { const o = new Uint8Array(128 * 64 * 4); for (let y = 0; y < 64; y++) for (let x = 0; x < 128; x++) { const c = pixel(x, y, vv); if (c) o.set([c[0], c[1], c[2], 255], (y * 128 + x) * 4); } fs.writeFileSync('./arte_casa/pecas/piso_' + n + '.png', encodePNG(128, 64, o)); }
 console.log('ok');
+// desenho do dono (módulo 'piso' da folha do editor) vale no lugar do piso_1 gerado
+if (fs.existsSync('./arte_casa/editadas/piso.png')) { fs.copyFileSync('./arte_casa/editadas/piso.png', './arte_casa/pecas/piso_1.png'); console.log('piso_1 = desenho do dono (arte_casa/editadas/piso.png)'); }
