@@ -43,22 +43,21 @@
     }
     return { c, oy };
   }
-  // pilar: fecha cantos e pontas de parede (mesmas cores, mesmo rodapé)
-  function postPiece(h) {
+  // face da espessura da ponta de uma parede (o "vermelho" do exemplo do dono): sem tampa própria, a tampa escura é a da parede. lado 'E' = face voltada para ↙, 'D' = voltada para ↘
+  function postPiece(h, lado) {
     const oy = h + TP, c = mk(TP * 2, oy + 1), x = c.getContext('2d');
     for (let k = 0; k < TP; k++) for (let d = 0; d < h; d++) {   // k = 0 junto à quina da frente
-      put(x, TP - 1 - k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_Y, 63 - k, d, h));
-      put(x, TP + k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_X, k, d, h));
+      if (lado !== 'D') put(x, TP - 1 - k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_Y, 63 - k, d, h));
+      if (lado !== 'E') put(x, TP + k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_X, k, d, h));
     }
-    for (let i = 0; i < TP * 2; i++) { const a = Math.floor((Math.min(i, TP * 2 - 1 - i) + 2) / 2); for (let j = -a; j <= a; j++) put(x, i, oy - TP / 2 - h + j + 2, CAP); }
     return { c, oy };
   }
   const PIECE = {
     xHigh: wallPiece(FACE_Y, HIGH), xDoor: wallPiece(FACE_Y, HIGH, true), xLow: wallPiece(FACE_Y, LOW),
     yHigh: wallPiece(FACE_X, HIGH), yDoor: wallPiece(FACE_X, HIGH, true), yLow: wallPiece(FACE_X, LOW),
-    postHigh: postPiece(HIGH), postLow: postPiece(LOW),
+    postHighE: postPiece(HIGH, 'E'), postHighD: postPiece(HIGH, 'D'), postLowE: postPiece(LOW, 'E'), postLowD: postPiece(LOW, 'D'),
     // altura do corte (≈ cintura): as paredes da frente da SALA em que o personagem está (corte para ver o interior)
-    xMid: wallPiece(FACE_Y, CUT), xDoorMid: wallPiece(FACE_Y, CUT, true), yMid: wallPiece(FACE_X, CUT), yDoorMid: wallPiece(FACE_X, CUT, true), postMid: postPiece(CUT),
+    xMid: wallPiece(FACE_Y, CUT), xDoorMid: wallPiece(FACE_Y, CUT, true), yMid: wallPiece(FACE_X, CUT), yDoorMid: wallPiece(FACE_X, CUT, true), postMidE: postPiece(CUT, 'E'), postMidD: postPiece(CUT, 'D'),
   };
   const floorTile = (function () {
     const c = mk(TW, TH), x = c.getContext('2d');

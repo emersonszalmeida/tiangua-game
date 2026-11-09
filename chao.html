@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=9"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=10"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -63,13 +63,15 @@ function recalcParedes() {
   rectsP = [];
   for (const p of paredes) {
     const alto = p.k !== 'low';
-    if (p.a === 'x') { const a = no(p.n, p.c), b = no(p.n + 1, p.c); a.R = 1; b.L = 1; if (alto) a.alto = b.alto = true; }
-    else { const a = no(p.c, p.n), b = no(p.c, p.n + 1); a.D = 1; b.U = 1; if (alto) a.alto = b.alto = true; }
+    if (p.a === 'x') { const a = no(p.n, p.c), b = no(p.n + 1, p.c); a.R = 1; b.L = 1; if (alto) a.alto = b.alto = true; if (alto) b.altoL = true; }
+    else { const a = no(p.c, p.n), b = no(p.c, p.n + 1); a.D = 1; b.U = 1; if (alto) a.alto = b.alto = true; if (alto) b.altoU = true; }
     const add = (n0, n1) => rectsP.push(p.a === 'x' ? [n0, p.c - T, n1, p.c] : [p.c - T, n0, p.c, n1]);
     if (p.k === 'door') { add(p.n, p.n + .25); add(p.n + .75, p.n + 1); } else add(p.n, p.n + 1);
   }
   postes = [];   // pilar em toda ponta e em todo encontro; só no meio de uma reta não tem
-  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; postes.push({ x: q.x, y: q.y, k: q.alto ? 'postHigh' : 'postLow', livre: q.L + q.R + q.U + q.D === 1 }); rectsP.push([q.x - T, q.y - T, q.x, q.y]); }
+  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; rectsP.push([q.x - T, q.y - T, q.x, q.y]);
+    if (q.L && !q.R && !(q.U && q.D)) postes.push({ x: q.x, y: q.y, lado: 'D', alta: !!q.altoL });   // a face da ponta (4 px) só onde a parede termina de verdade
+    if (q.U && !q.D && !(q.L && q.R)) postes.push({ x: q.x, y: q.y, lado: 'E', alta: !!q.altoU }); }
 }
 const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d);
 // itens de desenho da casa (ordenados junto com árvores e personagem): a parede passa na frente do personagem só quando ele está atrás do plano dela
@@ -97,9 +99,8 @@ function itensCasa() {
     out.push({ d: w.key, atras: w.atras, r: rectDe(p, pc), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
   }
   for (const q of postes) {
-    const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, cheia = PIECE.postHigh, rc = [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - cheia.oy + 1, cheia.c.width, cheia.c.height];
-    const corta = !atras && q.k === 'postHigh' && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = PIECE[corta ? 'postMid' : q.k];
-    if (q.livre && (corta || q.k === 'postLow')) continue;   // ponta livre de parede baixa ou cortada: sem pilarzinho, a ponta fica só com a tampa afilada da própria parede
+    const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, cheia = PIECE['postHigh' + q.lado], rc = [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - cheia.oy + 1, cheia.c.width, cheia.c.height];
+    const corta = !atras && q.alta && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = PIECE[(corta ? 'postMid' : q.alta ? 'postHigh' : 'postLow') + q.lado];
     out.push({ d: key, atras, r: [rc[0], sy(q.x, q.y) - pc.oy + 1, pc.c.width, pc.c.height], f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1) });
   }
   return out;
