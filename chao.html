@@ -56,7 +56,7 @@ function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || 
 const CASA = PAREDES, PIECE = CASA.PIECE;
 let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'door' | 'low'
 let pisos = new Set();     // células com piso de casa: 'cx,cy'
-let postes = [], rectsP = [];   // pilares (automáticos) e retângulos de colisão
+let postes = [], rectsP = [], vertices = new Map();   // pilares (automáticos) e retângulos de colisão
 const RP = .15;            // raio do personagem para as paredes
 // letras do vértice (em ordem D L R U) → nome da peça na folha dos cantos (cantos_para_editar.mjs)
 const CFG_CANTO = { L: 'ponta_dir', U: 'ponta_esq', LU: 'canto_LU', DR: 'canto_RD', DL: 'canto_LD', RU: 'canto_RU', DLR: 't_LRD', LRU: 't_LRU', DLU: 't_UDL', DRU: 't_UDR', DLRU: 'cruz' };
@@ -72,7 +72,7 @@ function cantoPeca(cfg, hh) {
 }
 function recalcParedes() {
   const T = CASA.T, v = new Map(), no = (x, y) => { const k = x + ',' + y; if (!v.has(k)) v.set(k, { x, y, L: 0, R: 0, U: 0, D: 0, alto: false }); return v.get(k); };
-  rectsP = [];
+  rectsP = []; vertices = v;
   for (const p of paredes) {
     const alto = p.k !== 'low';
     if (p.a === 'x') { const a = no(p.n, p.c), b = no(p.n + 1, p.c); a.R = 1; b.L = 1; if (alto) a.alto = b.alto = true; if (alto) b.altoL = true; }
@@ -107,10 +107,21 @@ function itensCasa() {
   const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: rectDe(w.p, w.cheia), key: w.key }); }
   const cobreAlvo = (r, key) => alvos.some(t => (t.jog || key > t.key) && ov(r, t.r));   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
   const altV = new Map();   // altura REAL (como cada parede é desenhada agora) que chega em cada vértice: a peça do canto usa a maior delas, para a tampa dela casar com a da parede
+  const PERNA = 8;          // a "perninha do T" (como no vídeo de referência): a parede cortada mantém 8 px (1/8 de célula) inteiros junto de uma parede que encosta nela
+  const encosta = (v, eixo) => { const q = vertices.get(v[0] + ',' + v[1]); return !!q && (eixo === 'x' ? (q.U || q.D) : (q.L || q.R)); };   // há parede perpendicular nesse vértice?
   for (const w of inf) {
     const p = w.p, corta = !w.atras && p.k !== 'low' && (w.adj || (sala && cobreAlvo(rectDe(p, w.cheia), w.key))), pc = PIECE[p.a + (p.k === 'door' ? (corta ? 'DoorMid' : 'Door') : p.k === 'low' ? 'Low' : corta ? 'Mid' : 'High')];
-    { const alt = p.k === 'low' ? CASA.LOW : corta ? CASA.CUT : CASA.HIGH; for (const [vx, vy] of (p.a === 'x' ? [[p.n, p.c], [p.n + 1, p.c]] : [[p.c, p.n], [p.c, p.n + 1]])) { const k = vx + ',' + vy; if (!(altV.get(k) >= alt)) altV.set(k, alt); } }
-    out.push({ d: w.key, atras: w.atras, r: rectDe(p, pc), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
+    const vA = p.a === 'x' ? [p.n, p.c] : [p.c, p.n], vB = p.a === 'x' ? [p.n + 1, p.c] : [p.c, p.n + 1], pernaA = corta && encosta(vA, p.a), pernaB = corta && encosta(vB, p.a), cheiaP = w.cheia;
+    { const alt = p.k === 'low' ? CASA.LOW : corta ? CASA.CUT : CASA.HIGH; for (const [v, perna] of [[vA, pernaA], [vB, pernaB]]) { const k = v[0] + ',' + v[1], aa = perna ? CASA.HIGH : alt; if (!(altV.get(k) >= aa)) altV.set(k, aa); } }
+    const desenha = () => {
+      const dx = p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n); if (p.a === 'x') ctx.save(), ctx.translate(dx, sy(p.n, p.c)); else ctx.save(), ctx.translate(dx, sy(p.c, p.n)), ctx.scale(-1, 1);
+      ctx.drawImage(pc.c, 0, -pc.oy + 1);
+      const W = cheiaP.c.width, H0 = cheiaP.c.height;   // as perninhas inteiras por cima da parede cortada: colunas da ponta da peça alta
+      if (pernaA) ctx.drawImage(cheiaP.c, 0, 0, PERNA, H0, 0, -cheiaP.oy + 1, PERNA, H0);
+      if (pernaB) ctx.drawImage(cheiaP.c, 64 - PERNA, 0, W - (64 - PERNA), H0, 64 - PERNA, -cheiaP.oy + 1, W - (64 - PERNA), H0);
+      ctx.restore();
+    };
+    out.push({ d: w.key, atras: w.atras, r: rectDe(p, (pernaA || pernaB) ? cheiaP : pc), f: desenha });
   }
   for (const q of postes) {   // peças únicas dos cantos/pontas (desenhadas pelo dono)
     const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, ax0 = sx(q.x, q.y), ay0 = sy(q.x, q.y), cheia = cantoPeca(q.cfg, CASA.HIGH); if (!cheia) continue;
