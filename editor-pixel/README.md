@@ -10,6 +10,8 @@ A ideia é ter as ferramentas de objeto do CorelDRAW (selecionar, escalar, girar
 - Lápis (B), Borracha (E), Balde (G), Conta-gotas (I), Mover camada (M).
 - **P:** centraliza o objeto na página. Ctrl+D duplica. Page Up/Down: frente/trás.
 - Clique numa cor: preenche o objeto; botão direito: contorno.
+- **Marcar pixels (S):** arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos); Alt ou botão direito tira da marcação.
+- **Seleção de pixels** (Selecionar Q ou Marcar S): clique num grupo de pixels ou arraste um retângulo; **Shift soma** à seleção. Com a seleção: arraste para mover; **Alt+arrastar ou Ctrl+D clona** (deixa uma cópia no lugar); **H / V espelham**; setas movem 1 px (Shift = 8); Ctrl+C / Ctrl+V **cola onde está o mouse**; Enter solta; Delete apaga. Há botões equivalentes no painel "Seleção de pixels".
 - Imagem de referência: importar, colar (Ctrl+V) ou arrastar o arquivo; não entra na exportação.
 - Camadas, desfazer/refazer, grade de pixels e grade isométrica 2:1, exportar PNG, salvar/abrir projeto.
 

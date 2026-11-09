@@ -75,6 +75,12 @@ input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;backgro
     </div>
     <div class="row"><button id="bRast" title="Transforma todos os objetos da camada em pixels comuns">Rasterizar camada</button></div>
 
+    <h4>Seleção de pixels</h4>
+    <div class="row"><button id="bMarcar" title="S: arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos). Alt ou botão direito tira da marcação.">Marcar pixels (S)</button><button id="bClonar" title="Ctrl+D: deixa uma cópia aqui; a seleção continua solta para mover">Clonar (Ctrl+D)</button></div>
+    <div class="row"><button id="bSelEspH" title="H">Espelhar ↔ (H)</button><button id="bSelEspV" title="V">Espelhar ↕ (V)</button></div>
+    <div class="row"><button id="bSelSolta" title="Enter">Soltar (Enter)</button><button id="bSelApaga" title="Delete">Apagar</button></div>
+    <div class="dica" style="margin:4px 0 8px"><b>Marcar pixels (S)</b>: arraste sobre os pixels que quer pegar; Alt ou botão direito tira. <b>Selecionar (Q)</b>: clique num grupo ou arraste um retângulo; <b>Shift soma</b>. Com a seleção: arraste para mover · <b>Alt+arrastar ou Ctrl+D = clonar</b> (deixa uma cópia) · H / V espelham · setas movem 1 px (Shift = 8) · Ctrl+C / Ctrl+V cola onde está o mouse · Enter solta · Delete apaga.</div>
+
     <h4>Imagem de referência</h4>
     <div class="row"><button id="bRefImp">Importar imagens…</button><button id="bRefTira">Remover</button></div>
     <input type="file" id="fRef" accept="image/*" multiple style="display:none"><div id="listaImgs"></div>
@@ -109,9 +115,9 @@ let selObj = null, modoGira = false, sel = null, clipPx = null, clipObj = null, 
 let ref = null, imgs = [], nodeSel = [], hoverNo = null, ptSel = -1, zSeq = 0;   // zSeq: ordem de empilhamento global; tudo que é novo recebe o próximo número e fica por cima de tudo   // imgs = todas as imagens importadas; ref = a imagem ativa (a última selecionada)
 const undoS = [], redoS = [];
 const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
-const FERR = [['selecionar', '⬚', 'Selecionar (Q)'], ['forma', '◬', 'Forma (F10)'], ['lapis', '✎', 'Lápis (B)'], ['borracha', '⌫', 'Borracha (E)'], ['balde', '◉', 'Balde (G)'], ['gotas', '✚', 'Conta-gotas (I)'], ['linha', '／', 'Linha (L)'], ['retangulo', '▭', 'Retângulo (R)'], ['elipse', '◯', 'Elipse (O)'], ['losango', '◇', 'Losango 2:1 (D)'], ['mover', '✥', 'Mover camada (M)']];
+const FERR = [['selecionar', '⬚', 'Selecionar (Q)'], ['marcar', '▨', 'Marcar pixels (S)'], ['forma', '◬', 'Forma (F10)'], ['lapis', '✎', 'Lápis (B)'], ['borracha', '⌫', 'Borracha (E)'], ['balde', '◉', 'Balde (G)'], ['gotas', '✚', 'Conta-gotas (I)'], ['linha', '／', 'Linha (L)'], ['retangulo', '▭', 'Retângulo (R)'], ['elipse', '◯', 'Elipse (O)'], ['losango', '◇', 'Losango 2:1 (D)'], ['mover', '✥', 'Mover camada (M)']];
 const FORMAS = ['linha', 'retangulo', 'elipse', 'losango'];
-const KEYS = { q: 'selecionar', f: 'forma', b: 'lapis', e: 'borracha', g: 'balde', i: 'gotas', l: 'linha', r: 'retangulo', o: 'elipse', d: 'losango', m: 'mover' };
+const KEYS = { q: 'selecionar', s: 'marcar', f: 'forma', b: 'lapis', e: 'borracha', g: 'balde', i: 'gotas', l: 'linha', r: 'retangulo', o: 'elipse', d: 'losango', m: 'mover' };
 // ---------- cores ----------
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const cor1 = () => $('c1').value, cor2 = () => $('c2').value;
@@ -276,6 +282,7 @@ $('bFrenteT').onclick = () => ordemTudo(true); $('bTrasT').onclick = () => ordem
 function duplica() { if (!selObj) return; pushUndo(); if (ehImg(selObj)) { const n = { ...imgEstado(selObj), id: ++idImg, nome: selObj.nome + ' cópia', z: ++zSeq }; n.x += 3; n.y += 3; n.m = [...selObj.m]; n.crop = selObj.crop && selObj.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[selObj.id]; n.im = selObj.im; n.c = selObj.c; imgs.push(n); selecionaRef(n); return; } const n = JSON.parse(JSON.stringify(selObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
 function apagaObj() { if (ehImg(selObj)) { pushUndo(); imgs = imgs.filter(o => o !== selObj); if (ref === selObj) ref = imgs[imgs.length - 1] || null; selObj = null; nodeSel = []; refUi(); formaUi(); redraw(); return; } if (!selObj) return; pushUndo(); L().objs.splice(L().objs.indexOf(selObj), 1); selObj = null; camadasUi(); toca(); }
 $('bDup').onclick = duplica; $('bApaga').onclick = apagaObj;
+$('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSel(true); $('bSelEspV').onclick = () => espelhaSel(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
 // ---------- mover com ímã e cópia (como no Corel) ----------
 // ao arrastar um objeto aparece só o contorno azul de onde ele vai ficar; os pontos do objeto "grudam" nos pontos dos outros;
 // clicar com o botão direito durante o arrasto faz o objeto ficar como cópia no lugar novo
@@ -355,15 +362,27 @@ function grupoEm(px, py) {
   while (pilha.length) { const [x, y] = pilha.pop(); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { const a = x + i, b = y + j; if (a < 0 || b < 0 || a >= W || b >= H || mask[b * W + a] || !d[(b * W + a) * 4 + 3]) continue; mask[b * W + a] = 1; pilha.push([a, b]); } }
   return { mask, bx: x0, by: y0, bw: x1 - x0 + 1, bh: y1 - y0 + 1 };
 }
-function marcaRet(x0, y0, x1, y1) {
+function marcaRet(x0, y0, x1, y1, soma) {
   x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W - 1, x1); y1 = Math.min(H - 1, y1); if (x1 < x0 || y1 < y0) return false;
-  const objs = L().objs.filter(o => { const B = caixa(o); return B.l >= x0 - .5 && B.r <= x1 + 1.5 && B.t >= y0 - .5 && B.b <= y1 + 1.5; }); if (objs.length) { selecionaObj(cur, objs[objs.length - 1]); return true; }
+  const objs = soma ? [] : L().objs.filter(o => { const B = caixa(o); return B.l >= x0 - .5 && B.r <= x1 + 1.5 && B.t >= y0 - .5 && B.b <= y1 + 1.5; }); if (objs.length) { selecionaObj(cur, objs[objs.length - 1]); return true; }
   const d = L().x.getImageData(0, 0, W, H).data, mask = new Uint8Array(W * H); let a = W, b = H, c = -1, e = -1;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (d[(y * W + x) * 4 + 3]) { mask[y * W + x] = 1; a = Math.min(a, x); c = Math.max(c, x); b = Math.min(b, y); e = Math.max(e, y); }
-  if (c < 0) return false; return levanta(mask, a, b, c - a + 1, e - b + 1);
+  if (c < 0) return false; return soma ? somaSel(mask, false) : levanta(mask, a, b, c - a + 1, e - b + 1);
 }
 const dentroSel = (px, py) => sel && px >= sel.bx + sel.ox && px < sel.bx + sel.ox + sel.bw && py >= sel.by + sel.oy && py < sel.by + sel.oy + sel.bh;
 function copia() { if (ehImg(selObj)) return; if (selObj) { clipObj = JSON.parse(JSON.stringify(selObj)); clipPx = null; } else if (sel) { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(sel.c, 0, 0); clipPx = { c, bx: sel.bx, by: sel.by, bw: sel.bw, bh: sel.bh, ox: sel.ox, oy: sel.oy }; clipObj = null; } }
+// ---------- seleção livre de pixels: marcar, somar/tirar, clonar e espelhar ----------
+const maskDaSel = () => { const m = new Uint8Array(W * H); if (!sel) return m; const d = sel.c.getContext('2d').getImageData(0, 0, W, H).data; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3]) { const X = x + sel.ox, Y = y + sel.oy; if (X >= 0 && Y >= 0 && X < W && Y < H) m[Y * W + X] = 1; } return m; };   // os pixels da seleção, nas posições em que estão agora
+function levantaMask(m) { const al = L().x.getImageData(0, 0, W, H).data; for (let i = 0; i < W * H; i++) if (m[i] && !al[i * 4 + 3]) m[i] = 0;   // só pixels que existem entram na seleção (marcar espaço vazio não faz nada)
+  let a = W, b = H, c = -1, e = -1; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (m[y * W + x]) { a = Math.min(a, x); c = Math.max(c, x); b = Math.min(b, y); e = Math.max(e, y); } if (c < 0) return false; return levanta(m, a, b, c - a + 1, e - b + 1); }
+function somaSel(nova, tira) {   // soma (ou tira) pixels da seleção atual: a seleção solta volta para a camada e tudo é levantado de novo
+  const velha = maskDaSel(); if (sel) commitSel(); const m = new Uint8Array(W * H); for (let i = 0; i < W * H; i++) m[i] = tira ? (velha[i] && !nova[i] ? 1 : 0) : (velha[i] || nova[i] ? 1 : 0);
+  const ok = levantaMask(m); redraw(); return ok;
+}
+function carimba() { if (!sel) return false; L().x.drawImage(sel.c, sel.ox, sel.oy); salvaAuto(); redraw(); return true; }   // deixa uma cópia dos pixels na camada; a seleção continua solta e é só mover/colar de novo para clonar (sem empilhar desfazer: desfazer volta ao estado antes de levantar)
+function espelhaSel(h) { if (!sel) return; const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.save(); if (h) { g.translate(2 * sel.bx + sel.bw, 0); g.scale(-1, 1); } else { g.translate(0, 2 * sel.by + sel.bh); g.scale(1, -1); } g.drawImage(sel.c, 0, 0); g.restore(); sel.c = c; sel.tint = null; redraw(); }
+function selTint() { if (!sel.tint) { const t = document.createElement('canvas'); t.width = W; t.height = H; const g = t.getContext('2d'); g.drawImage(sel.c, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgba(47,140,255,.35)'; g.fillRect(0, 0, W, H); sel.tint = t; } return sel.tint; }
+function marcaPincel(d, x, y) { const t = +$('tam').value || 1, o = Math.floor(t / 2); for (let j = 0; j < t; j++) for (let i = 0; i < t; i++) { const X = x - o + i, Y = y - o + j; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const k = Y * W + X; if (!d.m[k]) { d.m[k] = 1; d.lista.push(k); } } }
 // ---------- imagens importadas: objetos com matriz e recorte (não entram na exportação) ----------
 const IMG_REG = {}; let idImg = 0;   // guarda o arquivo de cada imagem, para o desfazer poder trazê-la de volta
 const imgEstado = o => ({ id: o.id, nome: o.nome, t: 'imagem', x: o.x, y: o.y, w: o.w, h: o.h, m: o.m, crop: o.crop, op: o.op, acima: o.acima, vis: o.vis, z: o.z });
@@ -435,7 +454,7 @@ cv.addEventListener('dblclick', e => {   // duplo clique numa aresta cria um pon
 });
 function colaInterno() {
   commitSel(); if (clipObj) { pushUndo(); const n = JSON.parse(JSON.stringify(clipObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; modoGira = false; camadasUi(); toca(); }
-  else if (clipPx) { escolhe('selecionar'); pushUndo(); const t = document.createElement('canvas'); t.width = W; t.height = H; t.getContext('2d').drawImage(clipPx.c, clipPx.ox, clipPx.oy); sel = { c: t, ox: 0, oy: 0, bx: clipPx.bx + clipPx.ox, by: clipPx.by + clipPx.oy, bw: clipPx.bw, bh: clipPx.bh }; redraw(); }
+  else if (clipPx) { if (tool !== 'selecionar' && tool !== 'marcar') escolhe('selecionar'); pushUndo(); const dx = (hover[0] >= 0 && hover[0] < W) ? hover[0] - (clipPx.bx + clipPx.ox) : 0, dy = (hover[1] >= 0 && hover[1] < H) ? hover[1] - (clipPx.by + clipPx.oy) : 0, t = document.createElement('canvas'); t.width = W; t.height = H; t.getContext('2d').drawImage(clipPx.c, clipPx.ox + dx, clipPx.oy + dy); sel = { c: t, ox: 0, oy: 0, bx: clipPx.bx + clipPx.ox + dx, by: clipPx.by + clipPx.oy + dy, bw: clipPx.bw, bh: clipPx.bh }; redraw(); }
 }
 addEventListener('paste', e => { if (/INPUT|SELECT/.test(e.target.tagName)) return; const its = [...(e.clipboardData ? e.clipboardData.items : [])].filter(i => i.type.startsWith('image/')); e.preventDefault(); if (its.length) its.forEach(i => carregaRef(i.getAsFile())); else colaInterno(); });
 addEventListener('dragover', e => e.preventDefault()); addEventListener('drop', e => { e.preventDefault(); [...(e.dataTransfer ? e.dataTransfer.files : [])].forEach(carregaRef); });
@@ -488,10 +507,11 @@ cv.addEventListener('pointerdown', e => {
   hoverNo = null;
   if (e.button === 1 || espaco) { drag = { k: 'pan', sx: e.clientX, sy: e.clientY, ox: view.ox, oy: view.oy }; return; }
 
+  if (tool === 'marcar' && (e.button === 0 || e.button === 2)) { const d = { k: 'marcar', m: new Uint8Array(W * H), lista: [], tira: e.altKey || e.button === 2, ult: [px, py] }; marcaPincel(d, px, py); drag = d; redraw(); return; }   // arrastar marca pixels (qualquer um, mesmo soltos); Alt ou botão direito tira da seleção
   if (tool === 'forma') { formaDown(e, pf, px, py); return; }
   const cor = e.button === 2 ? cor2() : cor1(), mexe = tool === 'selecionar' || FORMAS.includes(tool);
   if (mexe && e.button !== 2) {
-    if (dentroSel(px, py)) { drag = { k: 'selmove', p0: [px, py], o0: [sel.ox, sel.oy], undo: false }; return; }
+    if (dentroSel(px, py)) { if (e.altKey) carimba(); drag = { k: 'selmove', p0: [px, py], o0: [sel.ox, sel.oy], undo: false }; return; }   // Alt+arrastar: deixa uma cópia no lugar (clonar)
     const h = alcaEm(e);
     if (h && (tool === 'selecionar' || !modoGira)) {
       const o = selObj, B0 = caixa(o), cx = B0.cx, cy = B0.cy;
@@ -503,9 +523,10 @@ cv.addEventListener('pointerdown', e => {
       if (gn) { const antes = selObj; if (gn.o !== antes) { if (ehImg(gn.o)) selecionaRef(gn.o); else selecionaObj(gn.li, gn.o); } drag = { k: 'omove', p0: gn.n.p, ps: pf, x0: selObj.x, y0: selObj.y, ja: gn.o === antes, moveu: false, ini: false, agarre: gn.n.nome }; return; }   // perto de um ponto de qualquer objeto: pega por ele
 
       if (hit) { const ja = hit.o === selObj; if (!ja) selecionaItem(hit); drag = { k: 'omove', p0: pf, ps: pf, x0: selObj.x, y0: selObj.y, ja, moveu: false, ini: false, agarre: null }; return; }
-      selObj = null; commitSel(); formaUi(); const g = grupoEm(px, py);
-      if (g) { if (levanta(g.mask, g.bx, g.by, g.bw, g.bh)) drag = { k: 'selmove', p0: [px, py], o0: [0, 0], undo: true }; redraw(); return; }
-      drag = { k: 'marq', p0: [px, py], p1: [px, py] }; redraw(); return;
+      const soma = e.shiftKey && !!sel;   // Shift: soma à seleção que já existe
+      if (!soma) { selObj = null; commitSel(); formaUi(); } const g = grupoEm(px, py);
+      if (g) { if (soma) { somaSel(g.mask, false); return; } if (levanta(g.mask, g.bx, g.by, g.bw, g.bh)) drag = { k: 'selmove', p0: [px, py], o0: [0, 0], undo: true }; redraw(); return; }
+      drag = { k: 'marq', p0: [px, py], p1: [px, py], soma }; redraw(); return;
     }
     commitSel(); drag = { k: 'cria', p0: [px, py], criado: false }; return;   // ferramenta de forma: cria um novo objeto ao arrastar
   }
@@ -531,6 +552,7 @@ cv.addEventListener('pointermove', e => {
   }
   if (drag.k === 'noMarq') { drag.p1 = pf; redraw(); return; }
   if (drag.k === 'refmove') { ref.x = Math.round(drag.x0 + pf[0] - drag.p0[0]); ref.y = Math.round(drag.y0 + pf[1] - drag.p0[1]); refUi(); redraw(); return; }
+  if (drag.k === 'marcar') { tracejado(drag.ult[0], drag.ult[1], px, py, (x, y) => marcaPincel(drag, x, y)); drag.ult = [px, py]; redraw(); return; }
   if (drag.k === 'selmove') { sel.ox = drag.o0[0] + px - drag.p0[0]; sel.oy = drag.o0[1] + py - drag.p0[1]; redraw(); return; }
   if (drag.k === 'marq') { drag.p1 = [px, py]; redraw(); return; }
   if (drag.k === 'pan') { view.ox = drag.ox + e.clientX - drag.sx; view.oy = drag.oy + e.clientY - drag.sy; redraw(); return; }
@@ -576,7 +598,8 @@ cv.addEventListener('pointerup', () => {
   if (drag && drag.k === 'omove' && drag.moveu) aplicaMover(drag);
   if (drag && drag.k === 'noMove' && drag.alterna && !drag.moveu) nodeSel = nodeSel.filter(k => k !== drag.idx);   // Shift+clique num ponto já selecionado, sem arrastar, tira ele da seleção
   if (drag && drag.k === 'noMarq') { const x0 = Math.min(drag.p0[0], drag.p1[0]), x1 = Math.max(drag.p0[0], drag.p1[0]), y0 = Math.min(drag.p0[1], drag.p1[1]), y1 = Math.max(drag.p0[1], drag.p1[1]); nodeSel = nosRef().map((p, i) => [i, paraMundo(ref, p[0], p[1])]).filter(([, q]) => q[0] >= x0 && q[0] <= x1 && q[1] >= y0 && q[1] <= y1).map(([i]) => i); }
-  if (drag && drag.k === 'marq') { const [a, b] = drag.p0, [c, d] = drag.p1; if (Math.abs(c - a) + Math.abs(d - b) > 0) marcaRet(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d)); }
+  if (drag && drag.k === 'marq') { const [a, b] = drag.p0, [c, d] = drag.p1; if (Math.abs(c - a) + Math.abs(d - b) > 0) marcaRet(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d), drag.soma); }
+  if (drag && drag.k === 'marcar') { const d = drag; drag = null; somaSel(d.m, d.tira); }
   if (drag && drag.k === 'omove' && !drag.moveu && drag.ja) { modoGira = !modoGira; }   // segundo clique no mesmo objeto: alterna escala <-> girar
   if (drag && (drag.k === 'pinta' || drag.k === 'mcam')) salvaAuto();
   drag = null; formaUi(); redraw();
@@ -588,9 +611,9 @@ addEventListener('keydown', e => {
   if (e.ctrlKey && k === 'z') { e.preventDefault(); e.shiftKey ? refaz() : desfaz(); return; } if (e.ctrlKey && k === 'y') { e.preventDefault(); refaz(); return; }
   if (campo) { if (e.key === 'Enter') e.target.blur(); return; }
   if (e.ctrlKey && k === 'c') { copia(); return; } if (e.ctrlKey && k === 'x') { copia(); if (selObj) apagaObj(); else if (sel) { sel = null; salvaAuto(); redraw(); } return; }
-  if (e.ctrlKey && k === 'd') { e.preventDefault(); duplica(); return; }
+  if (e.ctrlKey && k === 'd') { e.preventDefault(); if (sel && !selObj) carimba(); else duplica(); return; }   // com pixels selecionados: deixa uma cópia aqui (a seleção continua solta para mover)
   if (e.ctrlKey && k === 'v') return;   // colar é tratado no evento paste (imagem vira referência, objeto copiado vira cópia)
-  if (e.ctrlKey && k === 'a' && tool === 'selecionar') { e.preventDefault(); soltaTudo(); marcaRet(0, 0, W - 1, H - 1); redraw(); return; }
+  if (e.ctrlKey && k === 'a' && (tool === 'selecionar' || tool === 'marcar')) { e.preventDefault(); soltaTudo(); marcaRet(0, 0, W - 1, H - 1); redraw(); return; }
   if (e.key === 'Escape') { if (sel) commitSel(); else { selObj = null; modoGira = false; formaUi(); redraw(); } return; }
   if (e.key === 'Enter' && sel) { commitSel(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj && !ehImg(selObj) && ptSel >= 0 && selObj.pts && selObj.pts[ptSel]) { e.preventDefault(); pushUndo(); selObj.pts = selObj.pts.filter((_, i) => i !== ptSel); ptSel = -1; toca(); return; }
@@ -599,6 +622,7 @@ addEventListener('keydown', e => {
   if (e.key === 'PageUp') { e.shiftKey ? ordemTudo(true) : ordem(1); return; } if (e.key === 'PageDown') { e.shiftKey ? ordemTudo(false) : ordem(-1); return; }
   if (e.key.startsWith('Arrow') && (selObj || sel)) { e.preventDefault(); const p = e.shiftKey ? 8 : 1, dx = e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, dy = e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0; if (sel) { sel.ox += dx; sel.oy += dy; redraw(); } else { pushUndo(); selObj.x += dx; selObj.y += dy; toca(); } return; }
   if (k === 'p' && !e.ctrlKey && selObj) { pushUndo(); const B = caixa(selObj); selObj.x += Math.round(W / 2 - B.cx); selObj.y += Math.round(H / 2 - B.cy); toca(); return; }   // P: centraliza o objeto na página
+  if (sel && !selObj && !e.ctrlKey && (k === 'h' || k === 'v')) { espelhaSel(k === 'h'); return; }   // H / V: espelha os pixels selecionados
   if (KEYS[k] && !e.ctrlKey) escolhe(KEYS[k]); if (k === 'x' && !e.ctrlKey) troca();
 });
 addEventListener('keyup', e => { if (e.code === 'Space') espaco = false; });
@@ -609,7 +633,7 @@ function desenha() {
   const r = wrap.getBoundingClientRect(); if (cv.width !== r.width | 0 || cv.height !== r.height | 0) { cv.width = r.width | 0; cv.height = r.height | 0; } const z = view.z; ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.save(); ctx.translate(view.ox, view.oy);
   const q = Math.max(1, Math.ceil(8 / z)); if (fundoVis !== 'xadrez') { ctx.fillStyle = fundoVis; ctx.fillRect(0, 0, W * z, H * z); } else { ctx.fillStyle = '#cfcfcf'; ctx.fillRect(0, 0, W * z, H * z); ctx.fillStyle = '#a8a8a8'; for (let y = 0; y < H; y += q) for (let x = ((y / q) & 1) * q; x < W; x += q * 2) ctx.fillRect(x * z, y * z, Math.min(q, W - x) * z, Math.min(q, H - y) * z); }
-  ctx.scale(z, z); desenhaRef(false); layers.forEach((l, i) => { if (!l.vis) return; ctx.drawImage(l.c, 0, 0); if (i === cur && sel) ctx.drawImage(sel.c, sel.ox, sel.oy); });
+  ctx.scale(z, z); desenhaRef(false); layers.forEach((l, i) => { if (!l.vis) return; ctx.drawImage(l.c, 0, 0); if (i === cur && sel) { ctx.drawImage(sel.c, sel.ox, sel.oy); ctx.drawImage(selTint(), sel.ox, sel.oy); } });
   desenhaItens();
   ctx.scale(1 / z, 1 / z);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * z, H * z); ctx.clip();
@@ -620,6 +644,7 @@ function desenha() {
   ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(-.5, -.5, W * z + 1, H * z + 1);
   const ants = (x, y, w, h) => { ctx.setLineDash([]); ctx.strokeStyle = '#fff'; ctx.strokeRect(x + .5, y + .5, w, h); ctx.strokeStyle = '#000'; ctx.setLineDash([5, 5]); ctx.strokeRect(x + .5, y + .5, w, h); ctx.setLineDash([]); };
   if (sel) ants((sel.bx + sel.ox) * z, (sel.by + sel.oy) * z, sel.bw * z, sel.bh * z);
+  if (drag && drag.k === 'marcar') { ctx.fillStyle = drag.tira ? 'rgba(255,60,60,.5)' : 'rgba(47,140,255,.5)'; for (const i of drag.lista) ctx.fillRect((i % W) * z, ((i / W) | 0) * z, z, z); }
   if (drag && drag.k === 'marq') { const a = Math.min(drag.p0[0], drag.p1[0]), b = Math.min(drag.p0[1], drag.p1[1]); ants(a * z, b * z, (Math.abs(drag.p1[0] - drag.p0[0]) + 1) * z, (Math.abs(drag.p1[1] - drag.p0[1]) + 1) * z); }
   if (selObj && (tool === 'selecionar' || FORMAS.includes(tool))) {
     const o = selObj, B = caixa(o);
@@ -650,7 +675,7 @@ function desenha() {
   }
   ctx.restore(); status(); salvaAuto();
 }
-function status() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter confirma, Delete apaga)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
+function status() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
 ['gGrade', 'gIso', 'gIsoW', 'gCentro'].forEach(i => $(i).onchange = redraw);
 addEventListener('resize', () => { desenha(); });
 // ---------- início ----------
