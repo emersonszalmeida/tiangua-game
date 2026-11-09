@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
 const MULT = +process.argv[2] || 1, NCOR = +process.argv[3] || 22;
-const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO || 'tom', SOBRETOM = +process.env.SOBRETOM || .87;   // CONTORNO: 'tom' (sobretom na borda, padrão) · 'fora' (linha escura de 1 px por fora) · '0' (nenhum)   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
+const NCOR_ARV = +process.env.CORES_ARVORE || 56, CONTORNO = process.env.CONTORNO || '0', SOBRETOM = +process.env.SOBRETOM || .87;   // CONTORNO: '0' (nenhum, padrão) · 'tom' (sobretom na borda) · 'fora' (linha escura de 1 px por fora) · '0' (nenhum)   // árvores: bem mais cores (degradê suave do tronco) e contorno de 1 px
 const path = u => new URL(u, import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const OUT = path('./arvore/'), SRC = path('./arte_terreno/arvores_gemini_ref.png');
 fs.mkdirSync(OUT, { recursive: true });
@@ -70,6 +70,24 @@ for (const it of itens) if (it.tipo === 'arvore') for (let pass = 0; pass < 2; p
     let borda = false; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= it.tw || yy >= it.th || !it.o[(yy * it.tw + xx) * 4 + 3]) borda = true; }
     if (!borda) continue; const r = it.o[p], gg = it.o[p + 1], b = it.o[p + 2], sat = Math.max(r, gg, b) - Math.min(r, gg, b); if (sat < 34 && (r + gg + b) / 3 > 150) kill.push(p); }
   kill.forEach(p => it.o[p + 3] = 0); }
+// musgo no tronco e cinza dentro da copa
+const isVerde = (r, gg, b) => gg >= r && gg >= b && Math.max(r, gg, b) - Math.min(r, gg, b) > 12;
+for (const it of itens) if (it.tipo === 'arvore') {
+  const W2 = it.tw, H2 = it.th, op = i => it.o[i * 4 + 3], cor = i => [it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]], Y = c => .3 * c[0] + .59 * c[1] + .11 * c[2];
+  // (a) manchas verdes pequenas cercadas de marrom (musgo do tronco) viram marrom de tronco, mantendo o brilho de cada pixel
+  const comp = new Int32Array(W2 * H2); let nc = 0;
+  for (let s = 0; s < W2 * H2; s++) { if (!op(s) || comp[s] || !isVerde(...cor(s))) continue; nc++; const pil = [s], px = []; comp[s] = nc;
+    while (pil.length) { const p = pil.pop(); px.push(p); const x = p % W2, y = (p / W2) | 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const xx = x + dx, yy = y + dy; if (xx < 0 || yy < 0 || xx >= W2 || yy >= H2) continue; const q = yy * W2 + xx; if (op(q) && !comp[q] && isVerde(...cor(q))) { comp[q] = nc; pil.push(q); } } }
+    if (px.length > 700) continue;   // copa (grande) não é musgo
+    let nb = 0, nt = 0, br = [0, 0, 0]; const vistos = new Set();
+    for (const p of px) { const x = p % W2, y = (p / W2) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const xx = x + dx, yy = y + dy, q = yy * W2 + xx; if (xx < 0 || yy < 0 || xx >= W2 || yy >= H2 || !op(q)) { nt++; continue; } if (comp[q] === nc) continue; if (isVerde(...cor(q))) continue; if (!vistos.has(q)) { vistos.add(q); nb++; const c = cor(q); br[0] += c[0]; br[1] += c[1]; br[2] += c[2]; } } }
+    if (nb >= 6 && nt <= .15 * (nb + nt)) { const bm = br.map(v => v / nb), by = Y(bm); for (const p of px) { const c = cor(p), k = Math.max(.75, Math.min(1.3, Y(c) / Math.max(1, by))); it.o[p * 4] = Math.round(bm[0] * k); it.o[p * 4 + 1] = Math.round(bm[1] * k); it.o[p * 4 + 2] = Math.round(bm[2] * k); } } }
+  // (b) pixel claro e sem cor no meio da folhagem (cinza solto) vira verde-claro de folha
+  const copia = it.o.slice();
+  for (let y = 0; y < H2; y++) for (let x = 0; x < W2; x++) { const p = y * W2 + x; if (!copia[p * 4 + 3]) continue; const r = copia[p * 4], gg = copia[p * 4 + 1], b = copia[p * 4 + 2], sat = Math.max(r, gg, b) - Math.min(r, gg, b); if (!(sat < 30 && (r + gg + b) / 3 > 140)) continue;
+    let nv = 0, sr = 0, sg = 0, sb = 0; for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if ((!dx && !dy) || xx < 0 || yy < 0 || xx >= W2 || yy >= H2) continue; const q = yy * W2 + xx; if (copia[q * 4 + 3] && isVerde(copia[q * 4], copia[q * 4 + 1], copia[q * 4 + 2])) { nv++; sr += copia[q * 4]; sg += copia[q * 4 + 1]; sb += copia[q * 4 + 2]; } }
+    if (nv >= 6) { it.o[p * 4] = Math.round(sr / nv * 1.04); it.o[p * 4 + 1] = Math.round(sg / nv * 1.04); it.o[p * 4 + 2] = Math.round(sb / nv * 1.04); } }
+}
 const dados = {};
 for (const it of itens) { const px = []; for (let i = 0; i < it.tw * it.th; i++) if (it.o[i * 4 + 3]) px.push([it.o[i * 4], it.o[i * 4 + 1], it.o[i * 4 + 2]]);
   const PAL = paleta(px, it.tipo === 'arvore' ? NCOR_ARV : NCOR), perto = (r, g, b) => { let bi = 0, bd = 1e9; PAL.forEach((c, i) => { const dd = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2; if (dd < bd) { bd = dd; bi = i; } }); return PAL[bi]; };
