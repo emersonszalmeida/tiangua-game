@@ -60,3 +60,6 @@ const H = y + rh + 8, im = new Uint8Array(W * H * 4); for (let i = 0; i < W * H;
 for (const [it, ox, oy] of pos) for (let j = 0; j < it.th * Z; j++) for (let i = 0; i < it.tw * Z; i++) { const p = (((j / Z) | 0) * it.tw + ((i / Z) | 0)) * 4; if (it.o[p + 3]) im.set(it.o.subarray(p, p + 4), ((oy + j) * W + ox + i) * 4); }
 fs.writeFileSync(OUT + '_conferencia.png', encodePNG(W, H, im));
 console.log(itens.length + ' itens, ' + NCOR + ' cores por item: ' + itens.map(i => i.nome + ' ' + i.tw + 'x' + i.th).join(', '));
+// embute as imagens em decoracao_dados.js (data URI): o editor lê os pixels para saber onde há arte (apagar/espalhar) e file:// bloqueia a leitura de PNG solto
+const B64 = {}; for (const it of itens) B64[it.nome] = 'data:image/png;base64,' + fs.readFileSync(OUT + it.nome + '.png').toString('base64');
+fs.writeFileSync(new URL('./decoracao_dados.js', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1'), '// gerado por decoracao_do_gemini.mjs\nconst DECO_B64 = ' + JSON.stringify(B64) + ';\n');

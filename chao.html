@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -37,12 +37,20 @@ const matDe = (cx, cy) => (cx < 0 || cy < 0 || cx >= M || cy >= M) ? null : MAP[
 // ---------- objetos (árvores) ----------
 const OBJS = { arvore1: { nome: 'Árvore 1', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103 }, arvore2: { nome: 'Árvore 2', src: 'arvore_pl0.png', cx: 63, by: 90 }, arvore3: { nome: 'Árvore 3', src: 'arvore_v1_sem_galho.png', cx: 63, by: 106 }, arvore4: { nome: 'Árvore 1 espelhada', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103, flip: true } };
 const DECOS = [['grama_alta_1', 'Grama alta 1'], ['grama_alta_2', 'Grama alta 2'], ['grama_alta_3', 'Grama alta 3'], ['grama_alta_4', 'Grama alta 4'], ['flor_margarida', 'Margarida'], ['flor_amarela', 'Flor amarela'], ['flor_lavanda', 'Lavanda'], ['flor_papoula', 'Papoula'], ['flor_papoula_b', 'Papoula 2'], ['flor_azul', 'Flor azul'], ['flor_azul_b', 'Flor azul 2'], ['flor_mista', 'Flores mistas'], ['pedra_mini', 'Pedrinha'], ['pedra_pequena', 'Pedra pequena'], ['pedra_grande', 'Pedra grande'], ['pedra_dupla', 'Pedras juntas'], ['pedra_chata', 'Pedra chata'], ['pedra_trio', 'Três pedras'], ['cogumelo_1', 'Cogumelo marrom'], ['cogumelo_2', 'Cogumelo vermelho'], ['cogumelo_3', 'Marrons juntos'], ['cogumelo_4', 'Cogumelo bege'], ['cogumelo_5', 'Vermelhos juntos'], ['cogumelo_6', 'Marrom grande'], ['cogumelo_7', 'Vermelho grande'], ['cogumelo_8', 'Marrons grandes'], ['cogumelo_9', 'Bege grande'], ['cogumelo_10', 'Vermelhos grandes'], ['folha_1', 'Folha seca'], ['folhas_monte', 'Folhas secas'], ['galho', 'Galho'], ['trevo', 'Trevos']];
-for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: 'decoracao/' + id + '.png', deco: true };
+for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: DECO_B64[id], deco: true };
 for (const o of Object.values(OBJS)) { o.im = new Image(); o.im.src = o.src; }
 let objetos = [];   // árvores: { x, y, id } com x,y = célula inteira · decorações: { x, y, id, f: 1 } com x,y = posição livre dentro do mapa (várias por célula, não bloqueiam)
-let ultDeco = null;
+const ESCD = 1;   // escala das decorações (as árvores e o personagem usam 2)
+const MASK = {};
+function maskDe(id) { if (MASK[id]) return MASK[id]; const im = OBJS[id].im; if (!im.complete || !im.naturalWidth) return null; const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data, a = new Uint8Array(c.width * c.height); for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] ? 1 : 0; return MASK[id] = { w: c.width, h: c.height, a }; }
+// o ponto do mundo (wx, wy, relativo ao mapa) cai num pixel desenhado da decoração o?
+function opaco(o, wx, wy, tol = 0) { const m = maskDe(o.id); if (!m) return false; const px = Math.floor((wx - (o.x - o.y) * 64) / ESCD + m.w / 2), py = Math.floor((wy - (o.x + o.y) * 32) / ESCD + (m.h - 1));
+  for (let j = -tol; j <= tol; j++) for (let i = -tol; i <= tol; i++) { const x = px + i, y = py + j; if (x >= 0 && y >= 0 && x < m.w && y < m.h && m.a[y * m.w + x]) return true; } return false; }
+// uma decoração nova em (fx, fy) encostaria nos pixels de alguma que já existe?
+function sobrepoe(id, fx, fy) { const m = maskDe(id); if (!m) return false; const bx = (fx - fy) * 64, by = (fx + fy) * 32, viz = objetos.filter(o => OBJS[o.id].deco && Math.abs((o.x - o.y) * 64 - bx) < 60 && Math.abs((o.x + o.y) * 32 - by) < 70);
+  if (!viz.length) return false; for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) if (m.a[j * m.w + i]) { const wx = bx + (i - m.w / 2 + .5) * ESCD, wy = by + (j - (m.h - 1) + .5) * ESCD; for (const o of viz) if (opaco(o, wx, wy)) return true; } return false; }
 const objEm = (cx, cy) => objetos.findIndex(o => !OBJS[o.id].deco && o.x === cx && o.y === cy);
-function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? 1 : 2; c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
+function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? ESCD : 2; c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
 // ---------- salvar / abrir ----------
 function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, }; }
 function deJson(j) {
@@ -78,7 +86,7 @@ const atualizaUi = () => {
     '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
     '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
-    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica (arraste para espalhar). Botão direito apaga o objeto ou a decoração mais próxima. O mapa também fica guardado sozinho neste navegador.</div>';
+    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. O mapa também fica guardado sozinho neste navegador.</div>';
   pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
   pn.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ferr = { t: b.dataset.t, id: b.dataset.id }; atualizaUi(); });
   document.getElementById('bSalvar').onclick = baixa; document.getElementById('bAbrir').onclick = () => document.getElementById('fArq').click(); document.getElementById('fArq').onchange = e => e.target.files[0] && abre(e.target.files[0]);
@@ -88,7 +96,7 @@ const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.c
 function pintaMouse(e) {
   if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
   if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy), fx = (gx / 64 + gy / 32) / 2, fy = (gy / 32 - gx / 64) / 2;
-  if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bd = .5; objetos.forEach((o, k) => { if (!OBJS[o.id].deco) return; const dd = Math.hypot(o.x - fx, o.y - fy); if (dd < bd) { bd = dd; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
+  if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bz = -1e9; objetos.forEach((o, k) => { if (OBJS[o.id].deco && o.x + o.y > bz && opaco(o, gx, gy, 1)) { bz = o.x + o.y; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
   if (ferr.t === 'chao') {
     const carimba = (x, y) => { const o = Math.floor((larg - 1) / 2); for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) pinta(x - o + k, y - o + j, ferr.id); };
     if (e.type === 'pointerdown') { inicio = [cx, cy]; snap = MAP.map(r => r.slice()); }
@@ -97,7 +105,7 @@ function pintaMouse(e) {
       const dx = cx - inicio[0], dy = cy - inicio[1], n = Math.max(Math.abs(dx), Math.abs(dy)), sx = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 0, sy = sx ? 0 : Math.sign(dy);
       for (let t = 0; t <= n; t++) carimba(inicio[0] + sx * t, inicio[1] + sy * t);
     } else carimba(cx, cy);
-    autosave(); } else if (ferr.t === 'obj') { if (OBJS[ferr.id].deco) { if (e.type === 'pointerdown') ultDeco = null; if (!ultDeco || Math.hypot(fx - ultDeco[0], fy - ultDeco[1]) > .5) { objetos.push({ x: Math.round(fx * 100) / 100, y: Math.round(fy * 100) / 100, id: ferr.id, f: 1 }); ultDeco = [fx, fy]; autosave(); } } else { if (i >= 0) objetos.splice(i, 1); objetos.push({ x: cx, y: cy, id: ferr.id }); autosave(); } }
+    autosave(); } else if (ferr.t === 'obj') { if (OBJS[ferr.id].deco) { if (e.type === 'pointerdown' || !sobrepoe(ferr.id, fx, fy)) { objetos.push({ x: Math.round(fx * 100) / 100, y: Math.round(fy * 100) / 100, id: ferr.id, f: 1 }); autosave(); } } else { if (i >= 0) objetos.splice(i, 1); objetos.push({ x: cx, y: cy, id: ferr.id }); autosave(); } }
 }
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
