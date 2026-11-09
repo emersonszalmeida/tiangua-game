@@ -1,11 +1,13 @@
 // Converte a folha de decorações do Gemini (arte_terreno/decoracoes_gemini_ref.png) em pixel art limpa:
 // recorta cada item, tira o fundo cinza e a franja, reduz para a escala do jogo, trava numa paleta única
 // (median cut) e deixa cada pixel duro. Saída: decoracao/*.png + decoracao/_conferencia.png
-// uso: node decoracao_do_gemini.mjs [fator=0.2] [cores por item=14]
+// uso: node decoracao_do_gemini.mjs [multiplicador de tamanho=1] [cores=14]
+// fator de redução por categoria (o personagem tem ~40 px de altura; cogumelo e pedrinha precisam ser bem pequenos)
+const FATOR = { grama: .2, flor: .2, pedra: .2, cogumelo: .2, folha: .2, folhas: .2, galho: .2, trevo: .2 };
 import fs from 'node:fs';
 import { decodePNG } from './pngdec.mjs';
 import { encodePNG } from './pngenc.mjs';
-const FAT = +process.argv[2] || 0.2, NCOR = +process.argv[3] || 14;
+const MULT = +process.argv[2] || 1, NCOR = +process.argv[3] || 14;
 const OUT = new URL('./decoracao/', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 const SRC = new URL('./arte_terreno/decoracoes_gemini_ref.png', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
 fs.mkdirSync(OUT, { recursive: true });
@@ -27,7 +29,7 @@ const NOMES = ['grama_alta_1', 'grama_alta_2', 'grama_alta_3', 'grama_alta_4', '
 if (comps.length !== NOMES.length) throw new Error('esperava ' + NOMES.length + ' itens, achei ' + comps.length);
 // 3) recorta, tira franja, reduz
 const itens = comps.map((c, idx) => {
-  const nome = NOMES[idx], cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1, d = new Uint8Array(cw * ch * 4);
+  const nome = NOMES[idx], FAT = FATOR[nome.split('_')[0]] * MULT, cw = c.x1 - c.x0 + 1, ch = c.y1 - c.y0 + 1, d = new Uint8Array(cw * ch * 4);
   for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) { const p = (c.y0 + y) * w + c.x0 + x; if (mask[p] && lab[p] === c.id) { d.set(data.subarray(p * 4, p * 4 + 4), (y * cw + x) * 4); d[(y * cw + x) * 4 + 3] = 255; } }
   const petalas = nome === 'flor_margarida' || nome === 'flor_mista';   // pétalas brancas: só tira o cinza do fundo, nunca o branco
   for (let pass = 0; pass < 2; pass++) { const kill = [];
@@ -36,7 +38,7 @@ const itens = comps.map((c, idx) => {
       if (!borda) continue; const r = d[p], g = d[p + 1], b = d[p + 2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), av = (r + g + b) / 3;
       if (petalas ? false : (mx - mn < (pass ? 30 : 38) && av > (pass ? 168 : 150))) kill.push(p); }
     kill.forEach(p => d[p + 3] = 0); }
-  const tw = Math.max(2, Math.round(cw * FAT)), th = Math.max(2, Math.round(ch * FAT)), o = new Uint8Array(tw * th * 4);
+  const tw = Math.max(3, Math.round(cw * FAT)), th = Math.max(2, Math.round(ch * FAT)), o = new Uint8Array(tw * th * 4);
   for (let ty = 0; ty < th; ty++) for (let tx = 0; tx < tw; tx++) { let a = 0, r = 0, g = 0, b = 0, m = 0;
     for (let y = Math.floor(ty / FAT); y < Math.min(ch, Math.ceil((ty + 1) / FAT)); y++) for (let x = Math.floor(tx / FAT); x < Math.min(cw, Math.ceil((tx + 1) / FAT)); x++) { const p = (y * cw + x) * 4; m++; if (d[p + 3]) { a++; r += d[p]; g += d[p + 1]; b += d[p + 2]; } }
     if (a && a / m >= .5) { const q = (ty * tw + tx) * 4; let R2 = r / a, G2 = g / a, B2 = b / a; if (nome.startsWith('grama_alta')) { R2 *= .82; G2 *= .84; B2 *= .8; } o[q] = R2; o[q + 1] = G2; o[q + 2] = B2; o[q + 3] = 255; } }

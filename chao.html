@@ -41,7 +41,7 @@ for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: 'decoracao/' + id
 for (const o of Object.values(OBJS)) { o.im = new Image(); o.im.src = o.src; }
 let objetos = [];   // { x, y, id } — x,y = célula inteira
 const objEm = (cx, cy) => objetos.findIndex(o => o.x === cx && o.y === cy);
-function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; c.translate(sx, sy + 4 - by0 * 2); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * 2, 0, nw * 2, nh * 2); c.restore(); }
+function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? 1 : 2; c.translate(sx, sy + 4 - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
 // ---------- salvar / abrir ----------
 function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, }; }
 function deJson(j) {
