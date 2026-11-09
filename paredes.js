@@ -31,9 +31,9 @@
     }
     for (let i = 0; i < 64; i++) if (!(door && i >= DOOR_A && i < DOOR_B)) put(x, i, oy + Math.floor(i / 2), F.line);   // linha extra embaixo: cobre a emenda com o piso
     if (door) for (let k = 0; k < TP; k++) for (let d = 0; d < Math.min(DOOR_H, h); d++)   // lateral do vão (a espessura da parede); no corte baixo o batente também fica baixo
-      put(x, DOOR_A + k, oy + Math.floor((DOOR_A + k) / 2) - k - d - 1, JAMB);
+      { const yy = oy + Math.floor((DOOR_A + k) / 2) - k - d - 1; if (yy >= oy + Math.floor((DOOR_A + k) / 2) - h + 1) put(x, DOOR_A + k, yy, JAMB); }
     for (let i = 0; i < 64 + TP; i++) {   // topo escuro
-      if (door && h <= DOOR_H && i >= DOOR_A && i < DOOR_B) continue;   // sem travessão (parede cortada): o vão fica livre, sem linha escura no meio
+      if (door && h <= DOOR_H && i >= DOOR_A + TP && i < DOOR_B) continue;   // sem travessão (parede cortada): o vão fica livre, sem linha escura no meio
       const up = i < TP ? -Math.floor(i / 2) : -TP / 2 + Math.floor((i - TP) / 2), lo = i < 64 ? Math.floor(i / 2) : 32 - Math.ceil((i - 64) / 2);
       for (let j = up; j <= lo; j++) put(x, i, oy - h + j, j === lo && i < 64 ? CAP_L : CAP);
     }
@@ -46,7 +46,7 @@
       put(x, TP - 1 - k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_Y, 63 - k, d, h));
       put(x, TP + k, oy - 1 - Math.floor(k / 2) - h + d, faceColor(FACE_X, k, d, h));
     }
-    for (let i = 0; i < TP * 2; i++) { const a = Math.floor((Math.min(i, TP * 2 - 1 - i) + 2) / 2); for (let j = -a; j <= a; j++) put(x, i, oy - TP / 2 - h + j - 1, CAP); }
+    for (let i = 0; i < TP * 2; i++) { const a = Math.floor((Math.min(i, TP * 2 - 1 - i) + 2) / 2); for (let j = -a; j <= a; j++) put(x, i, oy - TP / 2 - h + j + 2, CAP); }
     return { c, oy };
   }
   const PIECE = {
