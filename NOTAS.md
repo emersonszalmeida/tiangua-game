@@ -129,3 +129,10 @@ Comparação folha original x exportada (pixel a pixel): 822 pixels removidos, 1
 3. **Interior do tronco do carvalho** (~1100 px recoloridos, 89% com cores que já existiam na peça): ajuste fino de casca; não deu para extrair regra. É onde a mão dele mais agrega.
 Limite honesto: uma regra de 1–2 variáveis explica ~70% (F1) das remoções; o resto é julgamento pixel a pixel. `FRANJA_MADEIRA=0` desliga; `EDIT_DIR=<pasta inexistente>` roda o gerador ignorando as peças editadas (para testar).
 Próxima rodada: pedir para ele olhar/editar só madeira (copas e arbustos já passam); comparar de novo e refinar as regras.
+
+## Tileset da cabana (peças modulares) — rodada 1, 2026-11-09
+Estilo: cabana de toras escuras com telhado verde (referência do dono). Peças modulares + telhado que some com o personagem dentro.
+- Folha do Gemini (rodada 1): `arte_casa/pecas_gemini_rodada1.png`. Veio com DOIS conjuntos (parede ↙, parede ↘, canto + 4 pisos); o dono mandou usar o **de baixo** (6 toras; o de cima tem canto com topo estranho). `SET=1 node casa_do_gemini.mjs` volta ao de cima.
+- `node casa_do_gemini.mjs` → `arte_casa/pecas/*.png` + `arte_casa/pecas.json`. Escala folha→jogo = 128/largura do piso (0,561). Parede = 1 aresta do losango (64 px de largura, ~83 px de altura vertical); o pedaço sai do meio da parede do Gemini (a ponta com toras redondas fica de fora). Inclinação corrigida para 2:1 (`cisalha`). Canto: 2 camadas cortadas (25 linhas) para não passar 35 px acima da parede. Pisos: só a face de cima, esticada para 128×64.
+- `casa_pecas.html?z=2`: sala de teste (3×2 células) com o personagem. Pontos de apoio: parede ↙ (`parede_sw`) base-esquerda no vértice esquerdo da célula (aresta NW); parede ↘ (`parede_se`) base-esquerda no vértice de cima (aresta NE); canto = meio da base no vértice.
+- Pendências: pisos com emendas visíveis (as tábuas não continuam entre pisos; plano: gerar o piso por código com as cores do Gemini); telhado verde (rodada 2), porta/janela/varanda (rodada 3), mobília (rodada 4); levar as peças para o `chao.html` (paredes nas arestas das células, colisão, telhado que some).
