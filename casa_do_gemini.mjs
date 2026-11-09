@@ -37,7 +37,12 @@ const SET = +process.env.SET || 2, tres = comps.filter(c => c.w <= 200 && (c.y0 
 const [wEsq, wDir, canto] = tres;   // da esquerda para a direita: "/" (↙), "\" (↘) e canto
 { const x1 = wEsq.w; pecas.parede_sw = reduz(apara(recorta(wEsq, x => x >= x1 - Lw)), S); }     // "/" : ponta redonda à esquerda → fica a direita
 { pecas.parede_se = reduz(apara(recorta(wDir, x => x < Lw)), S); }                                // "\" : ponta redonda à direita → fica a esquerda
-pecas.canto = reduz(apara(recorta(canto)), S);
+{ const fonte = apara(recorta(canto)), L = []; for (let y = 0; y < fonte.h; y++) { let s = 0, n = 0; for (let x = 0; x < fonte.w; x++) { const p = (y * fonte.w + x) * 4; if (fonte.o[p + 3]) { s += .3 * fonte.o[p] + .59 * fonte.o[p + 1] + .11 * fonte.o[p + 2]; n++; } } L.push(n ? s / n : 0); }
+  const am = y => { const i = Math.floor(y), f = y - i; return L[i] * (1 - f) + (L[i + 1] ?? L[i]) * f; }; let melhor = null;
+  for (let p = 16; p <= 30; p += .05) { let e = 0, n = 0; for (let y = 30; y + p < fonte.h - 30; y++) { e += Math.abs(am(y) - am(y + p)); n++; } if (n && (!melhor || e / n < melhor.e)) melhor = { p, e: e / n }; }
+  const Sc = 12 / melhor.p; console.log('canto: período das camadas na folha', melhor.p.toFixed(2), '→ escala', Sc.toFixed(3), '(parede usa', S.toFixed(3) + ')');
+  pecas.cantoG = reduz(fonte, Sc); }
+pecas.canto = reduz(apara(recorta(canto)), S);   // versão antiga (só para o teste), a final é montada em casa_toras.mjs
 // pisos: só a face de cima (losango), sem a espessura da laje
 piso.slice(0, 4).forEach((c, i) => { const cx = c.w / 2, cy = c.w / 4; pecas['pisoG_' + (i + 1)] = reduz(apara(recorta(c, (x, y) => Math.abs(x + .5 - cx) / cx + Math.abs(y + .5 - cy) / cy <= 1.03)), S); });
 // largura exata para as peças encaixarem sem fresta: parede = 64 px (uma aresta do losango), piso = 128 px (o losango inteiro); estica por vizinho mais próximo (1 ou 2 colunas repetidas)

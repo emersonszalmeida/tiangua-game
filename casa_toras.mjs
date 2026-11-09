@@ -37,22 +37,18 @@ function parede(sinal) {
     const c = RAMPA[Math.max(0, Math.min(6, i))], yy = y + dy(x); o.set([c[0], c[1], c[2], 255], (yy * M + x) * 4); }
   return { w: M, h: tot, o, baseY: Hr - 1 + dy(0) };
 }
-// canto: camadas de pontas de toras (disco 16×12) em duas colunas, a da direita deslocada meia camada; topo com duas barras se cruzando
-function disco(o, w, x0, y0, tom) {   // desenha um disco de ponta de tora 16×12
-  for (let y = 0; y < 12; y++) for (let x = 0; x < 16; x++) { const ex = (x - 7.5) / 8, ey = (y - 5.5) / 6, r = Math.hypot(ex, ey); if (r > 1) continue; const borda = r > .82; let i = 4 + tom;
-    if (borda) i = 1; else { const lado = (ex < 0 ? 1 : 0) + (ey < 0 ? 1 : 0); i = 4 + tom + (lado === 2 ? 1 : lado === 0 ? -1 : 0); if (r > .6 && r < .72) i -= 1; if (r < .22) i += 1; }
-    const c = RAMPA[Math.max(0, Math.min(6, i))]; o.set([c[0], c[1], c[2], 255], ((y0 + y) * w + x0 + x) * 4); } }
+// CANTO: parte do canto do Gemini (cantoG.png, já na escala em que cada camada tem 12 linhas = passo das toras da parede). Uma camada do miolo é repetida:
+// topo (tora de cima e as duas barras) + camada x Nc + base. Acha-se onde começa o padrão repetido comparando a camada com a seguinte.
 function canto() {
-  const w = 36, TOPO = 13, h = TOPO + N * P + 6, o = new Uint8Array(w * h * 4), XL = 2, XR = 18;
-  // miolo escuro atrás dos discos (sem buracos entre eles): cada coluna é um bloco contínuo
-  const bloco = (x0, y0, y1) => { for (let y = y0; y <= y1; y++) for (let x = x0; x < x0 + 16; x++) o.set([R.escuro[0], R.escuro[1], R.escuro[2], 255], (y * w + x) * 4); };
-  bloco(XL, TOPO + 3, TOPO + N * P - 3); bloco(XR, TOPO + 9, TOPO + 6 + N * P - 3);
-  for (let j = 0; j < N; j++) { disco(o, w, XL, TOPO + j * P, 0); disco(o, w, XR, TOPO + 6 + j * P, 0); }   // esquerda e direita (meia camada abaixo)
-  // topo: as faces de cima das duas toras de cima, uma subindo para cada lado até o meio do poste (formam um "^")
-  const cor = r => RAMPA[r === 0 ? 1 : r === 1 ? 6 : r < 4 ? 5 : r === 4 ? 4 : 2];
-  const barra = (x0, ytopo) => { for (let x = 0; x < 16; x++) for (let r = 0; r < 6; r++) { const y = ytopo(x) + r; if (y >= 0 && y < h) o.set([cor(r)[0], cor(r)[1], cor(r)[2], 255], (y * w + x0 + x) * 4); } };
-  barra(XL, x => TOPO - 5 - (x >> 1)); barra(XR, x => TOPO + 1 - ((15 - x) >> 1));
-  return { w, h, o, baseX: 18, baseY: h - 1 };
+  const G = decodePNG(D + 'cantoG.png'), w = G.w, h = G.h, linha = y => G.data.subarray(y * w * 4, (y + 1) * w * 4);
+  const dif = (y1, y2) => { let e = 0; for (let x = 0; x < w * 4; x++) if (x % 4 !== 3) e += Math.abs(G.data[y1 * w * 4 + x] - G.data[y2 * w * 4 + x]); return e; };
+  let a0 = 14, melhor = 1e18; for (let a = 14; a <= 34; a++) { let e = 0; for (let i = 0; i < P; i++) e += dif(a + i, a + P + i); if (e < melhor) { melhor = e; a0 = a; } }
+  const m = Math.floor((h - a0) / P) - 1, B = h - a0 - P * m, Hw = CAPA.length + N * P, Nc = Math.max(1, Math.round((Hw + 4 - a0 - B) / P));
+  const H = a0 + Nc * P + B, o = new Uint8Array(w * H * 4);
+  let y = 0; const copia = (de, n) => { for (let i = 0; i < n; i++) { o.set(linha(de + i), (y + i) * w * 4); } y += n; };
+  copia(0, a0); for (let k = 0; k < Nc; k++) copia(a0, P); copia(a0 + P * m, B);
+  console.log('canto: topo', a0, 'linhas, camada', P, 'x', Nc, ', base', B, '→ altura', H, '(parede', Hw + ')');
+  return { w, h: H, o, baseX: Math.round(w / 2), baseY: H - 1 };
 }
 const info = JSON.parse(fs.readFileSync('./arte_casa/pecas.json', 'utf8'));
 for (const [nome, im] of [['parede_se', parede(1)], ['parede_sw', parede(-1)], ['canto', canto()]]) { fs.writeFileSync(D + nome + '.png', encodePNG(im.w, im.h, im.o));

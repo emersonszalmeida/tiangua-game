@@ -6,7 +6,7 @@
 const cv = document.getElementById('c'), ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
 const nomes = ['parede_sw', 'parede_se', 'canto', 'piso_1', 'piso_2', 'piso_3'], IMG = {}; let falta = nomes.length;
 fetch('arte_casa/pecas.json').catch(() => null);
-const INFO = { parede_sw: { ax: 0, ay: 120 }, parede_se: { ax: 0, ay: 88 }, canto: { ax: 18, ay: 102 } };
+const INFO = { parede_sw: { ax: 0, ay: 120 }, parede_se: { ax: 0, ay: 88 }, canto: { ax: 20, ay: 93 } };
 for (const n of nomes) { const i = new Image(); i.onload = () => { if (!--falta) desenha(); }; i.src = 'arte_casa/pecas/' + n + '.png'; IMG[n] = i; }
 function desenha() {
   const Z = +new URLSearchParams(location.search).get('z') || 2; ctx.fillStyle = '#849766'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.scale(Z, Z);
