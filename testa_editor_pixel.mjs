@@ -81,6 +81,13 @@ try {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p3[0], y: p3[1], buttons: 1 }); await mouse('mouseReleased', p3); await sleep(100); e = JSON.parse(await estado());
   ok(e && e.ox === 9, 'a seleção continuou com o mouse até o fim do arrasto (deslocamento +9): ' + (e && e.ox)); await tecla('Enter', 'Enter');
   ok(await conta() === base7 + 12, 'ao soltar: original, 2 cópias deixadas e a peça final = ' + await conta() + ' (esperado ' + (base7 + 12) + ')');
+  console.log('8) Pintura feita sobre uma imagem anda junto com ela');
+  await ev("(() => { const c = document.createElement('canvas'); c.width = 20; c.height = 20; c.getContext('2d').fillRect(0, 0, 20, 20); const id = ++idImg; IMG_REG[id] = { im: c, c }; const o = { id, nome: 'teste', t: 'imagem', im: c, c, x: 70, y: 60, w: 20, h: 20, m: [1, 0, 0, 1], crop: null, op: .5, acima: true, vis: true, z: ++zSeq }; imgs.push(o); selecionaRef(o); escolhe('lapis'); 1; })()");
+  const q0 = await pos(75, 65), q1 = await pos(80, 65); await mouse('mousePressed', q0); await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: q1[0], y: q1[1], buttons: 1 }); await mouse('mouseReleased', q1); await sleep(100);
+  e = JSON.parse(await ev("JSON.stringify({ n: L().objs.filter(o => o.t === 'traco' && o.pai).length, img: ref.id, pai: (L().objs.filter(o => o.t === 'traco').pop() || {}).pai })") || 'null');
+  ok(e && e.n === 1 && e.pai === e.img, 'o traço pertence à imagem: ' + JSON.stringify(e));
+  const x8 = JSON.parse(await ev("(() => { selObj = ref; aplicaMover({ k: 'omove', moveu: true, dx: 7, dy: 3 }); const t = L().objs.filter(o => o.t === 'traco').pop(); return JSON.stringify({ x: t.x, y: t.y, ix: ref.x }); })()"));
+  ok(x8.x === 7 && x8.y === 3 && x8.ix === 77, 'mover a imagem levou a pintura junto: ' + JSON.stringify(x8));
   ok(erros.length === 0, 'nenhum erro de JavaScript na página' + (erros.length ? ': ' + erros[0] : ''));
   const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT || path.join(os.tmpdir(), 'editor_teste.png'), Buffer.from(shot.result.data, 'base64'));
   console.log(falhas ? '\n' + falhas + ' FALHA(S)' : '\nTUDO OK');

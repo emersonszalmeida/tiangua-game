@@ -344,12 +344,14 @@ function marcaCopia() {
   if (drag && drag.k === 'selmove' && !drag.rd) { drag.rd = true; carimba(); cv.style.cursor = 'copy'; return; }   // pixels soltos: cada clique do botão direito (com o esquerdo apertado) deixa uma cópia aqui, e a seleção continua com você
   if (drag && drag.k === 'omove' && !drag.copia) { drag.copia = true; cv.style.cursor = 'copy'; redraw(); }
 }
+function levaFilhos(o, dx, dy) { if (!ehImg(o) || (!dx && !dy)) return; layers.forEach(l => l.objs.forEach(f => { if (f.pai === o.id) { f.x += dx; f.y += dy; } })); }   // a pintura feita em cima de uma imagem anda junto com ela
 function aplicaMover(d) {
   const o = selObj; if (!o || !d.moveu) return; pushUndo();
   if (d.copia) {
-    if (ehImg(o)) { const n = { ...imgEstado(o), id: ++idImg, nome: o.nome + ' cópia', z: ++zSeq }; n.x += d.dx; n.y += d.dy; n.m = [...o.m]; n.crop = o.crop && o.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[o.id]; n.im = o.im; n.c = o.c; imgs.push(n); selecionaRef(n); }
+    if (ehImg(o)) { const n = { ...imgEstado(o), id: ++idImg, nome: o.nome + ' cópia', z: ++zSeq }; n.x += d.dx; n.y += d.dy; n.m = [...o.m]; n.crop = o.crop && o.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[o.id]; n.im = o.im; n.c = o.c; imgs.push(n);
+      layers.forEach(l => { const fs = l.objs.filter(f => f.pai === o.id); fs.forEach(f => { const g = JSON.parse(JSON.stringify(f)); g.pai = n.id; g.x += d.dx; g.y += d.dy; g.z = ++zSeq; if (f.t === 'traco') { const c = canvasTraco(); c.getContext('2d').drawImage(TRACOS[f.cid], 0, 0); g.cid = ++idTr; TRACOS[g.cid] = c; } l.objs.push(g); }); }); selecionaRef(n); }
     else { const n = JSON.parse(JSON.stringify(o)); n.x += d.dx; n.y += d.dy; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
-  } else { o.x += d.dx; o.y += d.dy; if (ehImg(o)) refUi(); toca(); }
+  } else { o.x += d.dx; o.y += d.dy; levaFilhos(o, d.dx, d.dy); if (ehImg(o)) refUi(); toca(); }
 }
 addEventListener('mousedown', e => { if (e.button === 2) marcaCopia(); }); addEventListener('contextmenu', () => { if (!(drag && drag.k === 'selmove')) marcaCopia(); }); addEventListener('mouseup', e => { if (e.button === 2 && drag && drag.k === 'selmove') { drag.rd = false; cv.style.cursor = 'move'; } });
 // ---------- seleção de pixels soltos (quando não há objeto) ----------
@@ -434,7 +436,7 @@ $('bRefTira').onclick = () => { if (ref) { selObj = ref; apagaObj(); } };
 $('rVis').onchange = () => { if (ref) { ref.vis = $('rVis').checked; redraw(); } }; $('rAcima').onchange = () => { if (ref) { ref.acima = $('rAcima').checked; redraw(); } };
 $('rOp').oninput = () => { if (ref) { ref.op = $('rOp').value / 100; redraw(); } };
 $('rEsc').onchange = () => { if (!ref) return; pushUndo(); const k = (+$('rEsc').value || 100) / 100 / escalaRef(), B = caixa(ref); ajustaCaixa(ref, B.l, B.t, (B.r - B.l) * k, (B.b - B.t) * k); refUi(); formaUi(); redraw(); };
-$('rX').onchange = $('rY').onchange = () => { if (!ref) return; pushUndo(); const B = caixa(ref); ref.x += (+$('rX').value || 0) - B.l; ref.y += (+$('rY').value || 0) - B.t; refUi(); formaUi(); redraw(); };
+$('rX').onchange = $('rY').onchange = () => { if (!ref) return; pushUndo(); const B = caixa(ref); const ddx = (+$('rX').value || 0) - B.l, ddy = (+$('rY').value || 0) - B.t; ref.x += ddx; ref.y += ddy; levaFilhos(ref, ddx, ddy); refUi(); formaUi(); redraw(); };
 $('bRefFit').onclick = () => { if (!ref) return; pushUndo(); const B = caixa(ref), k = Math.min(W / (B.r - B.l), H / (B.b - B.t)), w2 = (B.r - B.l) * k, h2 = (B.b - B.t) * k; ajustaCaixa(ref, (W - w2) / 2, (H - h2) / 2, w2, h2); refUi(); formaUi(); redraw(); };
 // ferramenta Forma: mexe nos pontos do recorte da imagem
 function noEm(e) { if (!ref || selObj !== ref) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ns = nosRef(); for (let i = 0; i < ns.length; i++) { const [X, Y] = paraMundo(ref, ns[i][0], ns[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
@@ -476,8 +478,9 @@ function tracoBox(o) {
 }
 function iniciaTraco() {   // o próximo desenho: continua o traço que já está no topo da pilha, ou cria um novo por cima de tudo
   const todos = []; layers.forEach(l => l.objs.forEach(o => todos.push(o))); imgs.forEach(o => { if (o.acima) todos.push(o); }); const topo = todos.sort(porZ).pop(), c = canvasTraco(); let o;
-  if (topo && topo.t === 'traco' && L().objs.includes(topo) && !topo.x && !topo.y && tracoSimples(topo)) { o = topo; c.getContext('2d').drawImage(TRACOS[o.cid], 0, 0); }
-  else { o = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: 0 }; L().objs.push(o); }
+  const sob = refHit(hover[0], hover[1]), pai = sob ? sob.id : 0;   // a pintura pertence à imagem que estava embaixo do primeiro ponto: mover a imagem leva a pintura
+  if (topo && topo.t === 'traco' && L().objs.includes(topo) && !topo.x && !topo.y && tracoSimples(topo) && (topo.pai || 0) === pai) { o = topo; c.getContext('2d').drawImage(TRACOS[o.cid], 0, 0); }
+  else { o = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: 0, pai }; L().objs.push(o); }
   o.cid = ++idTr; TRACOS[o.cid] = c; trabalho = c.getContext('2d'); camadasUi();
 }
 function iniciaBorracha() {   // apaga os pixels da camada e todos os traços visíveis (cada traço apagado vira uma cópia nova; traço girado ou esticado é fixado em pixels antes)
@@ -503,9 +506,9 @@ function pegaCor(x, y) { if (x < 0 || y < 0 || x >= W || y >= H) return null; co
 function alcas(o) { const out = [], B = caixa(o); for (const dy of [-1, 0, 1]) for (const dx of [-1, 0, 1]) { if (!dx && !dy) continue; const X = dx < 0 ? B.l : dx > 0 ? B.r : B.cx, Y = dy < 0 ? B.t : dy > 0 ? B.b : B.cy; out.push({ dx, dy, sx: view.ox + X * view.z, sy: view.oy + Y * view.z }); } return out; }
 function alcaEm(e) { if (!selObj) return null; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; for (const a of alcas(selObj)) if (Math.abs(mx - a.sx) <= 6 && Math.abs(my - a.sy) <= 6) return a; return null; }
 let drag = null;
-function novoObjeto(t, px, py) { return { t, x: px, y: py, w: 1, h: 1, m: [1, 0, 0, 1], z: ++zSeq, pre: t !== 'linha', con: true, th: Math.max(1, +$('fesp').value | 0), fy: false, c1: cor1(), c2: cor2() }; }
+function novoObjeto(t, px, py) { const sob = refHit(px, py); return { pai: sob ? sob.id : 0, t, x: px, y: py, w: 1, h: 1, m: [1, 0, 0, 1], z: ++zSeq, pre: t !== 'linha', con: true, th: Math.max(1, +$('fesp').value | 0), fy: false, c1: cor1(), c2: cor2() }; }
 cv.addEventListener('pointerdown', e => {
-  cv.setPointerCapture(e.pointerId); const [px, py] = toPx(e), pf = ptF(e);
+  cv.setPointerCapture(e.pointerId); const [px, py] = toPx(e), pf = ptF(e); hover = [px, py];
   if (drag && drag.k === 'omove') { if (e.button === 2) marcaCopia(); return; }
   if (drag && drag.k === 'selmove') { if (e.button === 2) marcaCopia(); return; }
   hoverNo = null;
@@ -624,7 +627,7 @@ addEventListener('keydown', e => {
   if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj === ref && nodeSel.length) { e.preventDefault(); apagaNos(); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { if (selObj) { e.preventDefault(); apagaObj(); } else if (sel) { e.preventDefault(); sel = null; salvaAuto(); redraw(); } return; }
   if (e.key === 'PageUp') { e.shiftKey ? ordemTudo(true) : ordem(1); return; } if (e.key === 'PageDown') { e.shiftKey ? ordemTudo(false) : ordem(-1); return; }
-  if (e.key.startsWith('Arrow') && (selObj || sel)) { e.preventDefault(); const p = e.shiftKey ? 8 : 1, dx = e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, dy = e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0; if (sel) { sel.ox += dx; sel.oy += dy; redraw(); } else { pushUndo(); selObj.x += dx; selObj.y += dy; toca(); } return; }
+  if (e.key.startsWith('Arrow') && (selObj || sel)) { e.preventDefault(); const p = e.shiftKey ? 8 : 1, dx = e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, dy = e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0; if (sel) { sel.ox += dx; sel.oy += dy; redraw(); } else { pushUndo(); selObj.x += dx; selObj.y += dy; levaFilhos(selObj, dx, dy); toca(); } return; }
   if (k === 'p' && !e.ctrlKey && selObj) { pushUndo(); const B = caixa(selObj); selObj.x += Math.round(W / 2 - B.cx); selObj.y += Math.round(H / 2 - B.cy); toca(); return; }   // P: centraliza o objeto na página
   if (sel && !selObj && !e.ctrlKey && (k === 'h' || k === 'v')) { espelhaSel(k === 'h'); return; }   // H / V: espelha os pixels selecionados
   if (KEYS[k] && !e.ctrlKey) escolhe(KEYS[k]); if (k === 'x' && !e.ctrlKey) troca();
