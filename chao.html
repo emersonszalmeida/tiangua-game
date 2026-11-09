@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=10"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -58,6 +58,18 @@ let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, d
 let pisos = new Set();     // células com piso de casa: 'cx,cy'
 let postes = [], rectsP = [];   // pilares (automáticos) e retângulos de colisão
 const RP = .15;            // raio do personagem para as paredes
+// letras do vértice (em ordem D L R U) → nome da peça na folha dos cantos (cantos_para_editar.mjs)
+const CFG_CANTO = { L: 'ponta_dir', U: 'ponta_esq', LU: 'canto_LU', DR: 'canto_RD', DL: 'canto_LD', RU: 'canto_RU', DLR: 't_LRD', LRU: 't_LRU', DLU: 't_UDL', DRU: 't_UDR', DLRU: 'cruz' };
+// a peça do canto na altura h (alta 92, cortada 26, baixa 12): a peça é desenhada para a parede alta; nas outras alturas corta-se o miolo (entre o topo, com a tampa, e a base)
+const cantoVar = {};
+function cantoPeca(cfg, hh) {
+  const d = CANTOS[cfg]; if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } if (!d.im.complete || !d.im.naturalWidth) return null;
+  if (hh >= CASA.HIGH) return { c: d.im, ax: d.ax, ay: d.ay };
+  const k = cfg + '@' + hh; if (cantoVar[k]) return cantoVar[k];
+  const TOP = 18, ini = d.ay + 10 - hh, alt = TOP + (d.h - ini), cv2 = document.createElement('canvas'); cv2.width = d.w; cv2.height = alt; const g = cv2.getContext('2d');
+  g.drawImage(d.im, 0, 0, d.w, TOP, 0, 0, d.w, TOP); g.drawImage(d.im, 0, ini, d.w, d.h - ini, 0, TOP, d.w, d.h - ini);
+  return (cantoVar[k] = { c: cv2, ax: d.ax, ay: TOP + (d.ay - ini) });
+}
 function recalcParedes() {
   const T = CASA.T, v = new Map(), no = (x, y) => { const k = x + ',' + y; if (!v.has(k)) v.set(k, { x, y, L: 0, R: 0, U: 0, D: 0, alto: false }); return v.get(k); };
   rectsP = [];
@@ -70,8 +82,8 @@ function recalcParedes() {
   }
   postes = [];   // pilar em toda ponta e em todo encontro; só no meio de uma reta não tem
   for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; rectsP.push([q.x - T, q.y - T, q.x, q.y]);
-    if (q.L && !q.R && !(q.U && q.D)) postes.push({ x: q.x, y: q.y, lado: 'D', alta: !!q.altoL });   // a face da ponta (4 px) só onde a parede termina de verdade
-    if (q.U && !q.D && !(q.L && q.R)) postes.push({ x: q.x, y: q.y, lado: 'E', alta: !!q.altoU }); }
+    const cfg = CFG_CANTO[['D', 'L', 'R', 'U'].filter(f => q[f]).join('')];   // situação do vértice → peça única desenhada pelo dono (cantos_dados.js); sem peça = nada além das paredes
+    if (cfg && typeof CANTOS !== 'undefined' && CANTOS[cfg]) postes.push({ x: q.x, y: q.y, cfg, alta: !!q.alto }); }
 }
 const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d);
 // itens de desenho da casa (ordenados junto com árvores e personagem): a parede passa na frente do personagem só quando ele está atrás do plano dela
@@ -98,10 +110,11 @@ function itensCasa() {
     const p = w.p, corta = !w.atras && p.k !== 'low' && (w.adj || (sala && cobreAlvo(rectDe(p, w.cheia), w.key))), pc = PIECE[p.a + (p.k === 'door' ? (corta ? 'DoorMid' : 'Door') : p.k === 'low' ? 'Low' : corta ? 'Mid' : 'High')];
     out.push({ d: w.key, atras: w.atras, r: rectDe(p, pc), f: () => { if (p.a === 'x') ctx.drawImage(pc.c, sx(p.n, p.c), sy(p.n, p.c) - pc.oy + 1); else { ctx.save(); ctx.translate(sx(p.c, p.n), sy(p.c, p.n) - pc.oy + 1); ctx.scale(-1, 1); ctx.drawImage(pc.c, 0, 0); ctx.restore(); } } });
   }
-  for (const q of postes) {
-    const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, cheia = PIECE['postHigh' + q.lado], rc = [sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - cheia.oy + 1, cheia.c.width, cheia.c.height];
-    const corta = !atras && q.alta && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = PIECE[(corta ? 'postMid' : q.alta ? 'postHigh' : 'postLow') + q.lado];
-    out.push({ d: key, atras, r: [rc[0], sy(q.x, q.y) - pc.oy + 1, pc.c.width, pc.c.height], f: () => ctx.drawImage(pc.c, sx(q.x, q.y) - CASA.TP, sy(q.x, q.y) - pc.oy + 1) });
+  for (const q of postes) {   // peças únicas dos cantos/pontas (desenhadas pelo dono)
+    const atras = hy > q.y - T / 2 || hx > q.x - T / 2, key = q.x + q.y - T, ax0 = sx(q.x, q.y), ay0 = sy(q.x, q.y), cheia = cantoPeca(q.cfg, CASA.HIGH); if (!cheia) continue;
+    const rc = [ax0 - cheia.ax, ay0 - cheia.ay, cheia.c.width || cheia.c.naturalWidth, cheia.c.height || cheia.c.naturalHeight];
+    const corta = !atras && q.alta && (naSala([q.x - 1, q.y - 1], [q.x, q.y - 1], [q.x - 1, q.y], [q.x, q.y]) || (sala && cobreAlvo(rc, key))), pc = cantoPeca(q.cfg, corta ? CASA.CUT : q.alta ? CASA.HIGH : CASA.LOW) || cheia;
+    out.push({ d: key, atras, r: [ax0 - pc.ax, ay0 - pc.ay, pc.c.width || pc.c.naturalWidth, pc.c.height || pc.c.naturalHeight], f: () => ctx.drawImage(pc.c, ax0 - pc.ax, ay0 - pc.ay) });
   }
   return out;
 }

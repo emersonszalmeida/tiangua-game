@@ -1,6 +1,6 @@
 // Peças de parede e piso da casa (vindas do casa.html, sem mudar o visual) para o editor da cabana (chao.html).
 // 1 tile = 3 m = 64 px de comprimento na tela; parede alta 92 px (~2,9 m); espessura 4 px (~19 cm).
-// Expõe window.PAREDES = { PIECE, floorTile, TP, T, HIGH, LOW, prev(nome) }.
+// Expõe window.PAREDES = { PIECE, floorTile, TP, T, HIGH, LOW, CUT, prev(nome) }.
 (function () {
   const FACE_Y = { b: '#cdbda4', b2: '#c7b79e', l: '#d5c6ae', d: '#bcac93', top: '#a99a82', base: '#8f7d66', baseL: '#a08e76', line: '#6e5e4c' }; // face voltada para ↙
   const FACE_X = { b: '#b5a58c', b2: '#afa086', l: '#bdae95', d: '#a5957d', top: '#94856e', base: '#7c6b56', baseL: '#8c7b65', line: '#5e4f3f' }; // face voltada para ↘
@@ -66,5 +66,5 @@
   })();
   // miniatura (data URL) para os botões do painel
   const prev = nome => { const c = nome === 'piso' ? floorTile : nome === 'high' ? PIECE.xHigh.c : nome === 'door' ? PIECE.xDoor.c : PIECE.xLow.c; return c.toDataURL(); };
-  window.PAREDES = { PIECE, floorTile, TP, T, HIGH, LOW, prev };
+  window.PAREDES = { PIECE, floorTile, TP, T, HIGH, LOW, CUT, prev };
 })();
