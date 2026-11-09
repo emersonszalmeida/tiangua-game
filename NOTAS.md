@@ -106,3 +106,4 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - 5 árvores (Carvalho, Árvore torta, Pinheiro, Árvore fina, Árvore seca) entram em **Objetos**: uma por célula, bloqueiam, desenhadas em 2× (como as antigas). 10 itens (arbusto, arbusto com flores, samambaia, toco, tronco caído, e a 2ª versão de cada) entram em **Decorações**: posição livre, não bloqueiam, 1×.
 - Verde ajustado à rampa do chão (`esverdeia`, igual às decorações). Tamanhos por item na lista `ITENS` (fator .45 árvores, .4 o resto); o multiplicador do script muda tudo de uma vez.
 - Árvores antigas (arvore_v*.png, arvore_pl0.png) continuam no painel; apagar quando o dono decidir.
+- Limpeza do cinza preso nas copas: só na Árvore torta e na Árvore fina (variável `LIMPA` em `arvores_do_gemini.mjs`: a = nenhuma, c = só cinza liso claro [padrão], b = também quase-cinza). O Carvalho e as outras peças não passam por essa limpeza extra (os tons claros da copa são folha).
