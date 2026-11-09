@@ -51,8 +51,14 @@ const itens = comps.map((c, idx) => {
 });
 // 3b) grama média e baixa: só a parte de baixo dos tufos altos, com o corte irregular (as pontas das folhas já têm 1 px)
 const hz = (x, s) => { let h = (x * 374761393 + s * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
-for (const [nome, de, frac, seed] of [['grama_media_1', 'grama_alta_1', .55, 1], ['grama_media_2', 'grama_alta_2', .5, 2], ['grama_media_3', 'grama_alta_3', .55, 3], ['grama_baixa_1', 'grama_alta_4', .4, 4], ['grama_baixa_2', 'grama_alta_1', .32, 5]]) {
-  const src = itens.find(i => i.nome === de), o = Uint8Array.from(src.o), corte = src.th - Math.round(src.th * frac);
+for (const [nome, de, frac, seed, modo] of [['grama_media_1', 'grama_alta_1', .55, 1], ['grama_media_2', 'grama_alta_2', .5, 2], ['grama_baixa_1', 'grama_alta_4', .42, 4, 'achata'], ['grama_baixa_2', 'grama_alta_1', .36, 5, 'achata']]) {
+  const src = itens.find(i => i.nome === de);
+  if (modo === 'achata') {   // baixa: achata o tufo na vertical (as pontas continuam naturais, sem linha reta no topo)
+    const th = Math.max(4, Math.round(src.th * frac)), o2 = new Uint8Array(src.tw * th * 4);
+    for (let ty = 0; ty < th; ty++) for (let x = 0; x < src.tw; x++) { let a = 0, r = 0, gg = 0, b = 0, m = 0; for (let y = Math.floor(ty / frac); y < Math.min(src.th, Math.ceil((ty + 1) / frac)); y++) { const p = (y * src.tw + x) * 4; m++; if (src.o[p + 3]) { a++; r += src.o[p]; gg += src.o[p + 1]; b += src.o[p + 2]; } }
+      if (a && a / m >= .34) o2.set([Math.round(r / a), Math.round(gg / a), Math.round(b / a), 255], (ty * src.tw + x) * 4); }
+    itens.push({ nome, tw: src.tw, th, o: o2 }); continue; }
+  const o = Uint8Array.from(src.o), corte = src.th - Math.round(src.th * frac);
   for (let x = 0; x < src.tw; x++) { const c = corte + Math.round((hz(x, seed) - .5) * 3); for (let y = 0; y < Math.min(src.th, c); y++) o[(y * src.tw + x) * 4 + 3] = 0; }
   let x0 = src.tw, x1 = -1, y0 = src.th, y1 = -1; for (let y = 0; y < src.th; y++) for (let x = 0; x < src.tw; x++) if (o[(y * src.tw + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
   const tw = x1 - x0 + 1, th = y1 - y0 + 1, n2 = new Uint8Array(tw * th * 4); for (let y = 0; y < th; y++) for (let x = 0; x < tw; x++) n2.set(o.subarray(((y0 + y) * src.tw + x0 + x) * 4, ((y0 + y) * src.tw + x0 + x) * 4 + 4), (y * tw + x) * 4);
