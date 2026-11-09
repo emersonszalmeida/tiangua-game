@@ -100,3 +100,9 @@ Losango **128×64** (lado de 3 m, igual ao mapa; personagem 55 px ≈ 1,75 m; pa
 - Verdes das decorações: `esverdeia()` em `decoracao_do_gemini.mjs` mantém só o brilho e repinta tudo que é verde com a rampa do chão (#3f4e30 … #6c7f50 #7a8e5a #849766 … #98ab78). Para o verde ficar mais claro/escuro ou mais perto do chão, mexa em `RAMPA` e no divisor `110` (faixa de brilho).
 - Grama média/baixa (`grama_media_1..3`, `grama_baixa_1..2`): derivadas dos tufos altos por `decoracao_do_gemini.mjs` (passo 3b: só a parte de baixo, corte irregular; fração de altura na lista). As altas continuam no painel para usos pontuais (ex.: beira de mata). As entradas `grama_media/baixa` do `gerar_decoracao.mjs` (feitas por código) ficaram sem uso.
 - Correção (2026-11-09): "Grama média 3" apagada; as **baixas** agora são os tufos altos achatados na vertical (modo `'achata'` no passo 3b), não cortados, para as pontas não ficarem numa linha reta. Médias 1 e 2 continuam por corte.
+
+## Árvores novas — 2026-11-09
+- Folha do Gemini em `arte_terreno/arvores_gemini_ref.png` → `node arvores_do_gemini.mjs [multiplicador=1] [cores=22]` → `arvore/*.png`, `arvore/_conferencia.png` e `arvore_dados.js` (imagens embutidas + ponto de apoio do tronco `cx`/`by`).
+- 5 árvores (Carvalho, Árvore torta, Pinheiro, Árvore fina, Árvore seca) entram em **Objetos**: uma por célula, bloqueiam, desenhadas em 2× (como as antigas). 10 itens (arbusto, arbusto com flores, samambaia, toco, tronco caído, e a 2ª versão de cada) entram em **Decorações**: posição livre, não bloqueiam, 1×.
+- Verde ajustado à rampa do chão (`esverdeia`, igual às decorações). Tamanhos por item na lista `ITENS` (fator .45 árvores, .4 o resto); o multiplicador do script muda tudo de uma vez.
+- Árvores antigas (arvore_v*.png, arvore_pl0.png) continuam no painel; apagar quando o dono decidir.
