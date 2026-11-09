@@ -167,7 +167,9 @@ for (const it of itens) { if (!it.fixa) { const px = []; for (let i = 0; i < it.
   // ponto de apoio do tronco: base da última linha com arte, centro das 3 últimas linhas
   let yb = it.th - 1; while (yb > 0 && ![...Array(it.tw).keys()].some(x => it.o[(yb * it.tw + x) * 4 + 3])) yb--;
   let sx = 0, sn = 0; for (let y = Math.max(0, yb - 2); y <= yb; y++) for (let x = 0; x < it.tw; x++) if (it.o[(y * it.tw + x) * 4 + 3]) { sx += x + .5; sn++; }
-  dados[it.nome] = { nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
+  const lar = []; for (let y = Math.max(0, yb - 23); y <= Math.max(0, yb - 4); y++) { let n = 0; for (let x = 0; x < it.tw; x++) { const p = (y * it.tw + x) * 4; if (it.o[p + 3] && !(it.o[p + 1] >= it.o[p] && it.o[p + 1] >= it.o[p + 2] && Math.max(it.o[p], it.o[p + 1], it.o[p + 2]) - Math.min(it.o[p], it.o[p + 1], it.o[p + 2]) > 12)) n++; } if (n) lar.push(n); } lar.sort((a, b) => a - b);   // largura do tronco (só marrom) acima das pontas das raízes
+  const raio = Math.round(Math.max(.1, (lar[lar.length >> 1] || 10) / 2 / 90) * 100) / 100;   // só a base do tronco (colisão); o personagem soma a própria folga
+  dados[it.nome] = { raio, nome: it.rotulo, tipo: it.tipo, src: 'data:image/png;base64,' + png.toString('base64'), cx: Math.round(sx / sn * 2) / 2, by: yb, w: it.tw, h: it.th, esc: it.tipo === 'arvore' ? 1 : undefined };
 }
 fs.writeFileSync(path('./arvore_dados.js'), '// gerado por arvores_do_gemini.mjs\nconst ARV_DADOS = ' + JSON.stringify(dados) + ';\n');
 // folha de conferência (zoom 3)
