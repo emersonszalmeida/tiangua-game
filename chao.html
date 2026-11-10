@@ -117,14 +117,13 @@ function itensCasa() {
   const PARES = [['RD', 'R', 'D'], ['LU', 'L', 'U'], ['RU', 'R', 'U'], ['LD', 'L', 'D']];
   for (const v of [...vertices.values()].sort((p, q) => (p.x + p.y) - (q.x + q.y) || p.x - q.x)) for (const [nome, A, B] of PARES) {
     const wa = arm(v, A), wb = arm(v, B); if (!wa || !wb || usado.has(wa) || usado.has(wb)) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb || ha.length > 1 || hb.length > 1) continue;
-    if (wa.atras !== wb.atras) continue;   // um braço está atrás do personagem e o outro na frente: desenha as paredes soltas para não cobrir o personagem
     const nm = nome + '_' + ha + hb; if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     usado.add(wa); usado.add(wb); comps.push({ v, nm, wa, wb, nome }); }
   for (const w of inf) { const n = Hh(w); if (n === null) faltam.add('parede baixa'); }
   const S0de = w => w.p.a === 'x' ? [sx(w.p.n, w.p.c), sy(w.p.n, w.p.c)] : [sx(w.p.c, w.p.n), sy(w.p.c, w.p.n)];
   const itemPeca = (nm, X, Y, d, atras) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => ctx.drawImage(o.im, X - o.ax, Y - o.ay) }); };
   for (const c of comps) {
-    const X = sx(c.v.x, c.v.y), Y = sy(c.v.x, c.v.y), d = Math.max(c.wa.key, c.wb.key), atras = c.wa.atras;
+    const X = sx(c.v.x, c.v.y), Y = sy(c.v.x, c.v.y), d = Math.min(c.wa.key, c.wb.key), atras = c.wa.atras && c.wb.atras;
     const pa = PERNA_DE(c.wa), pb = PERNA_DE(c.wb), pecaPernas = c.nm === 'LU_MM' && pa && pb && peca('LU_MM_pernas');
     for (const w of [c.wa, c.wb]) { const s = S0de(w), nm1 = w.p.a + '_' + Hh(w); itemPeca(nm1, s[0], s[1], d - .0005, w.atras); }   // por baixo do canto: as paredes soltas, que cobrem as pontas curtas do canto sem deixar fresta
     itemPeca(pecaPernas ? 'LU_MM_pernas' : c.nm, X, Y, d, atras);
