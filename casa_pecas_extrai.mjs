@@ -64,7 +64,10 @@ for (const [nome, o] of Object.entries(achados)) { const m = /^(LU|RD|RU|LD)_([A
 // 4) gravar
 const saida = {};
 for (const [nome, o] of Object.entries(achados)) { const { c } = o, d = new Uint8Array(c.w * c.h * 4); for (const [a, b] of c.px) { const i = (b * S.w + a) * 4, j = ((b - c.y0) * c.w + (a - c.x0)) * 4; d[j] = S.data[i]; d[j + 1] = S.data[i + 1]; d[j + 2] = S.data[i + 2]; d[j + 3] = S.data[i + 3]; }
-  saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(c.w, c.h, d)).toString('base64'), w: c.w, h: c.h, ax: o.ax, ay: o.ay };
+  // tileset: o ajuste fino (medido pela linha escura do topo e pela borda do piso) fica na ÂNCORA da peça; o jogo só encaixa a peça no piso, sem regra extra
+  const AJ = { RU: [0, -1], LU: [0, -1], RD: [0, 0], LD: [0, -2] }, aj = AJ[nome.slice(0, 2)];
+  const ax2 = aj ? o.ax - aj[0] : o.ax, ay2 = aj ? o.ay - aj[1] : o.ay + 1;
+  saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(c.w, c.h, d)).toString('base64'), w: c.w, h: c.h, ax: ax2, ay: ay2 };
   console.log(nome.padEnd(13), c.w + 'x' + c.h, 'âncora', o.ax + ',' + o.ay, 'semelhança', o.iou.toFixed(2)); }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai.mjs a partir da folha do dono (' + arq + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');
 const ignoradas = sobras.filter(c => !Object.values(achados).some(o => o.c === c)).map(c => c.w + 'x' + c.h + '@' + c.x0 + ',' + c.y0); console.log('peças sem uso (baixas, piso etc.):', ignoradas.join(' · '));

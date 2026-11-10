@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=3"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=4"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -121,8 +121,7 @@ function itensCasa() {
     usado.add(wa); usado.add(wb); comps.push({ v, nm, wa, wb, nome }); }
   for (const w of inf) { const n = Hh(w); if (n === null) faltam.add('parede baixa'); }
   const S0de = w => w.p.a === 'x' ? [sx(w.p.n, w.p.c), sy(w.p.n, w.p.c)] : [sx(w.p.c, w.p.n), sy(w.p.c, w.p.n)];
-  const AJ = { RU: [0, -1], LU: [0, -1], RD: [0, 0], LD: [0, -2] };   // ajuste fino medido pela linha escura do topo: as peças do dono têm 1 px de diferença entre o braço x e o braço y
-  const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; if (nm[0] === 'y' && nm[1] === '_') Y -= 1; else if (AJ[nm.slice(0, 2)]) { X += AJ[nm.slice(0, 2)][0]; Y += AJ[nm.slice(0, 2)][1]; } else Y -= 1; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
+  const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
   for (const c of comps) {
     const X = sx(c.v.x, c.v.y), Y = sy(c.v.x, c.v.y), d = Math.min(c.wa.key, c.wb.key), atras = c.wa.atras && c.wb.atras;
     const pa = PERNA_DE(c.wa), pb = PERNA_DE(c.wb), pecaPernas = c.nm === 'LU_MM' && pa && pb && peca('LU_MM_pernas');
