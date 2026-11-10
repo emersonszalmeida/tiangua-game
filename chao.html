@@ -54,7 +54,7 @@ const objEm = (cx, cy) => objetos.findIndex(o => !OBJS[o.id].deco && o.x === cx 
 function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? ESCD : (d.esc || 2); c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
 // ---------- casa: paredes e piso (peças vindas do casa.html, em paredes.js) ----------
 const CASA = PAREDES, PIECE = CASA.PIECE;
-let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'door' | 'low'
+let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'mid' | 'door' | 'low'
 let pisos = new Set();     // células com piso de casa: 'cx,cy'
 let cantos = [];           // peças de canto escolhidas pelo dono: { x, y, p } = vértice (x,y) e nome da peça (ex.: 'RU_MA')
 let postes = [], rectsP = [], vertices = new Map();   // pilares (automáticos) e retângulos de colisão
@@ -110,7 +110,7 @@ function itensCasa() {
   const encosta = (v, eixo) => { const q = vertices.get(v[0] + ',' + v[1]); return !!q && (eixo === 'x' ? (q.U || q.D) : (q.L || q.R)); };   // há parede perpendicular nesse vértice?
   // ---- peças do dono (casa_pecas_dados.js): parede alta/média soltas, cantos de dois braços, perninhas e portas; o que ele não desenhou fica EM BRANCO (e é listado em FALTAM) ----
   const peca = n => { const d = typeof PECAS !== 'undefined' && PECAS[n]; if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } return d.im.complete && d.im.naturalWidth ? d : null; };
-  for (const w of inf) w.corta = !w.atras && w.p.k !== 'low' && !!(w.adj || (sala && cobreAlvo(rectDe(w.p, w.cheia), w.key)));
+  for (const w of inf) w.corta = w.p.k === 'mid' || !w.atras && w.p.k !== 'low' && !!(w.adj || (sala && cobreAlvo(rectDe(w.p, w.cheia), w.key)));
   const Hh = w => w.p.k === 'door' ? 'DA' :   /* porta: sempre a peça alta dele, mesmo na parede da frente cortada (como no vídeo dele) */ w.p.k === 'low' ? null : (w.corta ? 'M' : 'A');
   const ed = new Map(inf.map(w => [w.p.a + '|' + w.p.c + '|' + w.p.n, w])), arm = (v, A) => ed.get(A === 'L' ? 'x|' + v.y + '|' + (v.x - 1) : A === 'R' ? 'x|' + v.y + '|' + v.x : A === 'U' ? 'y|' + v.x + '|' + (v.y - 1) : 'y|' + v.x + '|' + v.y);
   const PERNA_DE = w => { const v = w.p.a === 'x' ? [w.p.n, w.p.c] : [w.p.c, w.p.n]; return w.corta && w.p.k !== 'door' && encosta(v, w.p.a); };   // a ponta de trás (começo) da parede média encosta numa parede que a atravessa: leva a perninha alta
@@ -160,7 +160,7 @@ function deJson(j) {
   if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
   const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
   objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
-  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
+  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'mid', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
   TERR.render();
 }
 const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
@@ -189,7 +189,7 @@ const atualizaUi = () => {
     '<h4>' + 'Pincel · Shift + arrastar = linha reta' + '</h4><div class="g">' + [1, 2, 3].map(w => '<button data-w="' + w + '" class="' + (larg === w ? 'on' : '') + '">' + w + '×' + w + '</button>').join('') + '</div>' +
     '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
     '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
-    '<h4>Casa (paredes e piso)</h4><div class="g">' + bt('parede', 'high', CASA.prev('high'), 'Parede alta') + bt('parede', 'door', CASA.prev('door'), 'Parede com porta') + bt('parede', 'low', CASA.prev('low'), 'Parede baixa') + bt('piso', 'piso', CASA.prev('piso'), 'Piso') + bt('apagap', 'x', 'terreno/terra_0_0.png', 'Tirar parede') + bt('tirapiso', 'x', 'terreno/terra_0_0.png', 'Tirar piso') + '</div>' +
+    '<h4>Casa (paredes e piso)</h4><div class="g">' + bt('parede', 'high', CASA.prev('high'), 'Parede alta') + bt('parede', 'mid', (typeof PECAS !== 'undefined' && PECAS.x_M ? PECAS.x_M.src : CASA.prev('high')), 'Parede média') + bt('parede', 'door', CASA.prev('door'), 'Parede com porta') + bt('parede', 'low', CASA.prev('low'), 'Parede baixa') + bt('piso', 'piso', CASA.prev('piso'), 'Piso') + bt('apagap', 'x', 'terreno/terra_0_0.png', 'Tirar parede') + bt('tirapiso', 'x', 'terreno/terra_0_0.png', 'Tirar piso') + '</div>' +
     '<h4>Cantos (escolha a peça e clique no vértice)</h4><div class="g">' + (typeof PECAS === 'undefined' ? [] : Object.keys(PECAS).filter(n => /^(LU|RD|RU|LD)_/.test(n))).map(n => bt('canto', n, PECAS[n].src, n.replace('_', ' '))).join('') + bt('tiracanto', 'x', 'terreno/terra_0_0.png', 'Tirar canto') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
     '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. Paredes: clique perto da aresta que quer (arraste para fazer uma fileira); os pilares aparecem sozinhos nas pontas e nos encontros. Piso e "Tirar piso" usam o pincel 1×1, 2×2, 3×3. Botão direito apaga a parede mais perto. O mapa também fica guardado sozinho neste navegador.</div>';
