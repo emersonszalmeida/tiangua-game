@@ -147,6 +147,26 @@ try {
   await ev("(() => { L().x.fillStyle = '#0000ff'; L().x.fillRect(40, 40, 1, 1); escolhe('varinha'); 1; })()"); await clica(40, 40, 2); await sleep(80);
   const k12 = await ev("(() => { const d = L().x.getImageData(5, 5, 1, 1).data; return [d[0], d[1], d[2]].join(',') + ' | ' + tool; })()");
   ok(k12 === '0,0,255 | varinha', 'com a varinha, Ctrl+clique pegou o azul da tela e pintou a seleção sem trocar de ferramenta: ' + k12);
+  console.log('13) Celular: um dedo desenha, pinça dá zoom sem desenhar, teclas na tela');
+  const contaT = () => ev("(() => { const d = juntaCanvas().getContext('2d').getImageData(0, 0, W, H).data; let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i]) n++; return n; })()"); await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  const toque = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i + 1 })) });
+  await ev("(() => { novoDoc(64, 48); view.z = 8; view.ox = 20; view.oy = 20; escolhe('lapis'); $('tam').value = 1; redraw(); 1; })()"); await sleep(100);
+  const p13a = await pos(10, 10), p13b = await pos(14, 10);
+  await toque('touchStart', [p13a]); for (let i = 1; i <= 4; i++) await toque('touchMove', [[p13a[0] + (p13b[0] - p13a[0]) * i / 4, p13a[1]]]); await toque('touchEnd', []); await sleep(100);
+  ok(await contaT() === 5, 'arrastar um dedo com o lápis pintou a linha de 5 pixels: ' + await contaT());
+  const pc13 = await pos(30, 20); await toque('touchStart', [pc13]); await sleep(40); await toque('touchStart', [pc13, [pc13[0] + 40, pc13[1]]]);
+  for (let i = 1; i <= 5; i++) await toque('touchMove', [[pc13[0] - 20 * i, pc13[1]], [pc13[0] + 40 + 20 * i, pc13[1]]]); await toque('touchEnd', []); await sleep(100);
+  const z13 = await ev("view.z"); ok(z13 > 8 && await contaT() === 5, 'pinça abriu o zoom (8 → ' + z13 + ') sem pintar nada: ' + await contaT() + ' pixels');
+  await ev("(() => { view.z = 8; view.ox = 20; view.oy = 20; redraw(); 1; })()"); const pt = await pos(2, 2); await toque('touchStart', [pt]); await toque('touchEnd', []); await sleep(200);
+  ok(await contaT() === 6, 'toque rápido (sem arrastar) pinta um pixel: ' + await contaT());
+  await ev("(() => { escolhe('selecionar'); 1; })()"); await ev("$('mob').querySelector('[data-k=\"Delete\"]').click(); 1");
+  await send('Emulation.setDeviceMetricsOverride', { width: 400, height: 800, deviceScaleFactor: 1, mobile: true }); await sleep(300);
+  const lay = await ev("(() => { const s = $('side').getBoundingClientRect(), m = $('mob').getBoundingClientRect(), w = $('wrap').getBoundingClientRect(); return [Math.round(s.left), Math.round(m.height), Math.round(w.width), getComputedStyle($('bPainel')).display !== 'none'].join(','); })()");
+  ok(/^\d+,\d+,400,true$/.test(lay) && +lay.split(',')[0] >= 400 && +lay.split(',')[1] > 20, 'tela estreita: painel escondido fora da tela, barra de teclas visível, desenho na largura toda, botão Painel: ' + lay);
+  await ev("$('bPainel').click(); 1"); await sleep(400); const sl = await ev("Math.round($('side').getBoundingClientRect().left)"); ok(sl < 400, 'botão Painel abre o painel por cima (left ' + sl + ')');
+  if (process.env.SHOT_CEL) { const s2 = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT_CEL, Buffer.from(s2.result.data, 'base64')); }
+  await ev("$('bFechaPainel').click(); 1"); await sleep(400);
+  if (process.env.SHOT_CEL2) { const s3 = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT_CEL2, Buffer.from(s3.result.data, 'base64')); }
   ok(erros.length === 0, 'nenhum erro de JavaScript na página' + (erros.length ? ': ' + erros[0] : ''));
   const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT || path.join(os.tmpdir(), 'editor_teste.png'), Buffer.from(shot.result.data, 'base64'));
   console.log(falhas ? '\n' + falhas + ' FALHA(S)' : '\nTUDO OK');

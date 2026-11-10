@@ -19,6 +19,13 @@ A ideia é ter as ferramentas de objeto do CorelDRAW (selecionar, escalar, girar
 - Imagem de referência: importar, colar (Ctrl+V) ou arrastar o arquivo; não entra na exportação.
 - Camadas, desfazer/refazer, grade de pixels e grade isométrica 2:1, exportar PNG, salvar/abrir projeto.
 
+## No celular / tablet
+
+- Em tela estreita ou de toque, o painel da direita vira uma gaveta: botão **☰ Painel** (toque no desenho fecha).
+- **Um dedo** usa a ferramenta (desenhar, selecionar, arrastar). **Dois dedos**: pinça dá zoom e arrastar move a tela, sem desenhar nada.
+- Barra de baixo: **Shift / Ctrl / Alt** ficam ligados até tocar de novo (ex.: Ctrl + toque com a varinha = conta-gotas), e botões para Soltar, Esc, Apagar, Copiar, Colar, Clonar, espelhar, Agrupar, Unir e Ajustar zoom.
+- O salvamento automático fica no navegador do aparelho; para levar o trabalho de um aparelho para outro use **Salvar projeto** / **Abrir projeto**.
+
 ## Ideias para depois
 - Ferramenta Forma nos objetos desenhados (cantos arredondados).
 - Seleção de vários: escalar, girar, espelhar e duplicar (Ctrl+D) o conjunto; alinhar e distribuir.

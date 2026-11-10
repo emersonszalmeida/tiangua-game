@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Editor de pixel art</title>
 <style>
 *{box-sizing:border-box}
@@ -10,7 +10,7 @@ html,body{margin:0;height:100%;background:#1c1a18;color:#e8e4de;font:13px system
 #side{background:#24201d;padding:8px;overflow:auto;border-left:1px solid #111}
 #status{grid-column:1/4;background:#2a2622;padding:4px 10px;color:#aaa;border-top:1px solid #111;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #wrap{position:relative;overflow:hidden;background:#34302c}
-canvas#v{position:absolute;inset:0;image-rendering:pixelated;cursor:crosshair}
+canvas#v{position:absolute;inset:0;image-rendering:pixelated;cursor:crosshair;touch-action:none}
 button,select,input{font:12px system-ui}
 button{background:#3a3430;color:#eee;border:1px solid #14110f;border-radius:4px;padding:4px 8px;cursor:pointer}
 button:hover{background:#4a423c}
@@ -36,17 +36,53 @@ input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;backgro
 #listaImgs button.on{background:#7a5a22;border-color:#ffd76a}
 #forma.off,#refp.off{opacity:.45;pointer-events:none}
 .dica{color:#9a948c;font-size:11px;line-height:1.4}
+/* ---------- celular / tablet ---------- */
+html,body{overscroll-behavior:none}
+button{touch-action:manipulation}
+#mob{display:none;gap:4px;overflow-x:auto;padding:4px 6px;background:#2a2622;border-top:1px solid #111;align-items:center}
+#mob button{flex:none}
+#mob i{flex:none;width:1px;align-self:stretch;background:#555;margin:0 2px}
+.so-cel{display:none}
+@media (max-width: 900px), (pointer: coarse) {
+  #app{grid-template-columns:100%;grid-template-rows:auto 1fr auto auto 20px;height:100dvh}
+  #top{grid-column:1;grid-row:1;overflow-x:auto;padding:4px 6px;flex-wrap:nowrap}
+  #top>*{flex:none}
+  #bPainel,#bDes,#bRef{order:-1}
+  #bPainel{background:#5a4a30}
+  #wrap{grid-row:2}
+  #mob{display:flex;grid-row:3}
+  #tools{grid-row:4;flex-direction:row;padding:4px;border-top:1px solid #111}
+  #tools button{flex:none;width:58px;height:50px}
+  #status{grid-column:1;grid-row:5;font-size:11px;padding:2px 8px}
+  #side{position:fixed;top:0;right:0;bottom:0;width:min(340px,90vw);z-index:20;transform:translateX(105%);transition:transform .2s;box-shadow:-4px 0 16px #0009}
+  body.painel #side{transform:none}
+  .so-cel{display:inline-block}
+  button{padding:8px 10px;font-size:13px}
+  button:hover{background:#3a3430}
+  button.on,button.on:hover{background:#7a5a22}
+  input[type=number],select{font-size:16px;padding:5px}
+  input[type=number]{width:74px}
+  #pal div,#rec div{min-height:28px}
+  #camadas div{padding:8px 6px}
+}
 </style></head>
 <body>
 <div id="app">
   <div id="top">
     <button id="bNovo">Novo…</button><button id="bTam">Tamanho da tela…</button><button id="bAbrir">Abrir PNG</button><button id="bProj">Abrir projeto</button><button id="bSalvaProj">Salvar projeto</button><button id="bPng">Exportar PNG</button><select id="fundoVis" title="Fundo só para ver (não entra no PNG)" style="background:#3a3430;color:#eee;border:1px solid #14110f;border-radius:4px;padding:4px"><option value="xadrez">Fundo: xadrez</option><option value="#0a5cff">Fundo: azul vivo</option><option value="#849766">Fundo: verde do chão</option><option value="#9e7c57">Fundo: terra</option><option value="#ffffff">Fundo: branco</option><option value="#000000">Fundo: preto</option></select><button id="bPngC">Exportar só a camada</button>
-    <span style="flex:1"></span><button id="bDes">↶ Desfazer</button><button id="bRef">↷ Refazer</button>
+    <span style="flex:1"></span><button id="bDes">↶ Desfazer</button><button id="bRef">↷ Refazer</button><button class="so-cel" id="bPainel">☰ Painel</button>
     <input type="file" id="fPng" accept="image/*" style="display:none"><input type="file" id="fProj" accept=".json" style="display:none">
   </div>
   <div id="tools"></div>
+  <div id="mob">
+    <button data-mod="shiftKey" title="Fica ligado até tocar de novo">Shift</button><button data-mod="ctrlKey">Ctrl</button><button data-mod="altKey">Alt</button><i></i>
+    <button data-k="Enter">Soltar</button><button data-k="Escape">Esc</button><button data-k="Delete">Apagar</button><i></i>
+    <button data-k="c" data-ctrl="1">Copiar</button><button id="mCola">Colar</button><button data-k="d" data-ctrl="1">Clonar</button><button data-k="h">↔</button><button data-k="v">↕</button><i></i>
+    <button data-k="g" data-ctrl="1">Agrupar</button><button data-k="e" data-ctrl="1">Unir</button><button id="mAjusta">Ajustar zoom</button>
+  </div>
   <div id="wrap"><canvas id="v"></canvas></div>
   <div id="side">
+    <div class="so-cel" style="width:100%;text-align:right;margin-bottom:6px"><button id="bFechaPainel">✕ Fechar painel</button></div>
     <h4>Cores</h4>
     <div class="cores">
       <div><input type="color" id="c1" value="#6b8e3a"><small>Cor 1 · preenchimento</small></div>
@@ -122,6 +158,7 @@ const cv = $('v'), ctx = cv.getContext('2d'), wrap = $('wrap');
 let selObj = null, modoGira = false, sel = null, clipPx = null, clipObj = null, W = 128, H = 128, layers = [], cur = 0, view = { z: 4, ox: 20, oy: 20 }, tool = 'selecionar', hover = [0, 0], espaco = false;
 let ref = null, imgs = [], nodeSel = [], hoverNo = null, ptSel = -1, zSeq = 0;   // zSeq: ordem de empilhamento global; tudo que é novo recebe o próximo número e fica por cima de tudo   // imgs = todas as imagens importadas; ref = a imagem ativa (a última selecionada)
 const undoS = [], redoS = [];
+const TOQ = matchMedia('(pointer: coarse)').matches ? 18 : 6;   // distância (px da tela) para pegar uma alça: maior no dedo
 let varinha = null, aviso = '', tAviso = 0;   // varinha: { m: máscara W×H, tint: canvas do realce }; aviso: recado curto na barra de status
 const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
 const FERR = [['selecionar', '⬚', 'Selecionar (Q)'], ['marcar', '▨', 'Marcar pixels (S)'], ['varinha', '✦', 'Varinha (W)'], ['forma', '◬', 'Forma (F10)'], ['lapis', '✎', 'Lápis (B)'], ['borracha', '⌫', 'Borracha (E)'], ['balde', '◉', 'Balde (G)'], ['gotas', '✚', 'Conta-gotas (I)'], ['linha', '／', 'Linha (L)'], ['retangulo', '▭', 'Retângulo (R)'], ['elipse', '◯', 'Elipse (O)'], ['losango', '◇', 'Losango 2:1 (D)'], ['mover', '✥', 'Mover camada (M)']];
@@ -588,11 +625,11 @@ function balde(x, y, cor) {   // preenche a região da cor que está visível; o
 function pegaCor(x, y) { if (x < 0 || y < 0 || x >= W || y >= H) return null; const t = juntaCanvas().getContext('2d').getImageData(x, y, 1, 1).data; if (!t[3]) return null; return '#' + [t[0], t[1], t[2]].map(v => v.toString(16).padStart(2, '0')).join(''); }
 // alças do objeto selecionado (posições na tela, relativas ao canvas)
 function alcas(o) { const out = [], B = caixa(o); for (const dy of [-1, 0, 1]) for (const dx of [-1, 0, 1]) { if (!dx && !dy) continue; const X = dx < 0 ? B.l : dx > 0 ? B.r : B.cx, Y = dy < 0 ? B.t : dy > 0 ? B.b : B.cy; out.push({ dx, dy, sx: view.ox + X * view.z, sy: view.oy + Y * view.z }); } return out; }
-function alcaEm(e) { if (!selObj) return null; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; for (const a of alcas(selObj)) if (Math.abs(mx - a.sx) <= 6 && Math.abs(my - a.sy) <= 6) return a; return null; }
+function alcaEm(e) { if (!selObj) return null; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; for (const a of alcas(selObj)) if (Math.abs(mx - a.sx) <= TOQ && Math.abs(my - a.sy) <= TOQ) return a; return null; }
 let drag = null;
 function novoObjeto(t, px, py) { const sob = refHit(px, py); return { pai: sob ? sob.id : 0, t, x: px, y: py, w: 1, h: 1, m: [1, 0, 0, 1], z: ++zSeq, pre: t !== 'linha', con: true, th: Math.max(1, +$('fesp').value | 0), fy: false, c1: cor1(), c2: cor2() }; }
 cv.addEventListener('pointerdown', e => {
-  cv.setPointerCapture(e.pointerId); const [px, py] = toPx(e), pf = ptF(e); hover = [px, py];
+  try { cv.setPointerCapture(e.pointerId); } catch (_) { } const [px, py] = toPx(e), pf = ptF(e); hover = [px, py];
   if (drag && drag.k === 'omove') { if (e.button === 2) marcaCopia(); return; }
   if (drag && drag.k === 'selmove') { if (e.button === 2) marcaCopia(); return; }
   hoverNo = null;
@@ -785,6 +822,61 @@ function status() { status0(); if (aviso) $('status').textContent += ' · ' + av
 function status0() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · clique direito durante o arrasto, Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
 ['gGrade', 'gIso', 'gIsoW', 'gCentro'].forEach(i => $(i).onchange = redraw);
 addEventListener('resize', () => { desenha(); });
+// ---------- celular: um dedo desenha, dois dedos dão zoom e arrastam a tela; teclas na barra de baixo ----------
+// O toque é segurado um instante: se o segundo dedo chegar logo, vira pinça e nada é desenhado. Depois o toque é repassado
+// para os mesmos tratadores do mouse (com Shift/Ctrl/Alt da barra, que ficam ligados até tocar de novo).
+const MOD = { shiftKey: false, ctrlKey: false, altKey: false }, toques = new Map(); let pend = null, gesto = null, toqueIni = null;
+function sint(tipo, e) {
+  const ev = new PointerEvent(tipo, { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY, pointerId: e.pointerId, pointerType: e.pointerType, isPrimary: true, button: tipo === 'pointermove' ? -1 : 0, buttons: tipo === 'pointerup' ? 0 : 1, shiftKey: e.shiftKey || MOD.shiftKey, ctrlKey: e.ctrlKey || MOD.ctrlKey, altKey: e.altKey || MOD.altKey });
+  ev._sint = true; cv.dispatchEvent(ev);
+}
+function soltaPend() { if (!pend) return; clearTimeout(pend.t); const p = pend; pend = null; toqueIni = { t: performance.now(), u: undoS.length }; sint('pointerdown', p.e); }
+function dedos() { const [a, b] = [...toques.values()]; return { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 }; }
+function iniciaGesto() {
+  if (pend) { clearTimeout(pend.t); pend = null; }
+  else if (drag || toqueIni) {   // o primeiro dedo já tinha começado algo: termina e, se foi agorinha e mexeu no desenho, desfaz
+    const prim = toques.values().next().value; sint('pointerup', prim.e);
+    if (toqueIni && performance.now() - toqueIni.t < 500 && undoS.length > toqueIni.u) desfaz();
+  }
+  toqueIni = null; const g = dedos(), r = cv.getBoundingClientRect();
+  gesto = { ...g, z0: view.z, wx: (g.mx - r.left - view.ox) / view.z, wy: (g.my - r.top - view.oy) / view.z };
+}
+function moveGesto() {
+  const g = dedos(), r = cv.getBoundingClientRect(), alvo = gesto.z0 * g.d / gesto.d;
+  const z = ZOOMS.reduce((m, v) => Math.abs(Math.log(v / alvo)) < Math.abs(Math.log(m / alvo)) ? v : m);
+  view.z = z; view.ox = Math.round(g.mx - r.left - gesto.wx * z); view.oy = Math.round(g.my - r.top - gesto.wy * z); redraw();
+}
+addEventListener('pointerdown', e => {
+  if (e._sint || e.pointerType === 'mouse') return;
+  if (document.body.classList.contains('painel') && e.target === cv) { e.stopImmediatePropagation(); e.preventDefault(); painel(false); return; }
+  if (e.target !== cv) return;
+  e.stopImmediatePropagation(); e.preventDefault(); toques.set(e.pointerId, { x: e.clientX, y: e.clientY, e });
+  if (gesto || toques.size > 2) return;
+  if (toques.size === 2) { iniciaGesto(); return; }
+  if (e.pointerType === 'pen') { toqueIni = null; sint('pointerdown', e); return; }   // caneta não faz pinça: começa na hora
+  pend = { e, x: e.clientX, y: e.clientY, t: setTimeout(soltaPend, 120) };
+}, true);
+addEventListener('pointermove', e => {
+  if (e._sint || e.pointerType === 'mouse' || !toques.has(e.pointerId)) return;
+  e.stopImmediatePropagation(); toques.set(e.pointerId, { x: e.clientX, y: e.clientY, e });
+  if (gesto) { if (toques.size >= 2) moveGesto(); return; }
+  if (pend && Math.hypot(e.clientX - pend.x, e.clientY - pend.y) > 6) soltaPend();
+  if (!pend) sint('pointermove', e);
+}, true);
+function fimToque(e) {
+  if (e._sint || e.pointerType === 'mouse' || !toques.has(e.pointerId)) return;
+  e.stopImmediatePropagation(); toques.delete(e.pointerId);
+  if (gesto) { if (!toques.size) gesto = null; return; }   // a pinça só acaba quando todos os dedos saem
+  if (pend) soltaPend();   // toque rápido = clique
+  sint('pointerup', e); toqueIni = null;
+}
+addEventListener('pointerup', fimToque, true); addEventListener('pointercancel', fimToque, true);
+function painel(abre) { document.body.classList.toggle('painel', abre); }
+$('bPainel').onclick = () => painel(!document.body.classList.contains('painel')); $('bFechaPainel').onclick = () => painel(false);
+function teclaTela(key, ctrl) { dispatchEvent(new KeyboardEvent('keydown', { key, code: key.length === 1 ? 'Key' + key.toUpperCase() : key, ctrlKey: !!ctrl || MOD.ctrlKey, shiftKey: MOD.shiftKey, altKey: MOD.altKey, bubbles: true, cancelable: true })); }
+$('mob').querySelectorAll('button[data-mod]').forEach(b => b.onclick = () => { MOD[b.dataset.mod] = !MOD[b.dataset.mod]; b.classList.toggle('on', MOD[b.dataset.mod]); });
+$('mob').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => teclaTela(b.dataset.k, b.dataset.ctrl));
+$('mCola').onclick = () => colaInterno(); $('mAjusta').onclick = () => { ajusta(); redraw(); };
 // ---------- início ----------
 ferrUi(); pushRec(cor1());
 let ok = false; try { const s = localStorage.getItem('pixel_editor_auto'); if (s && !location.search.includes('novo')) { abreProj(JSON.parse(s)); ok = true; } } catch (e) { }
