@@ -649,6 +649,17 @@ cv.addEventListener('pointerdown', e => {
   if (tool === 'varinha' && e.button === 0) { varinhaEm(px, py, e.altKey ? -1 : e.shiftKey ? 1 : 0); return; }
   const cor = e.button === 2 ? cor2() : cor1(), mexe = tool === 'selecionar' || FORMAS.includes(tool);
   if (mexe && e.button !== 2) {
+    if (tool === 'selecionar' && e.shiftKey) {   // Shift+clique: soma (ou tira) QUALQUER objeto, traço, forma ou imagem da seleção, seja o que for
+      const hit = objetoNoPonto(px, py);
+      if (hit) {
+        const atual = itensSelecionados(), alvo = hit.o.grp ? membros(hit.o.grp) : [hit.o], tira = atual.includes(hit.o);
+        const novo = tira ? atual.filter(o => !alvo.includes(o)) : atual.concat(alvo.filter(o => !atual.includes(o))), comPx = grupo ? grupo.comPx : !!sel;
+        selObj = null; modoGira = false; nodeSel = [];
+        if (novo.length === 1 && !comPx) { grupo = null; const u = novo[0]; selecionaItem({ o: u, li: ehImg(u) ? -1 : layers.findIndex(l => l.objs.includes(u)) }); }
+        else if (novo.length || comPx) grupo = { itens: novo, comPx }; else grupo = null;
+        formaUi(); refUi(); redraw(); return;
+      }
+    }
     if (grupo) { if (tool === 'selecionar' && dentroGrupo(px, py)) { if (!grupo.comPx) pushUndo(); drag = { k: 'gmove', ult: [px, py] }; return; } commitSel(); }   // grupo: arrastar dentro move tudo junto; clicar fora solta
     if (dentroSel(px, py)) { if (e.altKey) carimba(); drag = { k: 'selmove', p0: [px, py], o0: [sel.ox, sel.oy], undo: false }; return; }   // Alt+arrastar: deixa uma cópia no lugar (clonar)
     const h = alcaEm(e);

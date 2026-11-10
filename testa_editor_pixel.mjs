@@ -167,6 +167,15 @@ try {
   if (process.env.SHOT_CEL) { const s2 = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT_CEL, Buffer.from(s2.result.data, 'base64')); }
   await ev("$('bFechaPainel').click(); 1"); await sleep(400);
   if (process.env.SHOT_CEL2) { const s3 = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT_CEL2, Buffer.from(s3.result.data, 'base64')); }
+  console.log('14) Shift+clique soma qualquer objeto (traço, imagem, forma) à seleção');
+  await ev("(() => { novoDoc(64, 48); imgs = []; ref = null; view.z = 8; view.ox = 20; view.oy = 20; const c = document.createElement('canvas'); c.width = 10; c.height = 10; c.getContext('2d').fillRect(0, 0, 10, 10); const id = ++idImg; IMG_REG[id] = { im: c, c }; imgs.push({ id, nome: 'a', t: 'imagem', im: c, c, x: 30, y: 10, w: 10, h: 10, m: [1, 0, 0, 1], crop: null, op: 1, acima: true, vis: true, z: ++zSeq }); escolhe('lapis'); 1; })()");
+  await arrasta([5, 40], [12, 40]); await ev("escolhe('selecionar'); 1");
+  const clicaS = async (a, mod) => { const p = await pos(...a); await mouse('mousePressed', p, mod); await mouse('mouseReleased', p, mod); await sleep(80); };
+  await clicaS([34, 14], 0); await clicaS([8, 40], 8); await sleep(60);
+  e = JSON.parse(await ev("JSON.stringify({ n: grupo ? grupo.itens.length : 0 })"));
+  ok(e.n === 2, 'Shift+clique somou o traço à imagem já selecionada: ' + JSON.stringify(e));
+  await clicaS([8, 40], 8); e = JSON.parse(await ev("JSON.stringify({ n: grupo ? grupo.itens.length : 0, sel: !!selObj })"));
+  ok(e.n === 0 && e.sel, 'Shift+clique de novo tirou o traço (sobrou só a imagem): ' + JSON.stringify(e));
   ok(erros.length === 0, 'nenhum erro de JavaScript na página' + (erros.length ? ': ' + erros[0] : ''));
   const shot = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(process.env.SHOT || path.join(os.tmpdir(), 'editor_teste.png'), Buffer.from(shot.result.data, 'base64'));
   console.log(falhas ? '\n' + falhas + ' FALHA(S)' : '\nTUDO OK');
