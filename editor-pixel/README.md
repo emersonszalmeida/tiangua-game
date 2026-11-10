@@ -24,6 +24,7 @@ A ideia é ter as ferramentas de objeto do CorelDRAW (selecionar, escalar, girar
 - Em tela estreita ou de toque, o painel da direita vira uma gaveta: botão **☰ Painel** (toque no desenho fecha).
 - **Um dedo** usa a ferramenta (desenhar, selecionar, arrastar). **Dois dedos**: pinça dá zoom e arrastar move a tela, sem desenhar nada.
 - Barra de baixo: **Shift / Ctrl / Alt** ficam ligados até tocar de novo (ex.: Ctrl + toque com a varinha = conta-gotas), e botões para Soltar, Esc, Apagar, Copiar, Colar, Clonar, espelhar, Agrupar, Unir e Ajustar zoom.
+- Abrir um projeto do repositório pelo link: `.../editor-pixel/?abrir=../arte_casa/em_andamento/parede.pixel.json`.
 - O salvamento automático fica no navegador do aparelho; para levar o trabalho de um aparelho para outro use **Salvar projeto** / **Abrir projeto**.
 
 ## Ideias para depois

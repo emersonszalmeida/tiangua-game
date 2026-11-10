@@ -881,4 +881,6 @@ $('mCola').onclick = () => colaInterno(); $('mAjusta').onclick = () => { ajusta(
 ferrUi(); pushRec(cor1());
 let ok = false; try { const s = localStorage.getItem('pixel_editor_auto'); if (s && !location.search.includes('novo')) { abreProj(JSON.parse(s)); ok = true; } } catch (e) { }
 if (!ok) novoDoc(128, 128); requestAnimationFrame(() => { ajusta(); redraw(); });
+// ?abrir=caminho/arquivo.pixel.json abre um projeto do site (ex.: ../arte_casa/em_andamento/parede.pixel.json); o endereço é limpo depois para recarregar não apagar o que foi feito
+const qAbrir = new URLSearchParams(location.search).get('abrir'); if (qAbrir) fetch(qAbrir, { cache: 'no-store' }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(j => { abreProj(j); history.replaceState(null, '', location.pathname); setTimeout(() => { ajusta(); redraw(); avisa('abriu ' + qAbrir.split('/').pop()); }, 300); }).catch(e => avisa('não consegui abrir ' + qAbrir + ' (' + e.message + ')'));
 </script></body></html>
