@@ -136,9 +136,7 @@ function itensCasa() {
   for (const c of comps) {
     const ha = SH(c.wa), hb = SH(c.wb), X = sx(c.v.x, c.v.y) + ha[0] + hb[0], Y = sy(c.v.x, c.v.y) + ha[1] + hb[1], d = Math.min(c.wa.key, c.wb.key), atras = c.wa.atras && c.wb.atras;
     const pa = PERNA_DE(c.wa), pb = PERNA_DE(c.wb), pecaPernas = c.nm === 'LU_MM' && pa && pb && peca('LU_MM_pernas');
-    for (const w of [c.wa, c.wb]) { const s = S0de(w), nm1 = w.p.a + '_' + Hh(w); itemPeca(nm1, s[0], s[1], d - .0005, w.atras); }   // por baixo do canto: as paredes soltas, que cobrem as pontas curtas do canto sem deixar fresta
     itemPeca(pecaPernas ? 'LU_MM_pernas' : c.nm, X, Y, d, atras);
-    for (const [w, A] of [[c.wa, c.nome[0]], [c.wb, c.nome[1]]]) if (A === 'R' || A === 'L') { const s = S0de(w); itemPeca(w.p.a + '_' + Hh(w), s[0], s[1], d + .0004, w.atras, A === 'R' ? o => [14, o.w] : o => [0, 50]); }   // ponta de fora do braço (a que a parede vizinha tem que encontrar): a parede solta por cima, para a quina de 4 px não ficar à mostra
     if (!pecaPernas) for (const [w, p, A] of [[c.wa, pa, c.nome[0]], [c.wb, pb, c.nome[1]]]) if (p && (A === 'L' || A === 'U')) { const s = S0de(w); itemPeca(w.p.a + '_M_perna', s[0], s[1], d + .0005, w.atras); }
   }
   for (const w of inf) { if (usado.has(w)) continue; const s = S0de(w), k = Hh(w); if (k === null) continue;
@@ -146,7 +144,7 @@ function itensCasa() {
     const nm = w.p.a + '_' + (k === 'M' && PERNA_DE(w) ? 'M_perna' : k);
     if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     itemPeca(nm, s[0], s[1], w.key, w.atras); }
-  window.FALTAM = faltam;
+  window.FALTAM = faltam; window.COMPS = comps.map(c => c.nm + '@' + c.v.x + ',' + c.v.y);
   return out;
 }
 // aresta de célula mais perto do ponto (fx, fy) do mundo
