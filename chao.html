@@ -121,12 +121,13 @@ function itensCasa() {
     usado.add(wa); usado.add(wb); comps.push({ v, nm, wa, wb, nome }); }
   for (const w of inf) { const n = Hh(w); if (n === null) faltam.add('parede baixa'); }
   const S0de = w => w.p.a === 'x' ? [sx(w.p.n, w.p.c), sy(w.p.n, w.p.c)] : [sx(w.p.c, w.p.n), sy(w.p.c, w.p.n)];
-  const itemPeca = (nm, X, Y, d, atras) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => ctx.drawImage(o.im, X - o.ax, Y - o.ay) }); };
+  const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
   for (const c of comps) {
     const X = sx(c.v.x, c.v.y), Y = sy(c.v.x, c.v.y), d = Math.min(c.wa.key, c.wb.key), atras = c.wa.atras && c.wb.atras;
     const pa = PERNA_DE(c.wa), pb = PERNA_DE(c.wb), pecaPernas = c.nm === 'LU_MM' && pa && pb && peca('LU_MM_pernas');
     for (const w of [c.wa, c.wb]) { const s = S0de(w), nm1 = w.p.a + '_' + Hh(w); itemPeca(nm1, s[0], s[1], d - .0005, w.atras); }   // por baixo do canto: as paredes soltas, que cobrem as pontas curtas do canto sem deixar fresta
     itemPeca(pecaPernas ? 'LU_MM_pernas' : c.nm, X, Y, d, atras);
+    for (const [w, A] of [[c.wa, c.nome[0]], [c.wb, c.nome[1]]]) if (A === 'R' || A === 'D') { const s = S0de(w); itemPeca(w.p.a + '_' + Hh(w), s[0], s[1], d + .0004, w.w ? w.atras : w.atras, A === 'R' ? o => [o.w - 10, o.w] : o => [0, 10]); }   // ponta de fora do braço (a que a parede vizinha tem que encontrar): a parede solta por cima, para a quina de 4 px não ficar à mostra
     if (!pecaPernas) for (const [w, p, A] of [[c.wa, pa, c.nome[0]], [c.wb, pb, c.nome[1]]]) if (p && (A === 'L' || A === 'U')) { const s = S0de(w); itemPeca(w.p.a + '_M_perna', s[0], s[1], d + .0005, w.atras); }
   }
   for (const w of inf) { if (usado.has(w)) continue; const s = S0de(w), k = Hh(w); if (k === null) continue;
