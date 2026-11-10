@@ -607,7 +607,7 @@ function tracoBox(o) {
 }
 function iniciaTraco() {   // o próximo desenho: continua o traço que já está no topo da pilha, ou cria um novo por cima de tudo
   const todos = []; layers.forEach(l => l.objs.forEach(o => { if (!embaixoDe(o)) todos.push(o); })); imgs.forEach(o => { if (o.acima) todos.push(o); }); const topo = todos.sort(porZ).pop(), c = canvasTraco(); let o;
-  const sob = refHit(hover[0], hover[1]), pai = sob ? sob.id : 0;   // a pintura pertence à imagem que estava embaixo do primeiro ponto: mover a imagem leva a pintura
+  const pai = 0;   // a pintura NÃO gruda mais na imagem: posiciona onde quiser, depois seleciona os dois e usa Unir
   if (topo && topo.t === 'traco' && L().objs.includes(topo) && !topo.x && !topo.y && tracoSimples(topo) && (topo.pai || 0) === pai) { o = topo; c.getContext('2d').drawImage(TRACOS[o.cid], 0, 0); }
   else { o = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: 0, pai }; L().objs.push(o); }
   o.cid = ++idTr; TRACOS[o.cid] = c; trabalho = c.getContext('2d'); camadasUi();
@@ -635,7 +635,7 @@ function pegaCor(x, y) { if (x < 0 || y < 0 || x >= W || y >= H) return null; co
 function alcas(o) { const out = [], B = caixa(o); for (const dy of [-1, 0, 1]) for (const dx of [-1, 0, 1]) { if (!dx && !dy) continue; const X = dx < 0 ? B.l : dx > 0 ? B.r : B.cx, Y = dy < 0 ? B.t : dy > 0 ? B.b : B.cy; out.push({ dx, dy, sx: view.ox + X * view.z, sy: view.oy + Y * view.z }); } return out; }
 function alcaEm(e) { if (!selObj) return null; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top; for (const a of alcas(selObj)) if (Math.abs(mx - a.sx) <= TOQ && Math.abs(my - a.sy) <= TOQ) return a; return null; }
 let drag = null;
-function novoObjeto(t, px, py) { const sob = refHit(px, py); return { pai: sob ? sob.id : 0, t, x: px, y: py, w: 1, h: 1, m: [1, 0, 0, 1], z: ++zSeq, pre: t !== 'linha', con: true, th: Math.max(1, +$('fesp').value | 0), fy: false, c1: cor1(), c2: cor2() }; }
+function novoObjeto(t, px, py) { return { pai: 0, t, x: px, y: py, w: 1, h: 1, m: [1, 0, 0, 1], z: ++zSeq, pre: t !== 'linha', con: true, th: Math.max(1, +$('fesp').value | 0), fy: false, c1: cor1(), c2: cor2() }; }
 cv.addEventListener('pointerdown', e => {
   try { cv.setPointerCapture(e.pointerId); } catch (_) { } const [px, py] = toPx(e), pf = ptF(e); hover = [px, py];
   if (drag && drag.k === 'omove') { if (e.button === 2) marcaCopia(); return; }
