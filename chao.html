@@ -56,6 +56,7 @@ function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || 
 const CASA = PAREDES, PIECE = CASA.PIECE;
 let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'door' | 'low'
 let pisos = new Set();     // células com piso de casa: 'cx,cy'
+let cantos = [];           // peças de canto escolhidas pelo dono: { x, y, p } = vértice (x,y) e nome da peça (ex.: 'RU_MA')
 let postes = [], rectsP = [], vertices = new Map();   // pilares (automáticos) e retângulos de colisão
 const RP = .15;            // raio do personagem para as paredes
 // letras do vértice (em ordem D L R U) → nome da peça na folha dos cantos (cantos_para_editar.mjs)
@@ -115,15 +116,23 @@ function itensCasa() {
   const PERNA_DE = w => { const v = w.p.a === 'x' ? [w.p.n, w.p.c] : [w.p.c, w.p.n]; return w.corta && w.p.k !== 'door' && encosta(v, w.p.a); };   // a ponta de trás (começo) da parede média encosta numa parede que a atravessa: leva a perninha alta
   const usado = new Set(), comps = [], faltam = new Set();
   const PARES = [['RD', 'R', 'D'], ['LU', 'L', 'U'], ['RU', 'R', 'U'], ['LD', 'L', 'D']];
+  const escolhido = new Map(cantos.map(c => [c.x + ',' + c.y, c]));
   for (const v of [...vertices.values()].sort((p, q) => (p.x + p.y) - (q.x + q.y) || p.x - q.x)) for (const [nome, A, B] of PARES) {
+    if (escolhido.has(v.x + ',' + v.y)) continue;
     const wa = arm(v, A), wb = arm(v, B); if (!wa || !wb || usado.has(wa) || usado.has(wb)) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb || ha.length > 1 || hb.length > 1) continue;
     const nm = nome + '_' + ha + hb; if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     usado.add(wa); usado.add(wb); comps.push({ v, nm, wa, wb, nome }); }
   for (const w of inf) { const n = Hh(w); if (n === null) faltam.add('parede baixa'); }
   // a parede fica SEMPRE por dentro da borda do piso: se o piso está só do lado de dentro (parede do fundo), a peça desce para dentro pela espessura (4 px)
-  const SH = w => { const q = w.p, mais = q.a === 'x' ? (q.n + ',' + q.c) : (q.c + ',' + q.n), menos = q.a === 'x' ? (q.n + ',' + (q.c - 1)) : ((q.c - 1) + ',' + q.n); return pisos.has(mais) && !pisos.has(menos) ? (q.a === 'x' ? [-5, 3] : [5, 3]) : (pisos.has(menos) && !pisos.has(mais) ? (q.a === 'y' ? [-1, 0] : [1, 0]) : [0, 0]); };   // parede ↙ da frente (piso só à esquerda): 1 px para a esquerda, para ficar em cima do piso
+  const SH = w => SHq(w.p);
+  const SHq = q => { const mais = q.a === 'x' ? (q.n + ',' + q.c) : (q.c + ',' + q.n), menos = q.a === 'x' ? (q.n + ',' + (q.c - 1)) : ((q.c - 1) + ',' + q.n); return pisos.has(mais) && !pisos.has(menos) ? (q.a === 'x' ? [-5, 3] : [5, 3]) : (pisos.has(menos) && !pisos.has(mais) ? (q.a === 'y' ? [-1, 0] : [1, 0]) : [0, 0]); };   // parede ↙ da frente (piso só à esquerda): 1 px para a esquerda, para ficar em cima do piso
   const S0de = w => { const h = SH(w); return w.p.a === 'x' ? [sx(w.p.n, w.p.c) + h[0], sy(w.p.n, w.p.c) + h[1]] : [sx(w.p.c, w.p.n) + h[0], sy(w.p.c, w.p.n) + h[1]]; };
   const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
+  // cantos que o dono escolheu no mapa: a peça dele vai exatamente no vértice, e as paredes soltas que chegam ali são cobertas por ela
+  const EDGE = { L: v => ({ a: 'x', c: v.y, n: v.x - 1 }), R: v => ({ a: 'x', c: v.y, n: v.x }), U: v => ({ a: 'y', c: v.x, n: v.y - 1 }), D: v => ({ a: 'y', c: v.x, n: v.y }) };
+  for (const c of cantos) { const nm = c.p; if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; } let X = sx(c.x, c.y), Y = sy(c.x, c.y), d = 1e9, atras = true;
+    for (const A of nm.slice(0, 2)) { const q = EDGE[A](c), sh = SHq(q), w = ed.get(q.a + '|' + q.c + '|' + q.n); X += sh[0]; Y += sh[1]; d = Math.min(d, q.n + .5 + q.c); if (w) { usado.add(w); if (!w.atras) atras = false; } else if (!(q.a === 'x' ? hy > q.c - CASA.T / 2 : hx > q.c - CASA.T / 2)) atras = false; }
+    itemPeca(nm, X, Y, d, atras); }
   for (const c of comps) {
     const ha = SH(c.wa), hb = SH(c.wb), X = sx(c.v.x, c.v.y) + ha[0] + hb[0], Y = sy(c.v.x, c.v.y) + ha[1] + hb[1], d = Math.min(c.wa.key, c.wb.key), atras = c.wa.atras && c.wb.atras;
     const pa = PERNA_DE(c.wa), pb = PERNA_DE(c.wb), pecaPernas = c.nm === 'LU_MM' && pa && pb && peca('LU_MM_pernas');
@@ -146,12 +155,12 @@ function arestaPerto(fx, fy) {
   return dX <= dY ? { a: 'x', c: cX, n: Math.floor(fx), d: dX } : { a: 'y', c: cY, n: Math.floor(fy), d: dY };
 }
 // ---------- salvar / abrir ----------
-function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, paredes, pisos: [...pisos] }; }
+function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, paredes, pisos: [...pisos], cantos }; }
 function deJson(j) {
   if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
   const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
   objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
-  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); recalcParedes();
+  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
   TERR.render();
 }
 const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
@@ -181,6 +190,7 @@ const atualizaUi = () => {
     '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
     '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
     '<h4>Casa (paredes e piso)</h4><div class="g">' + bt('parede', 'high', CASA.prev('high'), 'Parede alta') + bt('parede', 'door', CASA.prev('door'), 'Parede com porta') + bt('parede', 'low', CASA.prev('low'), 'Parede baixa') + bt('piso', 'piso', CASA.prev('piso'), 'Piso') + bt('apagap', 'x', 'terreno/terra_0_0.png', 'Tirar parede') + bt('tirapiso', 'x', 'terreno/terra_0_0.png', 'Tirar piso') + '</div>' +
+    '<h4>Cantos (escolha a peça e clique no vértice)</h4><div class="g">' + (typeof PECAS === 'undefined' ? [] : Object.keys(PECAS).filter(n => /^(LU|RD|RU|LD)_/.test(n))).map(n => bt('canto', n, PECAS[n].src, n.replace('_', ' '))).join('') + bt('tiracanto', 'x', 'terreno/terra_0_0.png', 'Tirar canto') + '</div>' +
     '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
     '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. Paredes: clique perto da aresta que quer (arraste para fazer uma fileira); os pilares aparecem sozinhos nas pontas e nos encontros. Piso e "Tirar piso" usam o pincel 1×1, 2×2, 3×3. Botão direito apaga a parede mais perto. O mapa também fica guardado sozinho neste navegador.</div>';
   pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
@@ -201,6 +211,10 @@ function bateArv(o, wx, wy) { const d = OBJS[o.id]; if (d.deco && !d.pe) return 
 let mostraCol = false;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
 const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyC') mostraCol = !mostraCol; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
 function tratarCasa(e, fx, fy, cx, cy) {
+  const vx = Math.round(fx), vy = Math.round(fy), ic = cantos.findIndex(c => c.x === vx && c.y === vy), perto = Math.hypot(fx - vx, fy - vy) < .45;
+  if (e.button === 2 && ic >= 0 && perto) { cantos.splice(ic, 1); autosave(); return true; }
+  if (ferr.t === 'tiracanto') { if (ic >= 0) { cantos.splice(ic, 1); autosave(); } return true; }
+  if (ferr.t === 'canto') { if (vx < 0 || vy < 0 || vx > M || vy > M) return true; if (ic >= 0) cantos[ic].p = ferr.id; else cantos.push({ x: vx, y: vy, p: ferr.id }); autosave(); return true; }
   const ar = arestaPerto(fx, fy), i = paredes.findIndex(p => p.a === ar.a && p.c === ar.c && p.n === ar.n);
   if (e.button === 2) { if (i >= 0 && ar.d < .3) { paredes.splice(i, 1); recalcParedes(); autosave(); return true; } return false; }   // botão direito: apaga a parede mais perto; senão segue para os objetos
   if (ferr.t === 'apagap') { if (i >= 0) { paredes.splice(i, 1); recalcParedes(); autosave(); } return true; }
@@ -212,7 +226,7 @@ function tratarCasa(e, fx, fy, cx, cy) {
 function pintaMouse(e) {
   if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
   if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy), fx = (gx / 64 + gy / 32) / 2, fy = (gy / 32 - gx / 64) / 2;
-  if (ferr.t === 'parede' || ferr.t === 'apagap' || ferr.t === 'piso' || ferr.t === 'tirapiso' || e.button === 2) { if (tratarCasa(e, fx, fy, cx, cy)) return; }
+  if (ferr.t === 'parede' || ferr.t === 'apagap' || ferr.t === 'piso' || ferr.t === 'tirapiso' || ferr.t === 'canto' || ferr.t === 'tiracanto' || e.button === 2) { if (tratarCasa(e, fx, fy, cx, cy)) return; }
   if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bz = -1e9; objetos.forEach((o, k) => { if (OBJS[o.id].deco && o.x + o.y > bz && opaco(o, gx, gy, 1)) { bz = o.x + o.y; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
   if (ferr.t === 'chao') {
     const carimba = (x, y) => { const o = Math.floor((larg - 1) / 2); for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) pinta(x - o + k, y - o + j, ferr.id); };
