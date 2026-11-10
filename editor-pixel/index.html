@@ -284,6 +284,9 @@ function canvasObj(o) {   // desenho do objeto guardado; só refaz quando algo m
   return e.c;
 }
 const porZ = (a, b) => (a.z || 0) - (b.z || 0);
+const embaixoDe = o => ehImg(o) ? !o.acima : o.acima === false;   // vale para QUALQUER coisa: fica por baixo dos pixels do desenho
+const chaveZ = o => (o.z || 0) - (embaixoDe(o) ? 1e9 : 0);
+const poePlano = (o, abaixo) => { if (ehImg(o)) o.acima = !abaixo; else if (abaixo) o.acima = false; else delete o.acima; };
 function renderObjs(l) { if (l.oc.width !== W || l.oc.height !== H) { l.oc.width = W; l.oc.height = H; } const c = l.oc.getContext('2d'); c.clearRect(0, 0, W, H); for (const o of [...l.objs].sort(porZ)) c.drawImage(canvasObj(o), 0, 0); l.sujo = false; }
 function cobre1(o, px, py) {
   if (o.t === 'traco') { const c = TRACOS[o.cid], [u, v] = paraLocal(o, px + .5, py + .5), x = Math.floor(u * c.width / o.w + c.width / 2), y = Math.floor(v * c.height / o.h + c.height / 2); if (x < 0 || y < 0 || x >= c.width || y >= c.height) return false; return c.getContext('2d').getImageData(x, y, 1, 1).data[3] > 0; }
@@ -294,7 +297,7 @@ function cobre1(o, px, py) {
 const cobre = (o, px, py) => [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]].some(([i, j]) => cobre1(o, px + i, py + j));
 function objetoNoPonto(px, py) {   // o objeto ou imagem mais na frente que está no ponto
   const it = []; layers.forEach((l, li) => { if (l.vis) l.objs.forEach(o => it.push({ o, li })); }); imgs.forEach(o => { if (o.vis) it.push({ o, li: -1 }); });
-  const zz = x => (ehImg(x.o) && !x.o.acima ? x.o.z - 1e9 : x.o.z); it.sort((a, b) => zz(b) - zz(a));
+  const zz = x => chaveZ(x.o); it.sort((a, b) => zz(b) - zz(a));
   for (const x of it) if (ehImg(x.o) ? imgHit1(x.o, px, py) : cobre(x.o, px, py)) return x; return null;
 }
 function selecionaItem(h) { if (ehImg(h.o)) selecionaRef(h.o); else selecionaObj(h.li, h.o); }
@@ -314,15 +317,19 @@ function numerico() {
 ['fx', 'fy', 'fw', 'fh', 'frot', 'fpre', 'fcon', 'fesp'].forEach(i => $(i).onchange = numerico);
 $('ratio').onchange = () => { const r = ratioDe(); if (selObj && r) { pushUndo(); const B = caixa(selObj); ajustaCaixa(selObj, B.l, B.t, 2 * B.ex, 2 * B.ex * r[1] / r[0]); toca(); } };
 $('bCH').onclick = () => { if (selObj) { pushUndo(); const B = caixa(selObj); selObj.x += Math.round((W - 2 * B.ex) / 2 - B.l); toca(); } }; $('bCV').onclick = () => { if (selObj) { pushUndo(); const B = caixa(selObj); selObj.y += Math.round((H - 2 * B.ey) / 2 - B.t); toca(); } };
-function ordem(d) {   // um passo para frente (d > 0) ou para trás na ordem global de objetos e imagens
-  if (!selObj) return; const it = []; layers.forEach(l => l.objs.forEach(o => it.push(o))); imgs.forEach(o => it.push(o)); it.sort(porZ);
-  const i = it.indexOf(selObj), j = i + (d > 0 ? 1 : -1); if (i < 0 || j < 0 || j >= it.length) return; pushUndo(); const t = it[i].z; it[i].z = it[j].z; it[j].z = t; toca(); refUi();
+function ordem(d) {   // um passo para frente (d > 0) ou para trás, para TUDO que está selecionado (objetos, traços, imagens, grupo); atravessa o desenho de pixels
+  const sels = itensSelecionados(); if (!sels.length) return; const S = new Set(sels), todos = () => { const t = []; layers.forEach(l => l.objs.forEach(o => t.push(o))); imgs.forEach(o => t.push(o)); return t.sort((a, b) => chaveZ(a) - chaveZ(b)); };
+  pushUndo(); const dir = d > 0 ? 1 : -1; [...sels].sort((a, b) => dir * (chaveZ(b) - chaveZ(a))).forEach(o => {
+    const all = todos(); let j = all.indexOf(o) + dir; while (j >= 0 && j < all.length && S.has(all[j])) j += dir; if (j < 0 || j >= all.length) return; const n = all[j];
+    if (embaixoDe(n) !== embaixoDe(o)) { poePlano(o, embaixoDe(n)); o.z = (n.z || 0) + (dir > 0 ? -.5 : .5); } else { const t = o.z || 0; o.z = n.z || 0; n.z = t; } });
+  toca(); refUi();
 }
 $('bFrente').onclick = () => ordem(1); $('bTras').onclick = () => ordem(-1);
 // frente/trás de tudo: objeto fica no topo ou no fundo da pilha; imagem também sobe para cima do desenho ou desce para baixo dele
-function ordemTudo(frente) {
-  if (!selObj) return; pushUndo(); const todos = []; layers.forEach(l => l.objs.forEach(o => todos.push(o))); imgs.forEach(o => todos.push(o));
-  if (frente) { selObj.z = ++zSeq; if (ehImg(selObj)) selObj.acima = true; } else { selObj.z = Math.min(0, ...todos.map(o => o.z || 0)) - 1; if (ehImg(selObj)) selObj.acima = false; }
+function ordemTudo(frente) {   // TUDO que está selecionado vai para o topo de tudo ou para baixo de tudo (inclusive abaixo dos pixels do desenho)
+  const sels = itensSelecionados(); if (!sels.length) return; pushUndo(); const todos = []; layers.forEach(l => l.objs.forEach(o => todos.push(o))); imgs.forEach(o => todos.push(o));
+  const ord = [...sels].sort((a, b) => chaveZ(a) - chaveZ(b));
+  if (frente) ord.forEach(o => { o.z = ++zSeq; poePlano(o, false); }); else [...ord].reverse().forEach(o => { o.z = Math.min(0, ...todos.map(q => q.z || 0)) - 1; poePlano(o, true); });
   toca(); refUi();
 }
 $('bFrenteT').onclick = () => ordemTudo(true); $('bTrasT').onclick = () => ordemTudo(false);
@@ -485,7 +492,7 @@ function imgEm(x, o) { const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform
 // Unir: o que está selecionado vira pixels da camada atual, na mesma ordem em que aparece na tela
 function une() {
   const its = itensSelecionados(); if (!its.length && !sel) return; if (!(grupo && grupo.comPx)) pushUndo();
-  const fora = new Set(its), embaixo = o => ehImg(o) && !o.acima; if (sel) { L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; }
+  const fora = new Set(its), embaixo = o => embaixoDe(o); if (sel) { L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; }
   const c = canvasTraco(), x = c.getContext('2d'); x.imageSmoothingEnabled = false;
   its.filter(embaixo).sort(porZ).forEach(o => imgEm(x, o));   // imagens "por baixo do desenho" ficam embaixo dos pixels da camada
   x.drawImage(L().c, 0, 0);
@@ -538,9 +545,10 @@ function desenhaImg(o) {
   ctx.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { ctx.beginPath(); o.crop.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.clip(); }
   ctx.drawImage(o.im, -o.w / 2, -o.h / 2, o.w, o.h); ctx.restore();
 }
-function desenhaRef(acima) { for (const o of imgs) if (o.vis && o.acima === acima) desenhaImg(o); }   // imagens "por baixo do desenho"
+function desenhaUm(o) { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') desenhaTraco(ctx, o); else ctx.drawImage(canvasObj(o), 0, 0); }
+function desenhaRef(acima) { const it = []; imgs.forEach(o => { if (o.vis && o.acima === acima) it.push(o); }); if (!acima) layers.forEach(l => { if (l.vis) l.objs.forEach(o => { if (embaixoDe(o)) it.push(o); }); }); it.sort(porZ).forEach(desenhaUm); }   // imagens "por baixo do desenho"
 function desenhaItens() {   // objetos e imagens "por cima": tudo na mesma ordem; o que foi criado por último fica na frente
-  const it = []; layers.forEach(l => { if (l.vis) l.objs.forEach(o => it.push(o)); }); imgs.forEach(o => { if (o.vis && o.acima) it.push(o); });
+  const it = []; layers.forEach(l => { if (l.vis) l.objs.forEach(o => { if (!embaixoDe(o)) it.push(o); }); }); imgs.forEach(o => { if (o.vis && o.acima) it.push(o); });
   it.sort(porZ).forEach(o => { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') desenhaTraco(ctx, o); else ctx.drawImage(canvasObj(o), 0, 0); });
 }
 function corDaRef(px, py) {
@@ -598,7 +606,7 @@ function tracoBox(o) {
   return b;
 }
 function iniciaTraco() {   // o próximo desenho: continua o traço que já está no topo da pilha, ou cria um novo por cima de tudo
-  const todos = []; layers.forEach(l => l.objs.forEach(o => todos.push(o))); imgs.forEach(o => { if (o.acima) todos.push(o); }); const topo = todos.sort(porZ).pop(), c = canvasTraco(); let o;
+  const todos = []; layers.forEach(l => l.objs.forEach(o => { if (!embaixoDe(o)) todos.push(o); })); imgs.forEach(o => { if (o.acima) todos.push(o); }); const topo = todos.sort(porZ).pop(), c = canvasTraco(); let o;
   const sob = refHit(hover[0], hover[1]), pai = sob ? sob.id : 0;   // a pintura pertence à imagem que estava embaixo do primeiro ponto: mover a imagem leva a pintura
   if (topo && topo.t === 'traco' && L().objs.includes(topo) && !topo.x && !topo.y && tracoSimples(topo) && (topo.pai || 0) === pai) { o = topo; c.getContext('2d').drawImage(TRACOS[o.cid], 0, 0); }
   else { o = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: 0, pai }; L().objs.push(o); }
