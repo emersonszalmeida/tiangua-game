@@ -97,6 +97,14 @@ function salaDoPersonagem() {
   while (fila.length) { const [cx, cy] = fila.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (cx + dx) + ',' + (cy + dy); if (!passa(cx, cy, dx, dy)) continue; if (!pisos.has(k)) { aberta = true; continue; } if (!sala.has(k)) { sala.add(k); fila.push([cx + dx, cy + dy]); } } }
   return aberta ? null : sala;
 }
+// papel da parede (b = fundo: piso do lado +; f = frente: piso do lado −), decidido UMA vez, quando a parede é colocada, e guardado nela: pôr piso depois não mexe mais na parede.
+// Só se constrói na borda de um piso; se há piso dos dois lados, segue a parede vizinha da mesma fileira (a ordem de quem veio antes).
+function papelNovo(a, c, n) {
+  const mais = a === 'x' ? n + ',' + c : c + ',' + n, menos = a === 'x' ? n + ',' + (c - 1) : (c - 1) + ',' + n, pm = pisos.has(mais), pn = pisos.has(menos);
+  if (!pm && !pn) return null; if (pm !== pn) return pm ? 'b' : 'f';
+  for (const d of [-1, 1]) { let m = n + d, w; while ((w = paredes.find(q => q.a === a && q.c === c && q.n === m))) { if (w.r) return w.r; m += d; } }
+  return 'b';
+}
 function itensCasa() {
   const T = CASA.T, out = [], sx = (x, y) => (x - y) * 64 + M * 64, sy = (x, y) => (x + y) * 32;
   const sala = salaDoPersonagem();   // paredes da frente dessa sala descem até a cintura (a sala "se abre"); nas outras salas a parede fica inteira
@@ -137,6 +145,7 @@ function itensCasa() {
   const EDGE = { L: v => ({ a: 'x', c: v.y, n: v.x - 1 }), R: v => ({ a: 'x', c: v.y, n: v.x }), U: v => ({ a: 'y', c: v.x, n: v.y - 1 }), D: v => ({ a: 'y', c: v.x, n: v.y }) };
   for (const c of cantos) { const nm = c.p, tp = ROLE[nm.slice(0, 2)]; if (tp) for (const A of nm.slice(0, 2)) { const q = EDGE[A](c); papel.set(q.a + '|' + q.c + '|' + q.n, tp[A]); } }
   const herda = () => { for (let rep = 0; rep < 4; rep++) for (const w of inf) { if (papel.has(kw(w))) continue; for (const d of [1, -1]) { let n = w.p.n + d, g = null; while (g = ed.get(w.p.a + '|' + w.p.c + '|' + n)) { if (papel.has(kw(g))) { papel.set(kw(w), papel.get(kw(g))); break; } n += d; } if (papel.has(kw(w))) break; } } };
+  for (const w of inf) if (w.p.r && !papel.has(kw(w))) papel.set(kw(w), w.p.r);   // papel guardado na própria parede quando foi colocada
   herda();   // 1) a fileira inteira segue o papel do canto (peça de canto ou escolhido) que já existe nela
   for (const v of [...vertices.values()].sort((p, q) => (p.x + p.y) - (q.x + q.y) || p.x - q.x)) for (const [nome, A, B] of PARES) { const wa = arm(v, A), wb = arm(v, B); if (!wa || !wb || papel.has(kw(wa)) || papel.has(kw(wb))) continue; papel.set(kw(wa), ROLE[nome][A]); papel.set(kw(wb), ROLE[nome][B]); herda(); }   // 2) o que sobrou (portas etc.): pela forma do vértice, e a fileira herda
   // cantos que o dono escolheu no mapa: a peça dele vai exatamente no vértice, e as paredes soltas que chegam ali são cobertas por ela
@@ -168,7 +177,7 @@ function deJson(j) {
   if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
   const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
   objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
-  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'mid', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
+  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'mid', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); paredes.forEach(q => { if (q.r !== 'b' && q.r !== 'f') { const r = papelNovo(q.a, q.c, q.n); if (r) q.r = r; else delete q.r; } }); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
   TERR.render();
 }
 const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
@@ -226,7 +235,7 @@ function tratarCasa(e, fx, fy, cx, cy) {
   const ar = arestaPerto(fx, fy), i = paredes.findIndex(p => p.a === ar.a && p.c === ar.c && p.n === ar.n);
   if (e.button === 2) { if (i >= 0 && ar.d < .3) { paredes.splice(i, 1); recalcParedes(); autosave(); return true; } return false; }   // botão direito: apaga a parede mais perto; senão segue para os objetos
   if (ferr.t === 'apagap') { if (i >= 0) { paredes.splice(i, 1); recalcParedes(); autosave(); } return true; }
-  if (ferr.t === 'parede') { if (ar.c < 0 || ar.c > M || ar.n < 0 || ar.n >= M) return true; if (i >= 0) { if (paredes[i].k === ferr.id) return true; paredes[i].k = ferr.id; } else paredes.push({ a: ar.a, c: ar.c, n: ar.n, k: ferr.id }); recalcParedes(); autosave(); return true; }
+  if (ferr.t === 'parede') { if (ar.c < 0 || ar.c > M || ar.n < 0 || ar.n >= M) return true; if (i >= 0) { if (paredes[i].k === ferr.id) return true; paredes[i].k = ferr.id; } else { const r = papelNovo(ar.a, ar.c, ar.n); if (!r) { msg('Só dá para construir na borda de um piso: ponha o piso primeiro.'); return true; } paredes.push({ a: ar.a, c: ar.c, n: ar.n, k: ferr.id, r }); } recalcParedes(); autosave(); return true; }
   const o = Math.floor((larg - 1) / 2);   // piso / tirar piso com o pincel
   for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) { const x = cx - o + k, y = cy - o + j; if (x < 0 || y < 0 || x >= M || y >= M) continue; if (ferr.t === 'piso') pisos.add(x + ',' + y); else pisos.delete(x + ',' + y); }
   autosave(); return true;
