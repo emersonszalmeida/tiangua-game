@@ -81,6 +81,14 @@ input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;backgro
     <div class="row"><button id="bSelSolta" title="Enter">Soltar (Enter)</button><button id="bSelApaga" title="Delete">Apagar</button></div>
     <div class="dica" style="margin:4px 0 8px"><b>Marcar pixels (S)</b>: arraste sobre os pixels que quer pegar; Alt ou botão direito tira. <b>Selecionar (Q)</b>: clique num grupo ou arraste um retângulo; <b>Shift soma</b>. Com a seleção: arraste para mover · <b>Alt+arrastar, Ctrl+D ou clique direito durante o arrasto = clonar</b> (deixa uma cópia) · H / V espelham · setas movem 1 px (Shift = 8) · Ctrl+C / Ctrl+V cola onde está o mouse · Enter solta · Delete apaga.</div>
 
+    <h4>Varinha (W)</h4>
+    <div class="row"><label><input type="checkbox" id="vToca" checked> Só os que se tocam</label></div>
+    <div class="row"><button id="bVPinta" title="Também: clique numa cor da paleta">Pintar com a Cor 1</button><button id="bVLimpa" title="Esc">Soltar</button></div>
+    <div class="dica" style="margin:4px 0 8px">Clique num pixel: pega todos da mesma cor que se tocam (diagonal também). <b>Shift</b> soma, <b>Alt</b> tira. Com a seleção, <b>clique numa cor da paleta</b> ou pegue uma cor da tela com o <b>conta-gotas (I)</b> ou <b>Ctrl+clique</b>, e todos mudam de cor. Delete apaga. Vale para os pixels e os traços da camada atual; imagem importada: use Unir (Ctrl+E) antes.</div>
+    <h4>Vários itens</h4>
+    <div class="row"><button id="bAgrupa" title="Ctrl+G">Agrupar (Ctrl+G)</button><button id="bDesagrupa" title="Ctrl+Shift+G">Desagrupar</button></div>
+    <div class="row"><button id="bUne" title="Ctrl+E">Unir em pixels (Ctrl+E)</button></div>
+    <div class="dica" style="margin:4px 0 8px">Selecione com o retângulo do <b>Selecionar (Q)</b>. <b>Agrupar</b>: clicar em qualquer parte pega o grupo todo (<b>Ctrl+clique</b> pega uma peça só). <b>Unir</b>: tudo vira pixels da camada, do jeito que aparece na tela (a imagem entra com opacidade cheia); depois dá para selecionar só uma parte.</div>
     <h4>Imagem de referência</h4>
     <div class="row"><button id="bRefImp">Importar imagens…</button><button id="bRefTira">Remover</button></div>
     <input type="file" id="fRef" accept="image/*" multiple style="display:none"><div id="listaImgs"></div>
@@ -114,15 +122,17 @@ const cv = $('v'), ctx = cv.getContext('2d'), wrap = $('wrap');
 let selObj = null, modoGira = false, sel = null, clipPx = null, clipObj = null, W = 128, H = 128, layers = [], cur = 0, view = { z: 4, ox: 20, oy: 20 }, tool = 'selecionar', hover = [0, 0], espaco = false;
 let ref = null, imgs = [], nodeSel = [], hoverNo = null, ptSel = -1, zSeq = 0;   // zSeq: ordem de empilhamento global; tudo que é novo recebe o próximo número e fica por cima de tudo   // imgs = todas as imagens importadas; ref = a imagem ativa (a última selecionada)
 const undoS = [], redoS = [];
+let varinha = null, aviso = '', tAviso = 0;   // varinha: { m: máscara W×H, tint: canvas do realce }; aviso: recado curto na barra de status
 const ZOOMS = [1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64];
-const FERR = [['selecionar', '⬚', 'Selecionar (Q)'], ['marcar', '▨', 'Marcar pixels (S)'], ['forma', '◬', 'Forma (F10)'], ['lapis', '✎', 'Lápis (B)'], ['borracha', '⌫', 'Borracha (E)'], ['balde', '◉', 'Balde (G)'], ['gotas', '✚', 'Conta-gotas (I)'], ['linha', '／', 'Linha (L)'], ['retangulo', '▭', 'Retângulo (R)'], ['elipse', '◯', 'Elipse (O)'], ['losango', '◇', 'Losango 2:1 (D)'], ['mover', '✥', 'Mover camada (M)']];
+const FERR = [['selecionar', '⬚', 'Selecionar (Q)'], ['marcar', '▨', 'Marcar pixels (S)'], ['varinha', '✦', 'Varinha (W)'], ['forma', '◬', 'Forma (F10)'], ['lapis', '✎', 'Lápis (B)'], ['borracha', '⌫', 'Borracha (E)'], ['balde', '◉', 'Balde (G)'], ['gotas', '✚', 'Conta-gotas (I)'], ['linha', '／', 'Linha (L)'], ['retangulo', '▭', 'Retângulo (R)'], ['elipse', '◯', 'Elipse (O)'], ['losango', '◇', 'Losango 2:1 (D)'], ['mover', '✥', 'Mover camada (M)']];
 const FORMAS = ['linha', 'retangulo', 'elipse', 'losango'];
-const KEYS = { q: 'selecionar', s: 'marcar', f: 'forma', b: 'lapis', e: 'borracha', g: 'balde', i: 'gotas', l: 'linha', r: 'retangulo', o: 'elipse', d: 'losango', m: 'mover' };
+const KEYS = { q: 'selecionar', s: 'marcar', w: 'varinha', f: 'forma', b: 'lapis', e: 'borracha', g: 'balde', i: 'gotas', l: 'linha', r: 'retangulo', o: 'elipse', d: 'losango', m: 'mover' };
 // ---------- cores ----------
 const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const cor1 = () => $('c1').value, cor2 = () => $('c2').value;
 function setCor(n, h) { $(n === 1 ? 'c1' : 'c2').value = h; if (n === 1) pushRec(h); corNoObjeto(n); }
 function corNoObjeto(n) {   // como no Corel: botão esquerdo = preenchimento, botão direito = contorno (linha: qualquer um muda a cor da linha)
+  if (varinha && n === 1) { pintaVarinha(cor1()); return; }
   if (!selObj || ehImg(selObj) || selObj.t === 'traco') { redraw(); return; } pushUndo(); const o = selObj;
   if (o.t === 'linha') o.c1 = n === 1 ? cor1() : cor2(); else if (n === 1) { o.c1 = cor1(); o.pre = true; } else { o.c2 = cor2(); o.con = true; }
   toca();
@@ -138,7 +148,7 @@ $('bTroca').onclick = troca; function troca() { const a = cor1(); $('c1').value 
 // ---------- camadas, objetos e desfazer ----------
 function novaCamada(nome) { const c = document.createElement('canvas'); c.width = W; c.height = H; const o = document.createElement('canvas'); o.width = W; o.height = H; return { nome, vis: true, c, x: c.getContext('2d', { willReadFrequently: true }), objs: [], oc: o, sujo: true }; }
 function snap() { return { imgsS: imgs.map(imgEstado), W, H, cur, L: layers.map(l => ({ nome: l.nome, vis: l.vis, d: l.x.getImageData(0, 0, W, H), objs: JSON.parse(JSON.stringify(l.objs)) })) }; }
-function restaura(s) { const selId = ref ? ref.id : 0; imgs = (s.imgsS || []).map(e => ({ ...JSON.parse(JSON.stringify(e)), im: IMG_REG[e.id].im, c: IMG_REG[e.id].c })); ref = imgs.find(o => o.id === selId) || imgs[imgs.length - 1] || null; W = s.W; H = s.H; cur = s.cur; layers = s.L.map(l => { const n = novaCamada(l.nome); n.vis = l.vis; n.x.putImageData(l.d, 0, 0); n.objs = l.objs; return n; }); selObj = null; sel = null; tudoUi(); }
+function restaura(s) { grupo = null; varinha = null; const selId = ref ? ref.id : 0; imgs = (s.imgsS || []).map(e => ({ ...JSON.parse(JSON.stringify(e)), im: IMG_REG[e.id].im, c: IMG_REG[e.id].c })); ref = imgs.find(o => o.id === selId) || imgs[imgs.length - 1] || null; W = s.W; H = s.H; cur = s.cur; layers = s.L.map(l => { const n = novaCamada(l.nome); n.vis = l.vis; n.x.putImageData(l.d, 0, 0); n.objs = l.objs; return n; }); selObj = null; sel = null; tudoUi(); }
 function pushUndo() { undoS.push(snap()); if (undoS.length > 60) undoS.shift(); redoS.length = 0; salvaAuto(); }
 function desfaz() { if (sel) { sel = null; if (undoS.length) restaura(undoS.pop()); return; } if (!undoS.length) return; redoS.push(snap()); restaura(undoS.pop()); }
 function refaz() { if (!redoS.length) return; undoS.push(snap()); restaura(redoS.pop()); }
@@ -163,7 +173,7 @@ $('bRast').onclick = () => { soltaTudo(); pushUndo(); rasterizaCamada(L()); cama
 function espelha(h) { soltaTudo(); pushUndo(); rasterizaCamada(L()); const t = document.createElement('canvas'); t.width = W; t.height = H; t.getContext('2d').drawImage(L().c, 0, 0); L().x.clearRect(0, 0, W, H); L().x.save(); if (h) { L().x.translate(W, 0); L().x.scale(-1, 1); } else { L().x.translate(0, H); L().x.scale(1, -1); } L().x.drawImage(t, 0, 0); L().x.restore(); camadasUi(); redraw(); }
 $('bFlipH').onclick = () => espelha(true); $('bFlipV').onclick = () => espelha(false);
 // ---------- documento ----------
-function novoDoc(w, h) { W = w; H = h; layers = [novaCamada('Camada 1')]; cur = 0; selObj = null; sel = null; undoS.length = redoS.length = 0; ajusta(); tudoUi(); }
+function novoDoc(w, h) { varinha = null; W = w; H = h; layers = [novaCamada('Camada 1')]; cur = 0; selObj = null; sel = null; undoS.length = redoS.length = 0; ajusta(); tudoUi(); }
 function ajusta() { const r = wrap.getBoundingClientRect(); view.z = ZOOMS.filter(z => z * W <= r.width - 40 && z * H <= r.height - 40).pop() || 1; view.ox = Math.round((r.width - W * view.z) / 2); view.oy = Math.round((r.height - H * view.z) / 2); }
 function tudoUi() { camadasUi(); formaUi(); refUi(); redraw(); }
 $('bNovo').onclick = () => { const s = prompt('Tamanho da nova imagem em pixels (largura x altura):', '128x128'); if (!s) return; const m = s.match(/(\d+)\D+(\d+)/); if (!m) return; const w = Math.min(2048, +m[1]), h = Math.min(2048, +m[2]); if (w < 1 || h < 1) return; novoDoc(w, h); };
@@ -355,7 +365,8 @@ function aplicaMover(d) {
 }
 addEventListener('mousedown', e => { if (e.button === 2) marcaCopia(); }); addEventListener('contextmenu', () => { if (!(drag && drag.k === 'selmove')) marcaCopia(); }); addEventListener('mouseup', e => { if (e.button === 2 && drag && drag.k === 'selmove') { drag.rd = false; cv.style.cursor = 'move'; } });
 // ---------- seleção de pixels soltos (quando não há objeto) ----------
-function commitSel() { if (!sel) return; L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; salvaAuto(); redraw(); }
+let grupo = null;   // seleção de vários itens pelo retângulo do Selecionar: { itens, comPx } (os pixels soltos ficam em sel)
+function commitSel() { grupo = null; if (!sel) return; L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; salvaAuto(); redraw(); }
 function levanta(mask, bx, by, bw, bh) {
   pushUndo(); const im = L().x.getImageData(0, 0, W, H), out = new ImageData(W, H), d = im.data, o = out.data; let n = 0;
   for (let i = 0; i < W * H; i++) if (mask[i]) { for (let k = 0; k < 4; k++) { o[i * 4 + k] = d[i * 4 + k]; d[i * 4 + k] = 0; } n++; }
@@ -368,12 +379,85 @@ function grupoEm(px, py) {
   return { mask, bx: x0, by: y0, bw: x1 - x0 + 1, bh: y1 - y0 + 1 };
 }
 function marcaRet(x0, y0, x1, y1, soma) {
+  const dentroRet = B => B.l >= x0 - .5 && B.r <= x1 + 1.5 && B.t >= y0 - .5 && B.b <= y1 + 1.5, itens = [];
+  const partes = [];   // traços que só em parte estão no retângulo: os pixels de dentro são separados num traço novo, que entra na seleção
+  if (!soma) { layers.forEach((l, li) => { if (l.vis) l.objs.forEach(o => { if (o.t === 'traco') { if (!tracoBox(o)) return; if (dentroRet(caixa(o))) itens.push({ o, li }); else partes.push({ o, l, li }); } else if (dentroRet(caixa(o))) itens.push({ o, li }); }); }); imgs.forEach(o => { if (o.vis && dentroRet(caixa(o))) itens.push({ o, li: -1 }); }); }
   x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(W - 1, x1); y1 = Math.min(H - 1, y1); if (x1 < x0 || y1 < y0) return false;
-  const objs = soma ? [] : L().objs.filter(o => { const B = caixa(o); return B.l >= x0 - .5 && B.r <= x1 + 1.5 && B.t >= y0 - .5 && B.b <= y1 + 1.5; }); if (objs.length) { selecionaObj(cur, objs[objs.length - 1]); return true; }
   const d = L().x.getImageData(0, 0, W, H).data, mask = new Uint8Array(W * H); let a = W, b = H, c = -1, e = -1;
   for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (d[(y * W + x) * 4 + 3]) { mask[y * W + x] = 1; a = Math.min(a, x); c = Math.max(c, x); b = Math.min(b, y); e = Math.max(e, y); }
+  const cruza = B => B.r > x0 - .5 && B.l < x1 + 1.5 && B.b > y0 - .5 && B.t < y1 + 1.5, gids = new Set();
+  if (!soma) { layers.forEach(l => { if (l.vis) l.objs.forEach(o => { if (o.grp && cruza(caixa(o))) gids.add(o.grp); }); }); imgs.forEach(o => { if (o.vis && o.grp && cruza(caixa(o))) gids.add(o.grp); }); }
+  const ja = new Set(itens.map(x => x.o)); gids.forEach(id => membros(id).forEach(o => { if (!ja.has(o)) { ja.add(o); itens.push({ o, li: layers.findIndex(l => l.objs.includes(o)) }); } }));
+  const cortes = partes.filter(p => !p.o.grp).map(p => ({ ...p, n: contaNoRet(p.o, x0, y0, x1, y1) })).filter(p => p.n);
+  if (itens.length === 1 && c < 0 && !cortes.length && !itens[0].o.grp) { selecionaItem(itens[0]); return true; }
+  if (cortes.length) { if (c < 0) pushUndo(); }   // com pixels soltos, o levanta abaixo já guarda o desfazer (antes do corte)   // um objeto só: seleção normal, com as alças de escalar e girar
+  if (itens.length || cortes.length) { const comPx = c >= 0 && levanta(mask, a, b, c - a + 1, e - b + 1); selObj = null; cortes.forEach(p => itens.push({ o: cortaRet(p.l, p.o, x0, y0, x1, y1), li: p.li })); const os = new Set(itens.map(x => x.o)); itens.forEach(x => { if (ehImg(x.o)) layers.forEach(l => l.objs.forEach(f => { if (f.pai === x.o.id) os.add(f); })); }); grupo = { itens: [...os], comPx }; formaUi(); return true; }   // a pintura presa a uma imagem do grupo vem junto
   if (c < 0) return false; return soma ? somaSel(mask, false) : levanta(mask, a, b, c - a + 1, e - b + 1);
 }
+// pixels de um traço (na posição em que aparece) dentro do retângulo
+function pixelsDoTraco(o) { const c = canvasTraco(); desenhaTraco(c.getContext('2d'), o); return c; }
+function contaNoRet(o, x0, y0, x1, y1) { const d = pixelsDoTraco(o).getContext('2d').getImageData(0, 0, W, H).data; let n = 0; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (d[(y * W + x) * 4 + 3]) n++; return n; }
+// tira os pixels de dentro do retângulo de um traço e devolve um traço novo só com eles (as imagens em TRACOS nunca mudam: o que muda ganha imagem nova, por causa do desfazer)
+function cortaRet(l, o, x0, y0, x1, y1) {
+  const fora = pixelsDoTraco(o), fx = fora.getContext('2d'), den = canvasTraco(); den.getContext('2d').drawImage(fora, x0, y0, x1 - x0 + 1, y1 - y0 + 1, x0, y0, x1 - x0 + 1, y1 - y0 + 1); fx.clearRect(x0, y0, x1 - x0 + 1, y1 - y0 + 1);
+  Object.assign(o, { x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], cid: ++idTr }); TRACOS[o.cid] = fora;
+  const g = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: o.z + .001, cid: ++idTr, pai: o.pai || 0 }; TRACOS[g.cid] = den; l.objs.push(g); return g;
+}
+function caixaGrupo() {
+  let l = 1e9, t = 1e9, r = -1e9, b = -1e9; const soma = B => { l = Math.min(l, B.l); t = Math.min(t, B.t); r = Math.max(r, B.r); b = Math.max(b, B.b); };
+  grupo.itens.forEach(o => soma(caixa(o))); if (sel) soma({ l: sel.bx + sel.ox, t: sel.by + sel.oy, r: sel.bx + sel.ox + sel.bw, b: sel.by + sel.oy + sel.bh }); return { l, t, r, b };
+}
+const dentroGrupo = (px, py) => { if (!grupo) return false; const B = caixaGrupo(); return px + .5 >= B.l && px + .5 <= B.r && py + .5 >= B.t && py + .5 <= B.b; };
+function moveGrupo(dx, dy) { if (!dx && !dy) return; grupo.itens.forEach(o => { o.x += dx; o.y += dy; }); if (sel) { sel.ox += dx; sel.oy += dy; } if (grupo.itens.some(ehImg)) refUi(); redraw(); }
+function apagaGrupo() { pushUndo(); const fora = new Set(grupo.itens); layers.forEach(l => { l.objs = l.objs.filter(o => !fora.has(o)); }); imgs = imgs.filter(o => !fora.has(o)); if (fora.has(ref)) ref = imgs[imgs.length - 1] || null; sel = null; grupo = null; refUi(); camadasUi(); salvaAuto(); redraw(); }
+// ---------- varinha: pixels da mesma cor que se tocam (pixels da camada + traços da camada atual, como aparecem) ----------
+function camadaComTracos() { const c = canvasTraco(), x = c.getContext('2d'); x.drawImage(L().c, 0, 0); L().objs.filter(o => o.t === 'traco').sort(porZ).forEach(o => desenhaTraco(x, o)); return c; }
+function varinhaEm(px, py, modo) {   // modo: 0 troca, 1 soma (Shift), -1 tira (Alt)
+  if (px < 0 || py < 0 || px >= W || py >= H) return; const d = camadaComTracos().getContext('2d').getImageData(0, 0, W, H).data, i0 = (py * W + px) * 4;
+  if (!d[i0 + 3]) { if (!modo) { varinha = null; avisa(refHit(px, py) ? 'a varinha não pega imagem importada: use Unir (Ctrl+E) antes' : 'pixel vazio'); } redraw(); return; }
+  const igual = i => d[i * 4] === d[i0] && d[i * 4 + 1] === d[i0 + 1] && d[i * 4 + 2] === d[i0 + 2] && d[i * 4 + 3] === d[i0 + 3], m = new Uint8Array(W * H);
+  if ($('vToca').checked) { const pilha = [py * W + px]; m[pilha[0]] = 1; while (pilha.length) { const i = pilha.pop(), x = i % W, y = (i / W) | 0; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const X = x + a, Y = y + b, j = Y * W + X; if (X < 0 || Y < 0 || X >= W || Y >= H || m[j] || !igual(j)) continue; m[j] = 1; pilha.push(j); } } }
+  else for (let i = 0; i < W * H; i++) if (igual(i)) m[i] = 1;
+  const v = modo && varinha ? varinha.m : new Uint8Array(W * H); for (let i = 0; i < W * H; i++) if (m[i]) v[i] = modo < 0 ? 0 : 1;
+  varinha = v.some(Boolean) ? { m: v, tint: null } : null; redraw();
+}
+function varinhaTint() { if (!varinha.tint) { const c = canvasTraco(), x = c.getContext('2d'); x.fillStyle = 'rgba(47,140,255,.55)'; for (let i = 0; i < W * H; i++) if (varinha.m[i]) x.fillRect(i % W, (i / W) | 0, 1, 1); varinha.tint = c; } return varinha.tint; }
+// muda (ou apaga, cor = null) os pixels marcados, nos pixels da camada e nos traços; traço mexido ganha imagem nova (por causa do desfazer)
+function mudaVarinha(cor) {
+  if (!varinha) return; pushUndo(); const m = varinha.m, c = cor && rgb(cor);
+  const aplica = (dd) => { let n = 0; for (let i = 0; i < W * H; i++) if (m[i] && dd[i * 4 + 3]) { if (c) { dd[i * 4] = c[0]; dd[i * 4 + 1] = c[1]; dd[i * 4 + 2] = c[2]; } else dd[i * 4 + 3] = 0; n++; } return n; };
+  const im = L().x.getImageData(0, 0, W, H); if (aplica(im.data)) L().x.putImageData(im, 0, 0);
+  L().objs.forEach(o => { if (o.t !== 'traco') return; const t = pixelsDoTraco(o), tx = t.getContext('2d'), td = tx.getImageData(0, 0, W, H); if (!aplica(td.data)) return; tx.putImageData(td, 0, 0); Object.assign(o, { x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], cid: ++idTr }); TRACOS[o.cid] = t; });
+  if (!cor) varinha = null; camadasUi(); salvaAuto(); redraw();
+}
+const pintaVarinha = cor => mudaVarinha(cor);
+$('bVPinta').onclick = () => pintaVarinha(cor1()); $('bVLimpa').onclick = () => { varinha = null; redraw(); };
+function avisa(t) { aviso = t; status(); clearTimeout(tAviso); tAviso = setTimeout(() => { aviso = ''; status(); }, 3500); }
+// grupo fixo (Ctrl+G): os itens ganham o mesmo número; clicar em qualquer um pega todos
+function membros(id) { const r = []; layers.forEach(l => l.objs.forEach(o => { if (o.grp === id) r.push(o); })); imgs.forEach(o => { if (o.grp === id) r.push(o); }); return r; }
+function pegaGrupoFixo(id) { commitSel(); selObj = null; modoGira = false; grupo = { itens: membros(id), comPx: false }; formaUi(); redraw(); }
+function pixelsViramTraco() { if (!sel) return null; const c = canvasTraco(); c.getContext('2d').drawImage(sel.c, sel.ox, sel.oy); const g = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: ++idTr, pai: 0 }; TRACOS[g.cid] = c; L().objs.push(g); sel = null; return g; }
+const itensSelecionados = () => grupo ? grupo.itens : selObj ? [selObj] : [];
+function agrupa() {
+  if (!grupo) return; if (!grupo.comPx) pushUndo(); const t = pixelsViramTraco(); if (t) grupo.itens.push(t); grupo.comPx = false;   // pixels soltos viram um traço, para poderem fazer parte do grupo
+  let id = 0; layers.forEach(l => l.objs.forEach(o => { id = Math.max(id, o.grp || 0); })); imgs.forEach(o => { id = Math.max(id, o.grp || 0); }); id++;
+  grupo.itens.forEach(o => { o.grp = id; }); camadasUi(); salvaAuto(); redraw();
+}
+function desagrupa() { const its = itensSelecionados(); if (!its.some(o => o.grp)) return; pushUndo(); its.forEach(o => { delete o.grp; }); salvaAuto(); redraw(); }
+function imgEm(x, o) { const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform(m[0], m[2], m[1], m[3], cx, cy); x.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { x.beginPath(); o.crop.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip(); } x.drawImage(o.im, -o.w / 2, -o.h / 2, o.w, o.h); x.restore(); }
+// Unir: o que está selecionado vira pixels da camada atual, na mesma ordem em que aparece na tela
+function une() {
+  const its = itensSelecionados(); if (!its.length && !sel) return; if (!(grupo && grupo.comPx)) pushUndo();
+  const fora = new Set(its), embaixo = o => ehImg(o) && !o.acima; if (sel) { L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; }
+  const c = canvasTraco(), x = c.getContext('2d'); x.imageSmoothingEnabled = false;
+  its.filter(embaixo).sort(porZ).forEach(o => imgEm(x, o));   // imagens "por baixo do desenho" ficam embaixo dos pixels da camada
+  x.drawImage(L().c, 0, 0);
+  its.filter(o => !embaixo(o)).sort(porZ).forEach(o => { if (ehImg(o)) imgEm(x, o); else if (o.t === 'traco') desenhaTraco(x, o); else x.drawImage(canvasObj(o), 0, 0); });
+  L().x.clearRect(0, 0, W, H); L().x.drawImage(c, 0, 0);
+  layers.forEach(l => { l.objs = l.objs.filter(o => !fora.has(o)); }); imgs = imgs.filter(o => !fora.has(o)); if (fora.has(ref)) ref = imgs[imgs.length - 1] || null;
+  grupo = null; selObj = null; modoGira = false; formaUi(); refUi(); camadasUi(); salvaAuto(); redraw();
+}
+$('bAgrupa').onclick = agrupa; $('bDesagrupa').onclick = desagrupa; $('bUne').onclick = une;
 const dentroSel = (px, py) => sel && px >= sel.bx + sel.ox && px < sel.bx + sel.ox + sel.bw && py >= sel.by + sel.oy && py < sel.by + sel.oy + sel.bh;
 function copia() { if (ehImg(selObj)) return; if (selObj) { clipObj = JSON.parse(JSON.stringify(selObj)); clipPx = null; } else if (sel) { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(sel.c, 0, 0); clipPx = { c, bx: sel.bx, by: sel.by, bw: sel.bw, bh: sel.bh, ox: sel.ox, oy: sel.oy }; clipObj = null; } }
 // ---------- seleção livre de pixels: marcar, somar/tirar, clonar e espelhar ----------
@@ -390,7 +474,7 @@ function selTint() { if (!sel.tint) { const t = document.createElement('canvas')
 function marcaPincel(d, x, y) { const t = +$('tam').value || 1, o = Math.floor(t / 2); for (let j = 0; j < t; j++) for (let i = 0; i < t; i++) { const X = x - o + i, Y = y - o + j; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const k = Y * W + X; if (!d.m[k]) { d.m[k] = 1; d.lista.push(k); } } }
 // ---------- imagens importadas: objetos com matriz e recorte (não entram na exportação) ----------
 const IMG_REG = {}; let idImg = 0;   // guarda o arquivo de cada imagem, para o desfazer poder trazê-la de volta
-const imgEstado = o => ({ id: o.id, nome: o.nome, t: 'imagem', x: o.x, y: o.y, w: o.w, h: o.h, m: o.m, crop: o.crop, op: o.op, acima: o.acima, vis: o.vis, z: o.z });
+const imgEstado = o => ({ id: o.id, nome: o.nome, t: 'imagem', x: o.x, y: o.y, w: o.w, h: o.h, m: o.m, crop: o.crop, op: o.op, acima: o.acima, vis: o.vis, z: o.z, grp: o.grp });
 const ehImg = o => !!o && o.t === 'imagem';
 function carregaRef(file) {
   if (!file || !file.type.startsWith('image/')) return; const im = new Image();
@@ -516,8 +600,11 @@ cv.addEventListener('pointerdown', e => {
 
   if (tool === 'marcar' && (e.button === 0 || e.button === 2)) { const d = { k: 'marcar', m: new Uint8Array(W * H), lista: [], tira: e.altKey || e.button === 2, ult: [px, py] }; marcaPincel(d, px, py); drag = d; redraw(); return; }   // arrastar marca pixels (qualquer um, mesmo soltos); Alt ou botão direito tira da seleção
   if (tool === 'forma') { formaDown(e, pf, px, py); return; }
+  if (tool === 'varinha' && e.button === 0 && e.ctrlKey) { const c = pegaCor(px, py) || corDaRef(px, py); if (c) setCor(1, c); return; }   // Ctrl+clique: conta-gotas sem trocar de ferramenta (com seleção, já pinta)
+  if (tool === 'varinha' && e.button === 0) { varinhaEm(px, py, e.altKey ? -1 : e.shiftKey ? 1 : 0); return; }
   const cor = e.button === 2 ? cor2() : cor1(), mexe = tool === 'selecionar' || FORMAS.includes(tool);
   if (mexe && e.button !== 2) {
+    if (grupo) { if (tool === 'selecionar' && dentroGrupo(px, py)) { if (!grupo.comPx) pushUndo(); drag = { k: 'gmove', ult: [px, py] }; return; } commitSel(); }   // grupo: arrastar dentro move tudo junto; clicar fora solta
     if (dentroSel(px, py)) { if (e.altKey) carimba(); drag = { k: 'selmove', p0: [px, py], o0: [sel.ox, sel.oy], undo: false }; return; }   // Alt+arrastar: deixa uma cópia no lugar (clonar)
     const h = alcaEm(e);
     if (h && (tool === 'selecionar' || !modoGira)) {
@@ -527,6 +614,8 @@ cv.addEventListener('pointerdown', e => {
     }
     if (tool === 'selecionar') {
       const hit = objetoNoPonto(px, py), gn = noPertoGeral(pf);
+      const alvo = !e.ctrlKey && ((gn && gn.o) || (hit && hit.o));
+      if (alvo && alvo.grp) { pegaGrupoFixo(alvo.grp); pushUndo(); drag = { k: 'gmove', ult: [px, py] }; return; }
       if (gn) { const antes = selObj; if (gn.o !== antes) { if (ehImg(gn.o)) selecionaRef(gn.o); else selecionaObj(gn.li, gn.o); } drag = { k: 'omove', p0: gn.n.p, ps: pf, x0: selObj.x, y0: selObj.y, ja: gn.o === antes, moveu: false, ini: false, agarre: gn.n.nome }; return; }   // perto de um ponto de qualquer objeto: pega por ele
 
       if (hit) { const ja = hit.o === selObj; if (!ja) selecionaItem(hit); drag = { k: 'omove', p0: pf, ps: pf, x0: selObj.x, y0: selObj.y, ja, moveu: false, ini: false, agarre: null }; return; }
@@ -560,6 +649,7 @@ cv.addEventListener('pointermove', e => {
   if (drag.k === 'noMarq') { drag.p1 = pf; redraw(); return; }
   if (drag.k === 'refmove') { ref.x = Math.round(drag.x0 + pf[0] - drag.p0[0]); ref.y = Math.round(drag.y0 + pf[1] - drag.p0[1]); refUi(); redraw(); return; }
   if (drag.k === 'marcar') { tracejado(drag.ult[0], drag.ult[1], px, py, (x, y) => marcaPincel(drag, x, y)); drag.ult = [px, py]; redraw(); return; }
+  if (drag.k === 'gmove') { moveGrupo(px - drag.ult[0], py - drag.ult[1]); drag.ult = [px, py]; return; }
   if (drag.k === 'selmove') { sel.ox = drag.o0[0] + px - drag.p0[0]; sel.oy = drag.o0[1] + py - drag.p0[1]; redraw(); return; }
   if (drag.k === 'marq') { drag.p1 = [px, py]; redraw(); return; }
   if (drag.k === 'pan') { view.ox = drag.ox + e.clientX - drag.sx; view.oy = drag.oy + e.clientY - drag.sy; redraw(); return; }
@@ -608,7 +698,7 @@ cv.addEventListener('pointerup', () => {
   if (drag && drag.k === 'marq') { const [a, b] = drag.p0, [c, d] = drag.p1; if (Math.abs(c - a) + Math.abs(d - b) > 0) marcaRet(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d), drag.soma); }
   if (drag && drag.k === 'marcar') { const d = drag; drag = null; somaSel(d.m, d.tira); }
   if (drag && drag.k === 'omove' && !drag.moveu && drag.ja) { modoGira = !modoGira; }   // segundo clique no mesmo objeto: alterna escala <-> girar
-  if (drag && (drag.k === 'pinta' || drag.k === 'mcam')) salvaAuto();
+  if (drag && (drag.k === 'pinta' || drag.k === 'mcam' || drag.k === 'gmove')) salvaAuto();
   drag = null; formaUi(); redraw();
 });
 cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, i = ZOOMS.indexOf(view.z), n = Math.max(0, Math.min(ZOOMS.length - 1, i + (e.deltaY < 0 ? 1 : -1))), z2 = ZOOMS[n]; if (z2 === view.z) return; const px = (mx - view.ox) / view.z, py = (my - view.oy) / view.z; view.z = z2; view.ox = Math.round(mx - px * z2); view.oy = Math.round(my - py * z2); redraw(); }, { passive: false });
@@ -618,9 +708,16 @@ addEventListener('keydown', e => {
   if (e.ctrlKey && k === 'z') { e.preventDefault(); e.shiftKey ? refaz() : desfaz(); return; } if (e.ctrlKey && k === 'y') { e.preventDefault(); refaz(); return; }
   if (campo) { if (e.key === 'Enter') e.target.blur(); return; }
   if (e.ctrlKey && k === 'c') { copia(); return; } if (e.ctrlKey && k === 'x') { copia(); if (selObj) apagaObj(); else if (sel) { sel = null; salvaAuto(); redraw(); } return; }
+  if (e.ctrlKey && k === 'g') { e.preventDefault(); if (e.shiftKey) desagrupa(); else agrupa(); return; }
+  if (e.ctrlKey && k === 'e') { e.preventDefault(); une(); return; }
   if (e.ctrlKey && k === 'd') { e.preventDefault(); if (sel && !selObj) carimba(); else duplica(); return; }   // com pixels selecionados: deixa uma cópia aqui (a seleção continua solta para mover)
   if (e.ctrlKey && k === 'v') return;   // colar é tratado no evento paste (imagem vira referência, objeto copiado vira cópia)
   if (e.ctrlKey && k === 'a' && (tool === 'selecionar' || tool === 'marcar')) { e.preventDefault(); soltaTudo(); marcaRet(0, 0, W - 1, H - 1); redraw(); return; }
+  if (varinha && e.key === 'Escape') { varinha = null; redraw(); return; }
+  if (varinha && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); mudaVarinha(null); return; }
+  if (grupo && (e.key === 'Escape' || e.key === 'Enter')) { commitSel(); redraw(); return; }
+  if (grupo && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); apagaGrupo(); return; }
+  if (grupo && e.key.startsWith('Arrow')) { e.preventDefault(); const p = e.shiftKey ? 8 : 1; if (!grupo.comPx) pushUndo(); moveGrupo(e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0); salvaAuto(); return; }
   if (e.key === 'Escape') { if (sel) commitSel(); else { selObj = null; modoGira = false; formaUi(); redraw(); } return; }
   if (e.key === 'Enter' && sel) { commitSel(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj && !ehImg(selObj) && ptSel >= 0 && selObj.pts && selObj.pts[ptSel]) { e.preventDefault(); pushUndo(); selObj.pts = selObj.pts.filter((_, i) => i !== ptSel); ptSel = -1; toca(); return; }
@@ -641,7 +738,7 @@ function desenha() {
   ctx.save(); ctx.translate(view.ox, view.oy);
   const q = Math.max(1, Math.ceil(8 / z)); if (fundoVis !== 'xadrez') { ctx.fillStyle = fundoVis; ctx.fillRect(0, 0, W * z, H * z); } else { ctx.fillStyle = '#cfcfcf'; ctx.fillRect(0, 0, W * z, H * z); ctx.fillStyle = '#a8a8a8'; for (let y = 0; y < H; y += q) for (let x = ((y / q) & 1) * q; x < W; x += q * 2) ctx.fillRect(x * z, y * z, Math.min(q, W - x) * z, Math.min(q, H - y) * z); }
   ctx.scale(z, z); desenhaRef(false); layers.forEach((l, i) => { if (!l.vis) return; ctx.drawImage(l.c, 0, 0); if (i === cur && sel) { ctx.drawImage(sel.c, sel.ox, sel.oy); ctx.drawImage(selTint(), sel.ox, sel.oy); } });
-  desenhaItens();
+  desenhaItens(); if (varinha) ctx.drawImage(varinhaTint(), 0, 0);
   ctx.scale(1 / z, 1 / z);
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, W * z, H * z); ctx.clip();
   if ($('gGrade').checked && z >= 6) { ctx.strokeStyle = 'rgba(0,0,0,.25)'; ctx.lineWidth = 1; ctx.beginPath(); for (let x = 0; x <= W; x++) { ctx.moveTo(x * z + .5, 0); ctx.lineTo(x * z + .5, H * z); } for (let y = 0; y <= H; y++) { ctx.moveTo(0, y * z + .5); ctx.lineTo(W * z, y * z + .5); } ctx.stroke(); }
@@ -650,7 +747,8 @@ function desenha() {
   ctx.restore();
   ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(-.5, -.5, W * z + 1, H * z + 1);
   const ants = (x, y, w, h) => { ctx.setLineDash([]); ctx.strokeStyle = '#fff'; ctx.strokeRect(x + .5, y + .5, w, h); ctx.strokeStyle = '#000'; ctx.setLineDash([5, 5]); ctx.strokeRect(x + .5, y + .5, w, h); ctx.setLineDash([]); };
-  if (sel) ants((sel.bx + sel.ox) * z, (sel.by + sel.oy) * z, sel.bw * z, sel.bh * z);
+  if (grupo) { ctx.strokeStyle = 'rgba(47,140,255,.9)'; grupo.itens.forEach(o => { const B = caixa(o); ctx.strokeRect(B.l * z + .5, B.t * z + .5, (B.r - B.l) * z, (B.b - B.t) * z); }); const G = caixaGrupo(); ants(G.l * z, G.t * z, (G.r - G.l) * z, (G.b - G.t) * z); }
+  else if (sel) ants((sel.bx + sel.ox) * z, (sel.by + sel.oy) * z, sel.bw * z, sel.bh * z);
   if (drag && drag.k === 'selmove' && drag.rd) { const hx = hover[0] * z + 14, hy = hover[1] * z - 14; ctx.fillStyle = '#fff'; ctx.fillRect(hx - 8, hy - 8, 16, 16); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(hx - 7.5, hy - 7.5, 15, 15); ctx.beginPath(); ctx.moveTo(hx - 4, hy); ctx.lineTo(hx + 4, hy); ctx.moveTo(hx, hy - 4); ctx.lineTo(hx, hy + 4); ctx.stroke(); }
   if (drag && drag.k === 'marcar') { ctx.fillStyle = drag.tira ? 'rgba(255,60,60,.5)' : 'rgba(47,140,255,.5)'; for (const i of drag.lista) ctx.fillRect((i % W) * z, ((i / W) | 0) * z, z, z); }
   if (drag && drag.k === 'marq') { const a = Math.min(drag.p0[0], drag.p1[0]), b = Math.min(drag.p0[1], drag.p1[1]); ants(a * z, b * z, (Math.abs(drag.p1[0] - drag.p0[0]) + 1) * z, (Math.abs(drag.p1[1] - drag.p0[1]) + 1) * z); }
@@ -683,7 +781,8 @@ function desenha() {
   }
   ctx.restore(); status(); salvaAuto();
 }
-function status() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · clique direito durante o arrasto, Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
+function status() { status0(); if (aviso) $('status').textContent += ' · ' + aviso; }
+function status0() { const o = selObj, B = o && caixa(o); $('status').textContent = 'Tela ' + W + '×' + H + ' px · zoom ' + view.z + '× · cursor ' + hover[0] + ', ' + hover[1] + (o ? ' · ' + o.t + ' ' + Math.round(2 * B.ex) + '×' + Math.round(2 * B.ey) + ' px em (' + Math.round(B.l) + ', ' + Math.round(B.t) + ') · ' + Math.round(anguloDe(o)) + '° · ' + (modoGira ? 'clique de novo para voltar a escalar' : 'clique de novo no objeto para girar') : '') + (sel ? ' · pixels selecionados ' + sel.bw + '×' + sel.bh + ' (Enter solta · Delete apaga · clique direito durante o arrasto, Alt+arrastar ou Ctrl+D clona · H/V espelha · Shift soma)' : '') + ' · camada: ' + (L() ? L().nome : ''); }
 ['gGrade', 'gIso', 'gIsoW', 'gCentro'].forEach(i => $(i).onchange = redraw);
 addEventListener('resize', () => { desenha(); });
 // ---------- início ----------

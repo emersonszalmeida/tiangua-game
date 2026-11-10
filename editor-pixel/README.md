@@ -10,6 +10,10 @@ A ideia é ter as ferramentas de objeto do CorelDRAW (selecionar, escalar, girar
 - Lápis (B), Borracha (E), Balde (G), Conta-gotas (I), Mover camada (M).
 - **P:** centraliza o objeto na página. Ctrl+D duplica. Page Up/Down: frente/trás.
 - Clique numa cor: preenche o objeto; botão direito: contorno.
+- **Selecionar vários (Q):** arraste um retângulo começando fora dos objetos. Entra tudo o que está dentro dele: imagens e formas inteiras, os pixels dos traços que ficam dentro (a parte de fora do traço fica onde está) e os pixels soltos da camada; a pintura presa a uma imagem que entrou vem junto. Arraste dentro da seleção para mover tudo; setas movem 1 px (Shift = 8); Delete apaga; Esc ou Enter solta. Ctrl+A seleciona tudo o que está na tela.
+- **Varinha (W):** clique num pixel e pega todos da mesma cor que se tocam (diagonal também; desmarque "Só os que se tocam" para pegar a cor na camada inteira). Shift soma, Alt tira. Com a seleção, **clique numa cor da paleta**, pegue uma cor da tela com o **conta-gotas (I)** ou com **Ctrl+clique** (sem trocar de ferramenta), mude a Cor 1 ou use o botão "Pintar com a Cor 1" e todos mudam de cor de uma vez; Delete apaga; Esc solta. Vale para os pixels e os traços da camada atual; imagem importada precisa ser unida antes (Ctrl+E).
+- **Agrupar (Ctrl+G) / Desagrupar (Ctrl+Shift+G):** com vários itens selecionados, vira um grupo. Clicar em qualquer peça (ou um retângulo que encosta nela) pega o grupo inteiro; Ctrl+clique pega uma peça só. Pixels soltos que estavam na seleção viram um traço para entrar no grupo.
+- **Unir em pixels (Ctrl+E):** o que está selecionado vira pixels comuns da camada atual, do jeito que aparece na tela (imagem com opacidade cheia). Depois dá para pegar só uma parte com o retângulo (começando fora do bloco) ou com Marcar pixels (S).
 - **Marcar pixels (S):** arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos); Alt ou botão direito tira da marcação.
 - **Seleção de pixels** (Selecionar Q ou Marcar S): clique num grupo de pixels ou arraste um retângulo; **Shift soma** à seleção. Com a seleção: arraste para mover; **clique direito durante o arrasto, Alt+arrastar ou Ctrl+D clona** (deixa uma cópia no lugar; no arrasto cada clique direito, com o botão esquerdo apertado, deixa uma cópia onde a seleção está); **H / V espelham**; setas movem 1 px (Shift = 8); Ctrl+C / Ctrl+V **cola onde está o mouse**; Enter solta; Delete apaga. Há botões equivalentes no painel "Seleção de pixels".
 - Imagem de referência: importar, colar (Ctrl+V) ou arrastar o arquivo; não entra na exportação.
@@ -17,7 +21,7 @@ A ideia é ter as ferramentas de objeto do CorelDRAW (selecionar, escalar, girar
 
 ## Ideias para depois
 - Ferramenta Forma nos objetos desenhados (cantos arredondados).
-- Selecionar vários objetos, alinhar e distribuir, agrupar.
+- Seleção de vários: escalar, girar, espelhar e duplicar (Ctrl+D) o conjunto; alinhar e distribuir.
 - Inclinar pelas alças do meio; contorno com espessura constante ao achatar.
 - Guardar a imagem de referência dentro do projeto.
 
