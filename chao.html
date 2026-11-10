@@ -125,11 +125,16 @@ function itensCasa() {
   for (const w of inf) { const n = Hh(w); if (n === null) faltam.add('parede baixa'); }
   // a parede fica SEMPRE por dentro da borda do piso: se o piso está só do lado de dentro (parede do fundo), a peça desce para dentro pela espessura (4 px)
   const SH = w => SHq(w.p);
-  const SHq = q => { const mais = q.a === 'x' ? (q.n + ',' + q.c) : (q.c + ',' + q.n), menos = q.a === 'x' ? (q.n + ',' + (q.c - 1)) : ((q.c - 1) + ',' + q.n); return pisos.has(mais) && !pisos.has(menos) ? (q.a === 'x' ? [-5, 3] : [5, 3]) : (pisos.has(menos) && !pisos.has(mais) ? (q.a === 'y' ? [-1, 0] : [1, 0]) : [0, 0]); };   // parede ↙ da frente (piso só à esquerda): 1 px para a esquerda, para ficar em cima do piso
+  // posição por tipo de peça, NÃO pelos pisos vizinhos: o canto/parede não se mexe quando você adiciona piso. f = parede da frente, b = parede do fundo
+  const ROLE = { RD: { R: 'b', D: 'b' }, LU: { L: 'f', U: 'f' }, RU: { R: 'f', U: 'b' }, LD: { L: 'b', D: 'f' } }, SHT = { xb: [-5, 3], xf: [1, 0], yb: [5, 3], yf: [-1, 0] }, papel = new Map();
+  const SHq = q => { const r = papel.get(q.a + '|' + q.c + '|' + q.n); if (r) return SHT[q.a + r]; return SHf(q); };
+  const SHf = q => { const mais = q.a === 'x' ? (q.n + ',' + q.c) : (q.c + ',' + q.n), menos = q.a === 'x' ? (q.n + ',' + (q.c - 1)) : ((q.c - 1) + ',' + q.n); return pisos.has(mais) && !pisos.has(menos) ? (q.a === 'x' ? [-5, 3] : [5, 3]) : (pisos.has(menos) && !pisos.has(mais) ? (q.a === 'y' ? [-1, 0] : [1, 0]) : [0, 0]); };   // parede ↙ da frente (piso só à esquerda): 1 px para a esquerda, para ficar em cima do piso
   const S0de = w => { const h = SH(w); return w.p.a === 'x' ? [sx(w.p.n, w.p.c) + h[0], sy(w.p.n, w.p.c) + h[1]] : [sx(w.p.c, w.p.n) + h[0], sy(w.p.c, w.p.n) + h[1]]; };
   const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
+  for (const c of comps) for (const [w, A] of [[c.wa, c.nome[0]], [c.wb, c.nome[1]]]) papel.set(w.p.a + '|' + w.p.c + '|' + w.p.n, ROLE[c.nome][A]);
   // cantos que o dono escolheu no mapa: a peça dele vai exatamente no vértice, e as paredes soltas que chegam ali são cobertas por ela
   const EDGE = { L: v => ({ a: 'x', c: v.y, n: v.x - 1 }), R: v => ({ a: 'x', c: v.y, n: v.x }), U: v => ({ a: 'y', c: v.x, n: v.y - 1 }), D: v => ({ a: 'y', c: v.x, n: v.y }) };
+  for (const c of cantos) { const nm = c.p, tp = ROLE[nm.slice(0, 2)]; if (tp) for (const A of nm.slice(0, 2)) { const q = EDGE[A](c); papel.set(q.a + '|' + q.c + '|' + q.n, tp[A]); } }
   for (const c of cantos) { const nm = c.p; if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; } let X = sx(c.x, c.y), Y = sy(c.x, c.y), d = 1e9, atras = true;
     for (const A of nm.slice(0, 2)) { const q = EDGE[A](c), sh = SHq(q), w = ed.get(q.a + '|' + q.c + '|' + q.n); X += sh[0]; Y += sh[1]; d = Math.min(d, q.n + .5 + q.c); if (w) { usado.add(w); if (!w.atras) atras = false; } else if (!(q.a === 'x' ? hy > q.c - CASA.T / 2 : hx > q.c - CASA.T / 2)) atras = false; }
     itemPeca(nm, X, Y, d, atras); }
