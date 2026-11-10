@@ -132,6 +132,10 @@ function itensCasa() {
   const S0de = w => { const h = SH(w); return w.p.a === 'x' ? [sx(w.p.n, w.p.c) + h[0], sy(w.p.n, w.p.c) + h[1]] : [sx(w.p.c, w.p.n) + h[0], sy(w.p.c, w.p.n) + h[1]]; };
   const itemPeca = (nm, X, Y, d, atras, faixa) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (!faixa) { ctx.drawImage(o.im, X - o.ax, Y - o.ay); return; } const f0 = faixa(o); ctx.save(); ctx.beginPath(); ctx.rect(X - o.ax + f0[0], Y - o.ay, f0[1] - f0[0], o.h); ctx.clip(); ctx.drawImage(o.im, X - o.ax, Y - o.ay); ctx.restore(); } }); };
   for (const c of comps) for (const [w, A] of [[c.wa, c.nome[0]], [c.wb, c.nome[1]]]) papel.set(w.p.a + '|' + w.p.c + '|' + w.p.n, ROLE[c.nome][A]);
+  // papéis para quem não tem peça de canto (portas, combinações não desenhadas): vale a geometria do vértice (RD, LU, RU, LD), e depois a fileira herda o papel do vizinho; assim nada depende dos pisos
+  const kw = w => w.p.a + '|' + w.p.c + '|' + w.p.n, kc = c => c.p.a + '|' + c.p.c + '|' + c.p.n;
+  for (const v of [...vertices.values()].sort((p, q) => (p.x + p.y) - (q.x + q.y) || p.x - q.x)) for (const [nome, A, B] of PARES) { const wa = arm(v, A), wb = arm(v, B); if (!wa || !wb || papel.has(kw(wa)) || papel.has(kw(wb))) continue; papel.set(kw(wa), ROLE[nome][A]); papel.set(kw(wb), ROLE[nome][B]); }
+  for (let rep = 0; rep < 3; rep++) for (const w of inf) { if (papel.has(kw(w))) continue; for (const d of [1, -1]) { let n = w.p.n + d, g = null; while (g = ed.get(w.p.a + '|' + w.p.c + '|' + n)) { if (papel.has(kw(g))) { papel.set(kw(w), papel.get(kw(g))); break; } n += d; } if (papel.has(kw(w))) break; } }
   // cantos que o dono escolheu no mapa: a peça dele vai exatamente no vértice, e as paredes soltas que chegam ali são cobertas por ela
   const EDGE = { L: v => ({ a: 'x', c: v.y, n: v.x - 1 }), R: v => ({ a: 'x', c: v.y, n: v.x }), U: v => ({ a: 'y', c: v.x, n: v.y - 1 }), D: v => ({ a: 'y', c: v.x, n: v.y }) };
   for (const c of cantos) { const nm = c.p, tp = ROLE[nm.slice(0, 2)]; if (tp) for (const A of nm.slice(0, 2)) { const q = EDGE[A](c); papel.set(q.a + '|' + q.c + '|' + q.n, tp[A]); } }
