@@ -23,11 +23,14 @@ input[type=number]{width:62px;background:#15120f;color:#eee;border:1px solid #44
 input[type=color]{width:46px;height:30px;padding:0;border:1px solid #000;background:none}
 .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:4px 0}
 .row label{display:flex;gap:4px;align-items:center}
-#pal{display:grid;grid-template-columns:repeat(8,1fr);gap:2px}
-#pal div,#rec div{aspect-ratio:1;border:1px solid #0006;cursor:pointer}
+#pal{position:absolute;right:0;top:0;bottom:0;width:20px;display:flex;flex-direction:column;overflow-y:auto;background:#1d1a17;border-left:1px solid #111;z-index:5;scrollbar-width:none}
+#pal div{flex:none;height:15px;border-bottom:1px solid #0005;cursor:pointer}
+#pal div:hover{outline:1px solid #fff;outline-offset:-1px}
+#rec div{aspect-ratio:1;border:1px solid #0006;cursor:pointer}
 #rec{display:grid;grid-template-columns:repeat(8,1fr);gap:2px;margin-top:4px}
 #camadas div{display:flex;gap:4px;align-items:center;padding:3px 5px;border:1px solid transparent;border-radius:3px;cursor:pointer}
 #camadas div.on{background:#4a3a20;border-color:#ffd76a}
+#camadas div.sel{background:#22384a;border-color:#7ac0ff}
 #camadas span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cores{display:flex;gap:10px;align-items:center}
 .cores small{display:block;color:#aaa;font-size:10px}
@@ -62,7 +65,9 @@ button{touch-action:manipulation}
   button.on,button.on:hover{background:#7a5a22}
   input[type=number],select{font-size:16px;padding:5px}
   input[type=number]{width:74px}
-  #pal div,#rec div{min-height:28px}
+  #rec div{min-height:28px}
+  #pal{width:28px}
+  #pal div{height:28px}
   #camadas div{padding:8px 6px}
 }
 </style></head>
@@ -80,7 +85,7 @@ button{touch-action:manipulation}
     <button data-k="c" data-ctrl="1">Copiar</button><button id="mCola">Colar</button><button data-k="d" data-ctrl="1">Clonar</button><button data-k="h">↔</button><button data-k="v">↕</button><i></i>
     <button data-k="g" data-ctrl="1">Agrupar</button><button data-k="e" data-ctrl="1">Unir</button><button id="mAjusta">Ajustar zoom</button>
   </div>
-  <div id="wrap"><canvas id="v"></canvas></div>
+  <div id="wrap"><canvas id="v"></canvas><div id="pal" title="Clique = Cor 1 · botão direito = Cor 2"></div></div>
   <div id="side">
     <div class="so-cel" style="width:100%;text-align:right;margin-bottom:6px"><button id="bFechaPainel">✕ Fechar painel</button></div>
     <h4>Cores</h4>
@@ -89,8 +94,7 @@ button{touch-action:manipulation}
       <div><input type="color" id="c2" value="#1f2a12"><small>Cor 2 · contorno</small></div>
       <button id="bTroca" title="Trocar (X)">⇄</button>
     </div>
-    <div class="dica" style="margin:4px 0">Clique numa cor da paleta = Cor 1 · botão direito = Cor 2. Com um objeto selecionado, a cor muda nele.</div>
-    <div id="pal"></div><div id="rec"></div>
+    <div id="rec"></div>
 
     <h4>Ferramenta</h4>
     <div class="row"><label>Tamanho do pincel <input type="number" id="tam" min="1" max="32" value="1"></label></div>
@@ -115,32 +119,29 @@ button{touch-action:manipulation}
     <div class="row"><button id="bMarcar" title="S: arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos). Alt ou botão direito tira da marcação.">Marcar pixels (S)</button><button id="bClonar" title="Ctrl+D: deixa uma cópia aqui; a seleção continua solta para mover">Clonar (Ctrl+D)</button></div>
     <div class="row"><button id="bSelEspH" title="H">Espelhar ↔ (H)</button><button id="bSelEspV" title="V">Espelhar ↕ (V)</button></div>
     <div class="row"><button id="bSelSolta" title="Enter">Soltar (Enter)</button><button id="bSelApaga" title="Delete">Apagar</button></div>
-    <div class="dica" style="margin:4px 0 8px"><b>Marcar pixels (S)</b>: arraste sobre os pixels que quer pegar; Alt ou botão direito tira. <b>Selecionar (Q)</b>: clique num grupo ou arraste um retângulo; <b>Shift soma</b>. Com a seleção: arraste para mover · <b>Alt+arrastar, Ctrl+D ou clique direito durante o arrasto = clonar</b> (deixa uma cópia) · H / V espelham · setas movem 1 px (Shift = 8) · Ctrl+C / Ctrl+V cola onde está o mouse · Enter solta · Delete apaga.</div>
 
     <h4>Varinha (W)</h4>
     <div class="row"><label><input type="checkbox" id="vToca" checked> Só os que se tocam</label></div>
     <div class="row"><button id="bVPinta" title="Também: clique numa cor da paleta">Pintar com a Cor 1</button><button id="bVLimpa" title="Esc">Soltar</button></div>
-    <div class="dica" style="margin:4px 0 8px">Clique num pixel: pega todos da mesma cor que se tocam (diagonal também). <b>Shift</b> soma, <b>Alt</b> tira. Com a seleção, <b>clique numa cor da paleta</b> ou pegue uma cor da tela com o <b>conta-gotas (I)</b> ou <b>Ctrl+clique</b>, e todos mudam de cor. Delete apaga. Vale para os pixels e os traços da camada atual; imagem importada: use Unir (Ctrl+E) antes.</div>
     <h4>Vários itens</h4>
     <div class="row"><button id="bAgrupa" title="Ctrl+G">Agrupar (Ctrl+G)</button><button id="bDesagrupa" title="Ctrl+Shift+G">Desagrupar</button></div>
     <div class="row"><button id="bUne" title="Ctrl+E">Unir em pixels (Ctrl+E)</button></div>
-    <div class="dica" style="margin:4px 0 8px">Selecione com o retângulo do <b>Selecionar (Q)</b>. <b>Agrupar</b>: clicar em qualquer parte pega o grupo todo (<b>Ctrl+clique</b> pega uma peça só). <b>Unir</b>: tudo vira pixels da camada, do jeito que aparece na tela (a imagem entra com opacidade cheia); depois dá para selecionar só uma parte.</div>
     <h4>Imagem de referência</h4>
     <div class="row"><button id="bRefImp">Importar imagens…</button><button id="bRefTira">Remover</button></div>
-    <input type="file" id="fRef" accept="image/*" multiple style="display:none"><div id="listaImgs"></div>
+    <div class="row"><label><input type="checkbox" id="rAuto" checked> Converter em pixels ao importar</label></div><input type="file" id="fRef" accept="image/*" multiple style="display:none"><div id="listaImgs"></div>
     <div id="refp" class="off">
+      <div class="row"><b>Isto é uma IMAGEM</b> (não dá para apagar pixel dela)</div><div class="row"><button id="bRefPx">Converter em pixels</button></div>
       <div class="row"><label><input type="checkbox" id="rVis" checked> Mostrar</label><label><input type="checkbox" id="rAcima"> Por cima do desenho</label></div>
       <div class="row"><label>Opacidade <input type="range" id="rOp" min="5" max="100" value="50" style="width:110px"></label></div>
       <div class="row"><label>Tamanho <input type="number" id="rEsc" min="1" max="2000" value="100"></label>%<button id="bRefFit">Ajustar à tela</button></div>
       <div class="row"><label>X <input type="number" id="rX" value="0"></label><label>Y <input type="number" id="rY" value="0"></label></div>
 
-      <div class="dica">Clique na imagem com Selecionar (Q) para mover, escalar e girar. Com a ferramenta Forma (F), arraste os pontos dos cantos (Shift soma pontos, duplo clique numa aresta cria um ponto) para recortar. Também dá para colar com Ctrl+V ou arrastar o arquivo para a janela. Conta-gotas com Alt pega a cor da referência. A referência não entra na exportação.</div>
     </div>
 
     <h4>Camadas</h4>
     <div id="camadas"></div>
     <div class="row"><button id="lNova">+ Nova</button><button id="lDup">Duplicar</button><button id="lDel">Apagar</button><button id="lSobe">▲</button><button id="lDesce">▼</button></div>
-    <div class="row"><button id="bFlipH">Espelhar ↔</button><button id="bFlipV">Espelhar ↕</button></div>
+    <div class="row"><button id="lUne" title="Sem nada selecionado: une TUDO numa camada só. Com camadas marcadas (Ctrl+clique) ou coisas selecionadas: une só elas. Ctrl+E também une">Unir</button></div>
 
     <h4>Guias</h4>
     <div class="row"><label><input type="checkbox" id="gGrade"> Grade de pixels</label></div>
@@ -148,7 +149,6 @@ button{touch-action:manipulation}
     <div class="row"><label><input type="checkbox" id="gCentro"> Linhas do centro</label></div>
     <div class="row"><label><input type="checkbox" id="gIma" checked> Ímã nos pontos (nós, centro, página)</label></div>
     <div class="row"><label><input type="checkbox" id="gImaB" checked> Ímã nas bordas dos objetos</label></div>
-    <p class="dica">Selecionar (Q): clique num objeto para escalar; clique de novo nele para girar. Arraste para mover. Shift ao criar ou escalar: mantém a proporção. Alt ao criar: a partir do centro. Setas movem 1 px (Shift = 8). P: centraliza o objeto na página. Ao arrastar um objeto: pegue por um ponto (nó), pela borda ou por dentro (livre); ao soltar, o ponto que você pegou gruda em pontos e bordas dos outros objetos (liga e desliga em Guias). Forma (F10) num objeto desenhado: duplo clique numa aresta cria um ponto extra (azul) que também serve para pegar o objeto e grudar nos pontos dos outros; Delete apaga o ponto. Roda: zoom. Espaço + arrastar: mover a tela.</p>
   </div>
   <div id="status">…</div>
 </div>
@@ -176,7 +176,7 @@ function corNoObjeto(n) {   // como no Corel: botão esquerdo = preenchimento, b
 }
 const rec = []; function pushRec(h) { const i = rec.indexOf(h); if (i >= 0) rec.splice(i, 1); rec.unshift(h); rec.length = Math.min(rec.length, 16); $('rec').innerHTML = rec.map(c => '<div style="background:' + c + '" data-c="' + c + '"></div>').join(''); }
 const PAL = ['#000000', '#ffffff', '#7f7f7f', '#3f3f3f', '#c0392b', '#e67e22', '#f1c40f', '#27ae60', '#2980b9', '#8e44ad', '#795548', '#ffcc99'].concat(["#3c2a19","#4f3b2a","#594c41","#644732","#6a5749","#79533c","#525b32","#68635e","#7d5f47","#5d663b","#666f43","#88674e","#8e8338","#8d6d54","#6d774a","#707982","#767249","#747f4f","#957357","#778254","#79854f","#77746f","#7b7e52","#7d8858","#8b975b","#99775b","#a17a5a","#ac926a","#83817e","#928e88","#aca69f","#dbc567"]);
-$('pal').innerHTML = PAL.map(c => '<div style="background:' + c + '" data-c="' + c + '" title="' + c + '"></div>').join('');
+$('pal').innerHTML = PAL.map(c => '<div style="background:' + c + '" data-c="' + c + '" title="' + c + '"></div>').join(''); $('pal').oncontextmenu = e => e.preventDefault();
 document.addEventListener('mousedown', e => { const c = e.target.dataset && e.target.dataset.c; if (c && e.target.parentElement && (e.target.parentElement.id === 'pal' || e.target.parentElement.id === 'rec')) setCor(e.button === 2 ? 2 : 1, c); });
 document.addEventListener('contextmenu', e => e.preventDefault());
 $('c1').onchange = () => { pushRec(cor1()); corNoObjeto(1); }; $('c2').onchange = () => corNoObjeto(2);
@@ -184,8 +184,8 @@ $('c1').oninput = $('c2').oninput = redraw;
 $('bTroca').onclick = troca; function troca() { const a = cor1(); $('c1').value = cor2(); $('c2').value = a; redraw(); }
 // ---------- camadas, objetos e desfazer ----------
 function novaCamada(nome) { const c = document.createElement('canvas'); c.width = W; c.height = H; const o = document.createElement('canvas'); o.width = W; o.height = H; return { nome, vis: true, c, x: c.getContext('2d', { willReadFrequently: true }), objs: [], oc: o, sujo: true }; }
-function snap() { return { imgsS: imgs.map(imgEstado), W, H, cur, L: layers.map(l => ({ nome: l.nome, vis: l.vis, d: l.x.getImageData(0, 0, W, H), objs: JSON.parse(JSON.stringify(l.objs)) })) }; }
-function restaura(s) { grupo = null; varinha = null; const selId = ref ? ref.id : 0; imgs = (s.imgsS || []).map(e => ({ ...JSON.parse(JSON.stringify(e)), im: IMG_REG[e.id].im, c: IMG_REG[e.id].c })); ref = imgs.find(o => o.id === selId) || imgs[imgs.length - 1] || null; W = s.W; H = s.H; cur = s.cur; layers = s.L.map(l => { const n = novaCamada(l.nome); n.vis = l.vis; n.x.putImageData(l.d, 0, 0); n.objs = l.objs; return n; }); selObj = null; sel = null; tudoUi(); }
+function snap() { return { imgsS: imgs.map(o => ({ ...imgEstado(o), _im: o.im, _c: o.c })), W, H, cur, L: layers.map(l => ({ nome: l.nome, vis: l.vis, d: l.x.getImageData(0, 0, W, H), objs: JSON.parse(JSON.stringify(l.objs)) })) }; }
+function restaura(s) { grupo = null; varinha = null; const selId = ref ? ref.id : 0; imgs = (s.imgsS || []).map(e => { const r = IMG_REG[e.id] || {}, im = r.im || e._im, c = r.c || e._c, n = JSON.parse(JSON.stringify({ ...e, _im: 0, _c: 0 })); delete n._im; delete n._c; n.im = im; n.c = c; return n; }); ref = imgs.find(o => o.id === selId) || imgs[imgs.length - 1] || null; W = s.W; H = s.H; cur = s.cur; layers = s.L.map(l => { const n = novaCamada(l.nome); n.vis = l.vis; n.x.putImageData(l.d, 0, 0); n.objs = l.objs; return n; }); selObj = null; sel = null; tudoUi(); }
 function pushUndo() { undoS.push(snap()); if (undoS.length > 60) undoS.shift(); redoS.length = 0; salvaAuto(); }
 function desfaz() { if (sel) { sel = null; if (undoS.length) restaura(undoS.pop()); return; } if (!undoS.length) return; redoS.push(snap()); restaura(undoS.pop()); }
 function refaz() { if (!redoS.length) return; undoS.push(snap()); restaura(redoS.pop()); }
@@ -194,21 +194,30 @@ const L = () => layers[cur];
 function pushUndoCom(o, m, base) { const s = { x: o.x, y: o.y, w: o.w, h: o.h, m: o.m, crop: o.crop, pts: o.pts }; o.m = m; if (base) { o.x = base.x; o.y = base.y; if (base.w) { o.w = base.w; o.h = base.h; } o.crop = base.crop; if ('pts' in base) o.pts = base.pts; } pushUndo(); Object.assign(o, s); }
 const toca = () => { L().sujo = true; formaUi(); redraw(); };
 function soltaTudo() { commitSel(); selObj = null; modoGira = false; formaUi(); }
+let camSel = new Set();   // outras camadas marcadas com Ctrl+clique (para unir)
 function camadasUi() {
-  $('camadas').innerHTML = layers.map((l, i) => '<div class="' + (i === cur ? 'on' : '') + '" data-i="' + i + '"><input type="checkbox" data-v="' + i + '" ' + (l.vis ? 'checked' : '') + '><span>' + l.nome + (l.objs.length ? ' (' + l.objs.length + ' obj.)' : '') + '</span></div>').reverse().join('');
-  $('camadas').querySelectorAll('div').forEach(d => d.onclick = e => { if (e.target.dataset.v !== undefined) { layers[+e.target.dataset.v].vis = e.target.checked; redraw(); return; } soltaTudo(); cur = +d.dataset.i; camadasUi(); });
+  camSel = new Set([...camSel].filter(i => i !== cur && i >= 0 && i < layers.length));
+  $('camadas').innerHTML = layers.map((l, i) => '<div class="' + (i === cur ? 'on' : camSel.has(i) ? 'sel' : '') + '" data-i="' + i + '"><input type="checkbox" data-v="' + i + '" ' + (l.vis ? 'checked' : '') + '><span>' + l.nome + (l.objs.length ? ' (' + l.objs.length + ' obj.)' : '') + '</span></div>').reverse().join('');
+  $('camadas').querySelectorAll('div').forEach(d => d.onclick = e => { if (e.target.dataset.v !== undefined) { layers[+e.target.dataset.v].vis = e.target.checked; redraw(); return; } const i = +d.dataset.i; if (e.ctrlKey || e.shiftKey) { if (i !== cur) { camSel.has(i) ? camSel.delete(i) : camSel.add(i); camadasUi(); } return; } soltaTudo(); cur = i; camSel.clear(); camadasUi(); });
 }
-$('lNova').onclick = () => { soltaTudo(); pushUndo(); layers.splice(cur + 1, 0, novaCamada('Camada ' + (layers.length + 1))); cur++; camadasUi(); redraw(); };
-$('lDup').onclick = () => { soltaTudo(); pushUndo(); const n = novaCamada(L().nome + ' cópia'); n.x.drawImage(L().c, 0, 0); n.objs = JSON.parse(JSON.stringify(L().objs)); layers.splice(cur + 1, 0, n); cur++; camadasUi(); redraw(); };
+$('lNova').onclick = () => { camSel.clear(); soltaTudo(); pushUndo(); layers.splice(cur + 1, 0, novaCamada('Camada ' + (layers.length + 1))); cur++; camadasUi(); redraw(); };
+$('lDup').onclick = () => { camSel.clear(); soltaTudo(); pushUndo(); const n = novaCamada(L().nome + ' cópia'); n.x.drawImage(L().c, 0, 0); n.objs = JSON.parse(JSON.stringify(L().objs)); layers.splice(cur + 1, 0, n); cur++; camadasUi(); redraw(); };
 $('lDel').onclick = () => { if (layers.length < 2) return; soltaTudo(); pushUndo(); layers.splice(cur, 1); cur = Math.max(0, cur - 1); camadasUi(); redraw(); };
-$('lSobe').onclick = () => { if (cur >= layers.length - 1) return; soltaTudo(); pushUndo(); [layers[cur], layers[cur + 1]] = [layers[cur + 1], layers[cur]]; cur++; camadasUi(); redraw(); };
-$('lDesce').onclick = () => { if (cur < 1) return; soltaTudo(); pushUndo(); [layers[cur], layers[cur - 1]] = [layers[cur - 1], layers[cur]]; cur--; camadasUi(); redraw(); };
+$('lSobe').onclick = () => { camSel.clear(); if (cur >= layers.length - 1) return; soltaTudo(); pushUndo(); [layers[cur], layers[cur + 1]] = [layers[cur + 1], layers[cur]]; cur++; camadasUi(); redraw(); };
+$('lDesce').onclick = () => { camSel.clear(); if (cur < 1) return; soltaTudo(); pushUndo(); [layers[cur], layers[cur - 1]] = [layers[cur - 1], layers[cur]]; cur--; camadasUi(); redraw(); };
 function rasterizaCamada(l) { renderObjs(l); if (!l.objs.length) return; l.x.drawImage(l.oc, 0, 0); l.objs = []; l.sujo = true; }
 function espelhaObj(h) { const o = selObj; if (!o) return; pushUndo(); const B0 = caixa(o), [a, b, c, d] = mm(o); o.m = h ? [-a, -b, c, d] : [a, b, -c, -d]; const B1 = caixa(o); o.x += B0.cx - B1.cx; o.y += B0.cy - B1.cy; toca(); }
-$('bEspH').onclick = () => espelhaObj(true); $('bEspV').onclick = () => espelhaObj(false);
+// Espelhar só o que está selecionado: um objeto, vários itens juntos (espelhados em volta do centro do conjunto) ou pixels marcados
+function espelhaGrupo(h) {
+  if (!grupo) return; if (!grupo.comPx) pushUndo(); const G = caixaGrupo(), gx = (G.l + G.r) / 2, gy = (G.t + G.b) / 2;
+  grupo.itens.forEach(o => { const B0 = caixa(o), [a, b, c, d] = mm(o); o.m = h ? [-a, -b, c, d] : [a, b, -c, -d]; const B1 = caixa(o); o.x += (h ? 2 * gx - B0.cx : B0.cx) - B1.cx; o.y += (h ? B0.cy : 2 * gy - B0.cy) - B1.cy; });
+  if (sel) { espelhaSel(h); if (h) sel.ox = 2 * gx - (sel.bx + sel.ox + sel.bw) - sel.bx; else sel.oy = 2 * gy - (sel.by + sel.oy + sel.bh) - sel.by; }
+  toca(); redraw();
+}
+function espelhaSelecionado(h) { if (grupo) espelhaGrupo(h); else if (selObj) espelhaObj(h); else if (sel) espelhaSel(h); else avisa('selecione o que quer espelhar'); }
+$('bEspH').onclick = () => espelhaSelecionado(true); $('bEspV').onclick = () => espelhaSelecionado(false);
 $('bRast').onclick = () => { soltaTudo(); pushUndo(); rasterizaCamada(L()); camadasUi(); redraw(); };
-function espelha(h) { soltaTudo(); pushUndo(); rasterizaCamada(L()); const t = document.createElement('canvas'); t.width = W; t.height = H; t.getContext('2d').drawImage(L().c, 0, 0); L().x.clearRect(0, 0, W, H); L().x.save(); if (h) { L().x.translate(W, 0); L().x.scale(-1, 1); } else { L().x.translate(0, H); L().x.scale(1, -1); } L().x.drawImage(t, 0, 0); L().x.restore(); camadasUi(); redraw(); }
-$('bFlipH').onclick = () => espelha(true); $('bFlipV').onclick = () => espelha(false);
+
 // ---------- documento ----------
 function novoDoc(w, h) { varinha = null; W = w; H = h; layers = [novaCamada('Camada 1')]; cur = 0; selObj = null; sel = null; undoS.length = redoS.length = 0; ajusta(); tudoUi(); }
 function ajusta() { const r = wrap.getBoundingClientRect(); view.z = ZOOMS.filter(z => z * W <= r.width - 40 && z * H <= r.height - 40).pop() || 1; view.ox = Math.round((r.width - W * view.z) / 2); view.oy = Math.round((r.height - H * view.z) / 2); }
@@ -216,8 +225,9 @@ function tudoUi() { camadasUi(); formaUi(); refUi(); redraw(); }
 $('bNovo').onclick = () => { const s = prompt('Tamanho da nova imagem em pixels (largura x altura):', '128x128'); if (!s) return; const m = s.match(/(\d+)\D+(\d+)/); if (!m) return; const w = Math.min(2048, +m[1]), h = Math.min(2048, +m[2]); if (w < 1 || h < 1) return; novoDoc(w, h); };
 $('bTam').onclick = () => { const s = prompt('Novo tamanho da tela (largura x altura). O desenho fica no canto de cima à esquerda; se diminuir, o que ficar fora da tela é cortado (dá para desfazer com Ctrl+Z):', W + 'x' + H); if (!s) return; const m = s.match(/(\d+)\D+(\d+)/); if (!m) return; const w = Math.min(2048, +m[1]), h = Math.min(2048, +m[2]); if (w < 1 || h < 1) return; soltaTudo(); pushUndo(); const velho = layers.map(l => l.c); W = w; H = h; layers.forEach((l, i) => { const n = novaCamada(l.nome); n.vis = l.vis; n.objs = l.objs; n.x.drawImage(velho[i], 0, 0); layers[i] = n; }); ajusta(); tudoUi(); };
 function download(nome, url) { const a = document.createElement('a'); a.href = url; a.download = nome; a.click(); }
-function camadaCanvas(l) { renderObjs(l); const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'); c.drawImage(l.c, 0, 0); c.drawImage(l.oc, 0, 0); return t; }
-function juntaCanvas() { const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'), it = []; layers.forEach(l => { if (l.vis) { c.drawImage(l.c, 0, 0); l.objs.forEach(o => it.push(o)); } }); it.sort(porZ).forEach(o => c.drawImage(canvasObj(o), 0, 0)); return t; }
+// mesma ordem da tela: objetos "para trás" ficam por baixo dos pixels da camada, os outros por cima
+function camadaCanvas(l) { const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'), os = [...l.objs].sort(porZ); os.filter(embaixoDe).forEach(o => c.drawImage(canvasObj(o), 0, 0)); c.drawImage(l.c, 0, 0); os.filter(o => !embaixoDe(o)).forEach(o => c.drawImage(canvasObj(o), 0, 0)); return t; }
+function juntaCanvas() { const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'), baixo = [], cima = []; layers.forEach(l => { if (l.vis) l.objs.forEach(o => (embaixoDe(o) ? baixo : cima).push(o)); }); baixo.sort(porZ).forEach(o => c.drawImage(canvasObj(o), 0, 0)); layers.forEach(l => { if (l.vis) c.drawImage(l.c, 0, 0); }); cima.sort(porZ).forEach(o => c.drawImage(canvasObj(o), 0, 0)); return t; }   // igual à tela: "para trás" fica por baixo de todos os pixels
 $('bPng').onclick = () => { soltaTudo(); download('desenho.png', juntaCanvas().toDataURL('image/png')); };
 $('bPngC').onclick = () => { soltaTudo(); download('camada.png', camadaCanvas(L()).toDataURL('image/png')); };
 $('bAbrir').onclick = () => $('fPng').click();
@@ -333,10 +343,28 @@ function ordemTudo(frente) {   // TUDO que está selecionado vai para o topo de 
   toca(); refUi();
 }
 $('bFrenteT').onclick = () => ordemTudo(true); $('bTrasT').onclick = () => ordemTudo(false);
-function duplica() { if (!selObj) return; pushUndo(); if (ehImg(selObj)) { const n = { ...imgEstado(selObj), id: ++idImg, nome: selObj.nome + ' cópia', z: ++zSeq }; n.x += 3; n.y += 3; n.m = [...selObj.m]; n.crop = selObj.crop && selObj.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[selObj.id]; n.im = selObj.im; n.c = selObj.c; imgs.push(n); selecionaRef(n); return; } const n = JSON.parse(JSON.stringify(selObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
+// Clonar vários itens de uma vez (grupo): cada item vira uma cópia na mesma camada, as cópias continuam agrupadas entre si e as pinturas presas a uma imagem vão junto
+function clonaItens(itens, dx, dy) {
+  let gid = 0; layers.forEach(l => l.objs.forEach(o => { gid = Math.max(gid, o.grp || 0); })); imgs.forEach(o => { gid = Math.max(gid, o.grp || 0); });
+  const mapId = new Map(), mapG = new Map(), pares = [];
+  [...itens].sort(porZ).forEach(o => {
+    let n; const li = ehImg(o) ? -1 : layers.findIndex(l => l.objs.includes(o));
+    if (ehImg(o)) { n = { ...imgEstado(o), id: ++idImg, nome: o.nome + ' cópia', z: ++zSeq }; n.m = [...o.m]; n.crop = o.crop && o.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[o.id]; n.im = o.im; n.c = o.c; imgs.push(n); mapId.set(o.id, n.id); }
+    else { n = JSON.parse(JSON.stringify(o)); n.z = ++zSeq; if (o.t === 'traco') { const src = TRACOS[o.cid], c = document.createElement('canvas'); c.width = src.width; c.height = src.height; c.getContext('2d', { willReadFrequently: true }).drawImage(src, 0, 0); n.cid = ++idTr; TRACOS[n.cid] = c; } layers[li >= 0 ? li : cur].objs.push(n); }
+    n.x += dx; n.y += dy; if (o.grp) { if (!mapG.has(o.grp)) mapG.set(o.grp, ++gid); n.grp = mapG.get(o.grp); } pares.push([o, n]);
+  });
+  pares.forEach(([o, n]) => { if (o.pai && mapId.has(o.pai)) n.pai = mapId.get(o.pai); });
+  return pares.map(p => p[1]);
+}
+function duplicaGrupo() {
+  if (!grupo) return; if (!grupo.comPx) pushUndo(); const novos = clonaItens(grupo.itens, 3, 3), comPx = !!sel;
+  if (sel) { carimba(); sel.ox += 3; sel.oy += 3; }   // os pixels soltos deixam a cópia no lugar e a seleção segue 3 px para o lado
+  grupo = { itens: novos, comPx }; camadasUi(); formaUi(); refUi(); toca(); redraw();
+}
+function duplica() { if (grupo) { duplicaGrupo(); return; } if (!selObj) return; pushUndo(); if (ehImg(selObj)) { const n = { ...imgEstado(selObj), id: ++idImg, nome: selObj.nome + ' cópia', z: ++zSeq }; n.x += 3; n.y += 3; n.m = [...selObj.m]; n.crop = selObj.crop && selObj.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[selObj.id]; n.im = selObj.im; n.c = selObj.c; imgs.push(n); selecionaRef(n); return; } const n = JSON.parse(JSON.stringify(selObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
 function apagaObj() { if (ehImg(selObj)) { pushUndo(); imgs = imgs.filter(o => o !== selObj); if (ref === selObj) ref = imgs[imgs.length - 1] || null; selObj = null; nodeSel = []; refUi(); formaUi(); redraw(); return; } if (!selObj) return; pushUndo(); L().objs.splice(L().objs.indexOf(selObj), 1); selObj = null; camadasUi(); toca(); }
 $('bDup').onclick = duplica; $('bApaga').onclick = apagaObj;
-$('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSel(true); $('bSelEspV').onclick = () => espelhaSel(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
+$('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSelecionado(true); $('bSelEspV').onclick = () => espelhaSelecionado(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
 // ---------- mover com ímã e cópia (como no Corel) ----------
 // ao arrastar um objeto aparece só o contorno azul de onde ele vai ficar; os pontos do objeto "grudam" nos pontos dos outros;
 // clicar com o botão direito durante o arrasto faz o objeto ficar como cópia no lugar novo
@@ -396,6 +424,7 @@ cv.addEventListener('dblclick', e => { if (tool === 'forma' && selObj && !ehImg(
 function pontoExtraEm(e) { const o = selObj; if (!o || ehImg(o)) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ps = o.pts || []; for (let i = 0; i < ps.length; i++) { const [X, Y] = paraMundo(o, ps[i][0], ps[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
 function marcaCopia() {
   if (drag && drag.k === 'selmove' && !drag.rd) { drag.rd = true; carimba(); cv.style.cursor = 'copy'; return; }   // pixels soltos: cada clique do botão direito (com o esquerdo apertado) deixa uma cópia aqui, e a seleção continua com você
+  if (drag && drag.k === 'gmove') { clonaItens(grupo.itens, 0, 0); if (sel) carimba(); camadasUi(); toca(); cv.style.cursor = 'copy'; return; }   // grupo: botão direito durante o arrasto deixa uma cópia de tudo aqui
   if (drag && drag.k === 'omove' && !drag.copia) { drag.copia = true; cv.style.cursor = 'copy'; redraw(); }
 }
 function levaFilhos(o, dx, dy) { if (!ehImg(o) || (!dx && !dy)) return; layers.forEach(l => l.objs.forEach(f => { if (f.pai === o.id) { f.x += dx; f.y += dy; } })); }   // a pintura feita em cima de uma imagem anda junto com ela
@@ -453,7 +482,7 @@ function caixaGrupo() {
 }
 const dentroGrupo = (px, py) => { if (!grupo) return false; const B = caixaGrupo(); return px + .5 >= B.l && px + .5 <= B.r && py + .5 >= B.t && py + .5 <= B.b; };
 function moveGrupo(dx, dy) { if (!dx && !dy) return; grupo.itens.forEach(o => { o.x += dx; o.y += dy; }); if (sel) { sel.ox += dx; sel.oy += dy; } if (grupo.itens.some(ehImg)) refUi(); redraw(); }
-function apagaGrupo() { pushUndo(); const fora = new Set(grupo.itens); layers.forEach(l => { l.objs = l.objs.filter(o => !fora.has(o)); }); imgs = imgs.filter(o => !fora.has(o)); if (fora.has(ref)) ref = imgs[imgs.length - 1] || null; sel = null; grupo = null; refUi(); camadasUi(); salvaAuto(); redraw(); }
+function apagaGrupo() { pushUndo(); const fora = new Set(grupo.itens); falhou.forEach(o => fora.delete(o)); layers.forEach(l => { l.objs = l.objs.filter(o => !fora.has(o)); }); imgs = imgs.filter(o => !fora.has(o)); if (fora.has(ref)) ref = imgs[imgs.length - 1] || null; sel = null; grupo = null; refUi(); camadasUi(); salvaAuto(); redraw(); }
 // ---------- varinha: pixels da mesma cor que se tocam (pixels da camada + traços da camada atual, como aparecem) ----------
 function camadaComTracos() { const c = canvasTraco(), x = c.getContext('2d'); x.drawImage(L().c, 0, 0); L().objs.filter(o => o.t === 'traco').sort(porZ).forEach(o => desenhaTraco(x, o)); return c; }
 function varinhaEm(px, py, modo) {   // modo: 0 troca, 1 soma (Shift), -1 tira (Alt)
@@ -488,19 +517,48 @@ function agrupa() {
   grupo.itens.forEach(o => { o.grp = id; }); camadasUi(); salvaAuto(); redraw();
 }
 function desagrupa() { const its = itensSelecionados(); if (!its.some(o => o.grp)) return; pushUndo(); its.forEach(o => { delete o.grp; }); salvaAuto(); redraw(); }
-function imgEm(x, o) { const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform(m[0], m[2], m[1], m[3], cx, cy); x.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { x.beginPath(); o.crop.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip(); } x.drawImage(o.im, -o.w / 2, -o.h / 2, o.w, o.h); x.restore(); }
+function imgEm(x, o) { if (!(o.im || o.c)) return false; const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform(m[0], m[2], m[1], m[3], cx, cy); x.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { x.beginPath(); o.crop.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip(); } x.drawImage(o.im || o.c, -o.w / 2, -o.h / 2, o.w, o.h); x.restore(); return true; }
 // Unir: o que está selecionado vira pixels da camada atual, na mesma ordem em que aparece na tela
+// Unir é tudo-ou-nada: se qualquer passo der erro, o desenho volta exatamente como estava (nada some)
 function une() {
-  const its = itensSelecionados(); if (!its.length && !sel) return; if (!(grupo && grupo.comPx)) pushUndo();
+  const s0 = snap(); if (sel) { const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'); c.putImageData(s0.L[cur].d, 0, 0); c.drawImage(sel.c, sel.ox, sel.oy); s0.L[cur].d = c.getImageData(0, 0, W, H); }
+  const nUndo = undoS.length;
+  try { une1(); } catch (e) { console.error(e); undoS.length = nUndo; restaura(s0); avisa('ERRO ao unir (' + e.message + '): nada foi alterado'); }
+}
+function une1() {
+  const its = itensSelecionados(); if (camSel.size) { uneCamadas(); return; } if (!its.length && !sel) { uneTudo(); return; } if (!(grupo && grupo.comPx)) pushUndo();
   const fora = new Set(its), embaixo = o => embaixoDe(o); if (sel) { L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; }
   const c = canvasTraco(), x = c.getContext('2d'); x.imageSmoothingEnabled = false;
-  its.filter(embaixo).sort(porZ).forEach(o => imgEm(x, o));   // imagens "por baixo do desenho" ficam embaixo dos pixels da camada
+  const falhou = new Set(); const img1 = o => { let ok = false; try { ok = imgEm(x, o); } catch (e) { console.error(e); } if (!ok) falhou.add(o); };
+  const desenha1 = o => { if (ehImg(o)) img1(o); else if (o.t === 'traco') desenhaTraco(x, o); else x.drawImage(canvasObj(o), 0, 0); };   // vale para QUALQUER tipo, esteja por cima ou por baixo
+  its.filter(embaixo).sort(porZ).forEach(desenha1);   // imagens "por baixo do desenho" ficam embaixo dos pixels da camada
   x.drawImage(L().c, 0, 0);
-  its.filter(o => !embaixo(o)).sort(porZ).forEach(o => { if (ehImg(o)) imgEm(x, o); else if (o.t === 'traco') desenhaTraco(x, o); else x.drawImage(canvasObj(o), 0, 0); });
+  its.filter(o => !embaixo(o)).sort(porZ).forEach(desenha1);
   L().x.clearRect(0, 0, W, H); L().x.drawImage(c, 0, 0);
   layers.forEach(l => { l.objs = l.objs.filter(o => !fora.has(o)); }); imgs = imgs.filter(o => !fora.has(o)); if (fora.has(ref)) ref = imgs[imgs.length - 1] || null;
-  grupo = null; selObj = null; modoGira = false; formaUi(); refUi(); camadasUi(); salvaAuto(); redraw();
+  grupo = null; selObj = null; modoGira = false; formaUi(); refUi(); camadasUi(); salvaAuto(); redraw(); avisa(falhou.size ? falhou.size + ' imagem(ns) não deu para unir e ficaram como estavam' : its.length + (its.length === 1 ? ' coisa unida' : ' coisas unidas') + ' na camada ' + L().nome);
 }
+// Unir tudo (nada selecionado): todas as camadas visíveis, seus objetos e as imagens importadas viram pixels de UMA camada só
+function uneTudo() {
+  soltaTudo(); const vis = layers.filter(l => l.vis); if (!vis.length) { avisa('nada visível para unir'); return; } pushUndo();
+  const t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'); c.imageSmoothingEnabled = false;
+  const feitas = new Set(), img = o => { try { if (imgEm(c, o)) feitas.add(o); } catch (e) { console.error(e); } };
+  imgs.filter(o => o.vis && embaixoDe(o)).sort(porZ).forEach(img);
+  vis.forEach(l => c.drawImage(camadaCanvas(l), 0, 0));
+  imgs.filter(o => o.vis && !embaixoDe(o)).sort(porZ).forEach(img);
+  const alvo = vis[vis.length - 1]; alvo.x.clearRect(0, 0, W, H); alvo.x.drawImage(t, 0, 0); alvo.objs = []; alvo.sujo = true;
+  const fora = new Set(vis.slice(0, -1)); layers = layers.filter(l => !fora.has(l)); imgs = imgs.filter(o => !feitas.has(o)); if (ref && !imgs.includes(ref)) ref = imgs[imgs.length - 1] || null; cur = layers.indexOf(alvo); camSel.clear(); refUi(); camadasUi(); salvaAuto(); redraw(); avisa(imgs.some(o => o.vis) ? 'unido, mas ' + imgs.filter(o => o.vis).length + ' imagem(ns) não deu para unir e ficaram como estavam' : 'tudo unido numa camada só');
+}
+// Unir camadas: a camada atual + as marcadas com Ctrl+clique viram uma só (na posição da mais alta), com os pixels e os traços de todas
+function uneCamadas() {
+  const idx = [...new Set([cur, ...camSel])].filter(i => i >= 0 && i < layers.length).sort((a, b) => a - b); if (idx.length < 2) { avisa('marque outra camada com Ctrl+clique para unir'); return; }
+  soltaTudo(); pushUndo();
+  const alvo = layers[idx[idx.length - 1]], t = document.createElement('canvas'); t.width = W; t.height = H; const c = t.getContext('2d'); c.imageSmoothingEnabled = false;
+  idx.forEach(i => c.drawImage(camadaCanvas(layers[i]), 0, 0));
+  alvo.x.clearRect(0, 0, W, H); alvo.x.drawImage(t, 0, 0); alvo.objs = []; alvo.sujo = true;
+  const fora = new Set(idx.slice(0, -1).map(i => layers[i])); layers = layers.filter(l => !fora.has(l)); cur = layers.indexOf(alvo); camSel.clear(); camadasUi(); salvaAuto(); redraw(); avisa(idx.length + ' camadas unidas');
+}
+$('lUne').onclick = () => une();
 $('bAgrupa').onclick = agrupa; $('bDesagrupa').onclick = desagrupa; $('bUne').onclick = une;
 const dentroSel = (px, py) => sel && px >= sel.bx + sel.ox && px < sel.bx + sel.ox + sel.bw && py >= sel.by + sel.oy && py < sel.by + sel.oy + sel.bh;
 function copia() { if (ehImg(selObj)) return; if (selObj) { clipObj = JSON.parse(JSON.stringify(selObj)); clipPx = null; } else if (sel) { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').drawImage(sel.c, 0, 0); clipPx = { c, bx: sel.bx, by: sel.by, bw: sel.bw, bh: sel.bh, ox: sel.ox, oy: sel.oy }; clipObj = null; } }
@@ -520,16 +578,25 @@ function marcaPincel(d, x, y) { const t = +$('tam').value || 1, o = Math.floor(t
 const IMG_REG = {}; let idImg = 0;   // guarda o arquivo de cada imagem, para o desfazer poder trazê-la de volta
 const imgEstado = o => ({ id: o.id, nome: o.nome, t: 'imagem', x: o.x, y: o.y, w: o.w, h: o.h, m: o.m, crop: o.crop, op: o.op, acima: o.acima, vis: o.vis, z: o.z, grp: o.grp });
 const ehImg = o => !!o && o.t === 'imagem';
+// Converter imagem em pixels: vira um objeto (traço) na camada atual, na mesma posição e ordem, com opacidade total; dá para apagar, pintar e unir
+function converteImg(o) {
+  if (!(o.im || o.c)) { avisa('essa imagem não tem dados para converter'); return false; }
+  const c = canvasTraco(), x = c.getContext('2d'); x.imageSmoothingEnabled = false; imgEm(x, o);
+  const g = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: o.z, cid: ++idTr, pai: 0 }; if (embaixoDe(o)) g.acima = false; TRACOS[g.cid] = c; L().objs.push(g);
+  layers.forEach(l => l.objs.forEach(f => { if (f.pai === o.id) f.pai = 0; })); imgs = imgs.filter(i => i !== o); if (ref === o) ref = imgs[imgs.length - 1] || null; if (selObj === o) selObj = null;
+  selecionaObj(layers.indexOf(layers.find(l => l.objs.includes(g))), g); refUi(); salvaAuto(); redraw(); return true;
+}
+$('bRefPx').onclick = () => { if (!ref) return; pushUndo(); if (converteImg(ref)) avisa('imagem convertida em pixels (objeto na camada ' + L().nome + ')'); };
 function carregaRef(file) {
   if (!file || !file.type.startsWith('image/')) return; const im = new Image();
   im.onload = () => {
     const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; c.getContext('2d', { willReadFrequently: true }).drawImage(im, 0, 0);
     const k = Math.min(1, W / im.naturalWidth, H / im.naturalHeight), w = Math.max(1, Math.round(im.naturalWidth * k)), h = Math.max(1, Math.round(im.naturalHeight * k)), id = ++idImg; IMG_REG[id] = { im, c };
-    pushUndo(); const o = { id, nome: file.name || 'imagem ' + id, t: 'imagem', im, c, x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h, m: [1, 0, 0, 1], crop: null, op: .5, acima: true, vis: true, z: ++zSeq }; imgs.push(o); selecionaRef(o);
+    pushUndo(); const o = { id, nome: file.name || 'imagem ' + id, t: 'imagem', im, c, x: Math.round((W - w) / 2), y: Math.round((H - h) / 2), w, h, m: [1, 0, 0, 1], crop: null, op: .5, acima: true, vis: true, z: ++zSeq }; imgs.push(o); selecionaRef(o); if ($('rAuto').checked) { o.op = 1; converteImg(o); avisa('imagem convertida em pixels'); }
   };
   im.src = URL.createObjectURL(file);
 }
-const escalaRef = (o = ref) => { const m = mm(o); return o.w * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) / o.im.naturalWidth; };
+const escalaRef = (o = ref) => { const m = mm(o); return o.w * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2])) / (o.im ? o.im.naturalWidth : o.c ? o.c.width : o.w); };
 function refCampos() { if (!ref) return; const B = caixa(ref); $('rVis').checked = ref.vis; $('rAcima').checked = ref.acima; $('rOp').value = Math.round(ref.op * 100); $('rEsc').value = Math.round(escalaRef() * 10000) / 100; $('rX').value = Math.round(B.l); $('rY').value = Math.round(B.t); }
 function refUi() {
   $('refp').classList.toggle('off', !ref); refCampos();
@@ -659,6 +726,10 @@ cv.addEventListener('pointerdown', e => {
         else if (novo.length || comPx) grupo = { itens: novo, comPx }; else grupo = null;
         formaUi(); refUi(); redraw(); return;
       }
+      if (selObj || grupo) {   // já tem objeto(s) selecionado(s) e o Shift+clique caiu em pixels soltos: os pixels entram na seleção junto com os objetos (antes derrubavam o objeto)
+        const g = grupoEm(px, py);
+        if (g) { const itens = itensSelecionados().slice(); selObj = null; modoGira = false; nodeSel = []; if (sel) somaSel(g.mask, false); else levanta(g.mask, g.bx, g.by, g.bw, g.bh); grupo = { itens, comPx: !!sel }; formaUi(); refUi(); redraw(); return; }
+      }
     }
     if (grupo) { if (tool === 'selecionar' && dentroGrupo(px, py)) { if (!grupo.comPx) pushUndo(); drag = { k: 'gmove', ult: [px, py] }; return; } commitSel(); }   // grupo: arrastar dentro move tudo junto; clicar fora solta
     if (dentroSel(px, py)) { if (e.altKey) carimba(); drag = { k: 'selmove', p0: [px, py], o0: [sel.ox, sel.oy], undo: false }; return; }   // Alt+arrastar: deixa uma cópia no lugar (clonar)
@@ -766,7 +837,7 @@ addEventListener('keydown', e => {
   if (e.ctrlKey && k === 'c') { copia(); return; } if (e.ctrlKey && k === 'x') { copia(); if (selObj) apagaObj(); else if (sel) { sel = null; salvaAuto(); redraw(); } return; }
   if (e.ctrlKey && k === 'g') { e.preventDefault(); if (e.shiftKey) desagrupa(); else agrupa(); return; }
   if (e.ctrlKey && k === 'e') { e.preventDefault(); une(); return; }
-  if (e.ctrlKey && k === 'd') { e.preventDefault(); if (sel && !selObj) carimba(); else duplica(); return; }   // com pixels selecionados: deixa uma cópia aqui (a seleção continua solta para mover)
+  if (e.ctrlKey && k === 'd') { e.preventDefault(); if (grupo) duplicaGrupo(); else if (sel && !selObj) carimba(); else duplica(); return; }   // com pixels selecionados: deixa uma cópia aqui (a seleção continua solta para mover)
   if (e.ctrlKey && k === 'v') return;   // colar é tratado no evento paste (imagem vira referência, objeto copiado vira cópia)
   if (e.ctrlKey && k === 'a' && (tool === 'selecionar' || tool === 'marcar')) { e.preventDefault(); soltaTudo(); marcaRet(0, 0, W - 1, H - 1); redraw(); return; }
   if (varinha && e.key === 'Escape') { varinha = null; redraw(); return; }
@@ -782,7 +853,7 @@ addEventListener('keydown', e => {
   if (e.key === 'PageUp') { e.shiftKey ? ordemTudo(true) : ordem(1); return; } if (e.key === 'PageDown') { e.shiftKey ? ordemTudo(false) : ordem(-1); return; }
   if (e.key.startsWith('Arrow') && (selObj || sel)) { e.preventDefault(); const p = e.shiftKey ? 8 : 1, dx = e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, dy = e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0; if (sel) { sel.ox += dx; sel.oy += dy; redraw(); } else { pushUndo(); selObj.x += dx; selObj.y += dy; levaFilhos(selObj, dx, dy); toca(); } return; }
   if (k === 'p' && !e.ctrlKey && selObj) { pushUndo(); const B = caixa(selObj); selObj.x += Math.round(W / 2 - B.cx); selObj.y += Math.round(H / 2 - B.cy); toca(); return; }   // P: centraliza o objeto na página
-  if (sel && !selObj && !e.ctrlKey && (k === 'h' || k === 'v')) { espelhaSel(k === 'h'); return; }   // H / V: espelha os pixels selecionados
+  if ((sel || selObj || grupo) && !e.ctrlKey && (k === 'h' || k === 'v')) { espelhaSelecionado(k === 'h'); return; }   // H / V: espelha só o que está selecionado
   if (KEYS[k] && !e.ctrlKey) escolhe(KEYS[k]); if (k === 'x' && !e.ctrlKey) troca();
 });
 addEventListener('keyup', e => { if (e.code === 'Space') espaco = false; });
