@@ -9,16 +9,23 @@ const arq = process.argv[2], S = decodePNG(arq);
 // peças da biblioteca: [x, y, largura, altura] na folha, e se é parede ↘ (x) ou ↙ (y)
 const LIB = {
   // alta
-  x_A: [67, 46, 68, 126, 'c', 1, 93], y_A: [137, 46, 68, 126, 'c', 67, 93],
+  x_A: [63, 50, 68, 126, 'c', 1, 93], y_A: [135, 49, 68, 126, 'c', 67, 93],
   RD_AA: [207, 9, 134, 128, 'c', 67, 95], LU_AA: [343, 46, 130, 127, 'c', 65, 125], RU_AA: [475, 10, 72, 158, 'c', 5, 125], LD_AA: [617, 46, 72, 158, 'c', 67, 125],
   // média
-  x_M: [67, 242, 68, 60, 'c', 1, 27], y_M: [137, 242, 68, 60, 'c', 67, 27],
+  x_M: [67, 242, 68, 60, 'c', 1, 27], y_M: [139, 272, 68, 60, 'c', 67, 27],
   RD_MM: [207, 205, 134, 62, 'c', 67, 29], LU_MM: [343, 242, 130, 61, 'c', 65, 59], RU_MM: [475, 206, 72, 92, 'c', 5, 59], LD_MM: [613, 242, 72, 92, 'c', 67, 59],
   // porta alta (DA)
   x_DA: [72, 612, 68, 126, 'c', 1, 93], y_DA: [143, 612, 68, 126, 'c', 67, 93],
-  // linha 3 (contornos) e porta em canto: ainda sem uso no jogo
-  x_C: [65, 406, 68, 126, 'c', 1, 93], y_C: [135, 406, 68, 126, 'c', 67, 93], LU_CC: [273, 372, 126, 126, 'c', 63, 124], RU_CC: [470, 371, 72, 158, 'c', 5, 125], LD_CC: [608, 405, 72, 158, 'c', 67, 125],
-  RU_PP: [286, 579, 72, 158, 'c', 5, 125], LD_PP: [366, 577, 72, 158, 'c', 67, 125] };
+  // linha 3 (contornos): parede média com o pedaço alto no começo (x_C, y_C) e cantos com a frente média e o fundo alto; y_C foi redesenhada (70 de largura, âncora 69)
+  x_C: [64, 400, 68, 126, 'c', 1, 93], y_C: [135, 414, 70, 126, 'c', 69, 93], LU_CC: [273, 372, 126, 126, 'c', 63, 124], RU_CC: [470, 371, 72, 158, 'c', 5, 125], LD_CC: [608, 405, 72, 158, 'c', 67, 125],
+  // cantos com a porta alta no fundo e a frente média (PP) e com a porta alta + parede alta (DAA/ADA)
+  LD_PP: [286, 579, 72, 158, 'c', 67, 125], RU_PP: [369, 577, 72, 158, 'c', 5, 125], LD_DAA: [566, 568, 72, 158, 'c', 67, 125], RU_ADA: [669, 570, 72, 158, 'c', 5, 125],
+  // porta MÉDIA = só os dois batentes (20x36), âncora relativa ao vértice de INÍCIO da parede: _1 = batente do início, _2 = batente do fim (medido contra x_DA/y_DA: 84% iguais)
+  x_DM1: [65, 791, 20, 36, 'c', 1, 27], x_DM2: [113, 815, 20, 36, 'c', -47, 3], y_DM1: [187, 792, 20, 36, 'c', 19, 27], y_DM2: [139, 816, 20, 36, 'c', 67, 3],
+  // cantos V (LU) médios com porta numa das paredes: _DMM = braço L é porta (batente do fim + parede U), _MDM = braço U é porta (parede L + batente do fim); âncora no vértice (medida contra y_M/x_M)
+  LU_DMM: [385, 789, 82, 61, 'c', 17, 59], LU_MDM: [605, 784, 82, 61, 'c', 65, 59],
+  // cantos Λ (RD, fundo da sala) com alturas misturadas e porta média: nome = braço R (↘) depois braço D (↙); A = alta, M = média, DM = porta média (âncora medida contra as paredes soltas: 92-97% iguais)
+  RD_AM: [38, 1253, 134, 128, 'c', 67, 95], RD_MA: [211, 1250, 134, 128, 'c', 67, 95], RD_DMA: [449, 1237, 86, 128, 'c', 67, 95], RD_ADM: [689, 1269, 86, 128, 'c', 19, 95] };
 const saida = {};
 for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)) {
   const d = new Uint8Array(w * h * 4); let n = 0;
@@ -27,13 +34,13 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
   saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax: eixo === 'c' ? cax : eixo === 'x' ? 1 : 67, ay: eixo === 'c' ? cay : h - 33 };
   console.log(nome.padEnd(5), w + 'x' + h, 'âncora', saida[nome].ax + ',' + saida[nome].ay, 'pixels', n);
 }
-// cantos com PORTA na parede de trás (o dono mandou só um print ampliado 4x do editor: print_cantos_porta.png); amostra 1 pixel a cada 4, mesma caixa 72x158 e âncora do < e > altos
-// LD_DAA: > com a parede L (↘ de trás) sendo porta; RU_ADA: < com a parede U (↙ de trás) sendo porta
-{ const P = decodePNG('arte_casa/exportado_2026-11-16/print_cantos_porta.png');
-  for (const [nome, X0, Y0, ax, ay] of [['LD_DAA', 254, 40, 67, 125], ['RU_ADA', 666, 48, 5, 125]]) {
-    const w = 72, h = 158, d = new Uint8Array(w * h * 4); let n = 0;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y * 4 + 2) * P.w + X0 + x * 4 + 2) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2];
-      if (Math.abs(r - g) < 8 && Math.abs(g - b) < 8 && r > 150) continue;   /* quadriculado de fundo */
+// cantos com a parede alta no fundo e PORTA MÉDIA na frente (print 3x do editor: print_pecas_encontro.png): só a parte alta + o batente do começo da porta; o batente do fim é o x_DM2 / y_DM2 solto
+// LD_ADM: > (L alta, D porta média); RU_DMA: < (R porta média, U alta); mesmas âncoras das peças _CC (a caixa é só a parte de cima, 70x134)
+{ const P = decodePNG('arte_casa/exportado_2026-11-16/print_pecas_encontro.png');
+  for (const [nome, X0, Y0, ax, ay] of [['LD_ADM', 381, 53, 65, 125], ['RU_DMA', 972, 53, 5, 125]]) {
+    const w = 70, h = 134, d = new Uint8Array(w * h * 4); let n = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y * 3 + 1) * P.w + X0 + x * 3 + 1) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2];
+      if (b > 200 && r < 40) continue;   /* fundo azul do editor */
       if (Math.max(r, g, b) - Math.min(r, g, b) > 110 && (r > 150 || g > 150 || b > 150)) continue;   /* piso */
       const j = (y * w + x) * 4; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
     saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax, ay }; console.log(nome.padEnd(6), w + 'x' + h, 'âncora', ax + ',' + ay, 'pixels', n); } }
