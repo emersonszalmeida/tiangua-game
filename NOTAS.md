@@ -1,8 +1,13 @@
-# Jogo de clãs de Tianguá — notas para continuar
+# Jogo pixel art isométrico — notas para continuar
 
-Última atualização: 2026-11-03 (pasta limpa: só o que o jogo e a conversão usam; o resto está no histórico do git). Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
+Última atualização: 2026-11-17. Este arquivo existe para você (ou o Claude) retomar de outro computador sem perder nada.
 
-## O que é o projeto
+## Mudança de rumo (2026-11-17)
+- O projeto passou a se chamar **"jogo pixelart isometrico"**. O dono **não vai mais usar o mapa de Tianguá** (`index.html`, `map.js`, `osm.json`, `build.mjs` e a parte "Mapa (OpenStreetMap)" abaixo ficam só como histórico).
+- O foco agora é a **casa** no editor `chao.html` (paredes, cantos, portas animadas, peças desenhadas pelo dono no editor-pixel). Ver os commits de 10 a 17/11 para as regras de encaixe dos cantos (V/L/</>, T, porta média) e a porta animada (desenho18).
+- `pl_skin.mjs`: experimento de skin do personagem pela API do PixelLab (chave em `.pixellab_secret`, fora do git). Ainda não gerou nada.
+
+## O que era o projeto (antes, só histórico)
 Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **praças** são os objetivos.
 - Disputa em horário marcado, no modelo dos castelos do *Warspear Online*: 4 portões/ruas de entrada; clãs de fora matam um chefe para ganhar o "passe", entram e destroem um objeto central antes do tempo acabar.
 - Quem conquista a praça fica protegido por 4 semanas; uma praça disputada por semana.

@@ -13,3 +13,6 @@ node_modules/
 !arte_terreno/*.png
 !arte_terreno/**/*.png
 !arvore1.png
+
+# chave da API do PixelLab (nunca vai para o GitHub)
+.pixellab_secret
