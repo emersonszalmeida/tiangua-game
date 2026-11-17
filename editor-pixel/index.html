@@ -710,7 +710,7 @@ const canvasTraco = () => { const c = document.createElement('canvas'); c.width 
 // o traço esticado é montado em pixels REAIS da página (1x) e só então ampliado pelo zoom: assim cada pixel da tela é um pixel inteiro (desenhar a imagem escalada direto na tela ampliada mostrava pixels de 0,875 etc.)
 const RASTER = new WeakMap();
 function tracoRaster(o) {
-  if (tracoSimples(o)) return TRACOS[o.cid];   // sem escala nem giro: a própria imagem do traço (ela muda enquanto se desenha com o lápis, por isso nada de guardar cópia)
+  if (tracoSimples(o) && !o.x && !o.y) return TRACOS[o.cid];   // sem escala, giro nem deslocamento: a própria imagem do traço (ela muda enquanto se desenha com o lápis, por isso nada de guardar cópia). Traço movido (x/y ≠ 0) passa pelo desenho abaixo, senão aparecia no lugar antigo
   const k = [o.cid, mm(o).join(), o.x, o.y, o.w, o.h, W, H].join('|'); let e = RASTER.get(o); if (e && e.k === k) return e.c;
   const c = e ? e.c : canvasTraco(); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } const g = c.getContext('2d'); g.clearRect(0, 0, W, H); desenhaTraco(g, o); RASTER.set(o, { k, c }); return c;
 }
