@@ -28,6 +28,9 @@ const cenas = {
   tbDMA: { x: [3, 6], y: [4, 6], div: [['y', 4, 4, 6], ['x', 5, 4, 6]], k: [['x', 5, 4, 'door']], dentro: 1, h: [5.5, 4.5] },
   // ^ alto num T (ramo ↙ alto saindo da parede ↘ alta) e numa cruz
   tAA: { x: [3, 6], y: [4, 6], div: [['y', 4, 4, 6], ['x', 5, 4, 6]], dentro: 0, h: [5.5, 4.5] },
+  // ^ alto com porta alta numa das paredes (RD_DAA / RD_ADA)
+  lamDAA: { x: [4, 6], y: [4, 6], div: [], k: [['x', 4, 4, 'door']] },
+  lamADA: { x: [4, 6], y: [4, 6], div: [], k: [['y', 4, 4, 'door']] },
   cruz: { x: [4, 7], y: [4, 7], div: [['y', 6, 4, 7], ['x', 6, 4, 7]] },
 };
 const pre = (c) => `(() => { const C = ${JSON.stringify(c)}; pisos = new Set(); paredes = [];

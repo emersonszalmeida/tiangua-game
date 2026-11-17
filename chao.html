@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=18"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=23"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -105,6 +105,15 @@ function papelNovo(a, c, n) {
   for (const d of [-1, 1]) { let m = n + d, w; while ((w = paredes.find(q => q.a === a && q.c === c && q.n === m))) { if (w.r) return w.r; m += d; } }
   return 'b';
 }
+// EXEMPLO de porta animada (desenho18.png do dono): a porta ↙ alta tem 5 quadros (1 fechada ... 5 aberta); abre quando o personagem chega perto (~1,3 tile do centro do vão) e fecha quando se afasta
+const PORTA_ANIM = {};
+function quadroDaPorta(c, n) {
+  const id = c + '|' + n, agora = performance.now(), A = PORTA_ANIM[id] || (PORTA_ANIM[id] = { f: 1, t: agora });
+  const alvo = Math.hypot(hx - c, hy - (n + 0.5)) < 1.3 ? 5 : 1; A.t = Math.min(A.t, agora);
+  while (agora - A.t >= 85 && A.f !== alvo) { A.f += A.f < alvo ? 1 : -1; A.t += 85; }
+  if (A.f === alvo) A.t = agora;
+  return A.f;
+}
 function itensCasa() {
   const T = CASA.T, out = [], sx = (x, y) => (x - y) * 64 + M * 64, sy = (x, y) => (x + y) * 32;
   const sala = salaDoPersonagem();   // paredes da frente dessa sala descem até a cintura (a sala "se abre"); nas outras salas a parede fica inteira
@@ -146,7 +155,7 @@ function itensCasa() {
       const emJ = porta && py >= -31 && (porta === 'L' || porta === 'D' ? px >= -26 && px <= (emT ? -1 : 4) : px >= -4 && px <= 26); const D = emJ ? dj : paraA ? da : db;   // batente da porta média: camada própria, ordenada pela profundidade real (o personagem pode estar no vão, ao lado dele)
       D.data[i] = src[i]; D.data[i + 1] = src[i + 1]; D.data[i + 2] = src[i + 2]; D.data[i + 3] = src[i + 3]; }
     ga.putImageData(da, 0, 0); gb.putImageData(db, 0, 0); gj.putImageData(dj, 0, 0); return (o.fat[chave] = { a: ca, b: cb, j: porta ? cj : null }); };
-  const itemPeca = (nm, X, Y, d, atras, miolo) => { const o = peca(nm); if (!o) return; out.push({ d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (miolo) ctx.drawImage(o.im, miolo, 0, o.w - 2 * miolo, o.h, X - o.ax + miolo, Y - o.ay, o.w - 2 * miolo, o.h); else ctx.drawImage(o.im, X - o.ax, Y - o.ay); } }); };
+  const itemPeca = (nm, X, Y, d, atras, miolo) => { const o = peca(nm); if (!o) return; out.push({ n: nm, d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (miolo) ctx.drawImage(o.im, miolo, 0, o.w - 2 * miolo, o.h, X - o.ax + miolo, Y - o.ay, o.w - 2 * miolo, o.h); else ctx.drawImage(o.im, X - o.ax, Y - o.ay); } }); };
   // cantos de dois braços que o dono desenhou: o V (LU: chegam uma ↘ pela esquerda e uma ↙ por cima, canto da frente) e o Λ (RD: saem uma ↘ para a direita e uma ↙ para baixo, canto do fundo),
   // só quando o vértice tem esses dois braços e nenhum outro, e os dois têm a mesma altura (alta/alta ou média/média). T, cruz e o resto ficam com as paredes soltas.
   // peça de encontro: a parede média que COMEÇA num vértice onde bate uma parede perpendicular ALTA mostra um pedaço dela (linha 3 do dono: x_C, y_C, cantos _CC)
@@ -164,15 +173,16 @@ function itensCasa() {
     if (!nome && v.L && v.R && v.D && !v.U) { const hL = Hh(arm(v, 'L')), hR = Hh(arm(v, 'R')), hD = Hh(arm(v, 'D')); if (hL === 'A' && hR === 'A' && (hD === 'M' || hD === 'DM')) { nome = 'RD'; emT = true; } }
     if (!nome && v.U && v.D && v.R && !v.L) { const hU = Hh(arm(v, 'U')), hD = Hh(arm(v, 'D')), hR = Hh(arm(v, 'R')); if (hU === 'A' && hD === 'A' && (hR === 'M' || hR === 'DM')) { nome = 'RD'; emT = true; } }
     // REGRA DO DONO: sempre que houver um canto ^ (braços R e D, os dois altos), usa-se a peça Λ alta, mesmo num T ou numa cruz
-    if (!nome && v.R && v.D && Hh(arm(v, 'R')) === 'A' && Hh(arm(v, 'D')) === 'A') nome = 'RD';
+    if (!nome && v.R && v.D) { const hR = Hh(arm(v, 'R')), hD = Hh(arm(v, 'D')); if ((hR === 'A' || hR === 'DA') && (hD === 'A' || hD === 'DA') && !(hR === 'DA' && hD === 'DA')) nome = 'RD'; }   // inclui o ^ com uma porta alta numa das paredes (RD_ADA / RD_DAA)
     if (!nome) continue;
-    const wa = arm(v, nome[0]), wb = arm(v, nome[1]); if (!wa || !wb) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb) continue; const mista = (ha === 'A' && hb === 'DA') || (ha === 'DA' && hb === 'A') || (nome === 'LU' && ((ha === 'M' && hb === 'DM') || (ha === 'DM' && hb === 'M'))) || (nome === 'RU' && ha === 'M' && (hb === 'A' || hb === 'DA')) || (nome === 'LD' && (ha === 'A' || ha === 'DA') && hb === 'M') || (nome === 'RU' && ha === 'DM' && hb === 'A') || (nome === 'LD' && ha === 'A' && hb === 'DM') || (nome === 'RD' && ((ha === 'A' && hb === 'M') || (ha === 'M' && hb === 'A') || (ha === 'DM' && hb === 'A') || (ha === 'A' && hb === 'DM'))); if (!mista && (ha !== hb || (ha !== 'A' && ha !== 'M'))) continue;   // alta+porta: só existem o < e o > com a porta na parede de trás (RU_ADA, LD_DAA)
+    const wa = arm(v, nome[0]), wb = arm(v, nome[1]); if (!wa || !wb) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb) continue; const mista = (ha === 'A' && hb === 'DA') || (ha === 'DA' && hb === 'A') || (nome === 'LU' && ((ha === 'M' && hb === 'DM') || (ha === 'DM' && hb === 'M'))) || (nome === 'RU' && ha === 'M' && (hb === 'A' || hb === 'DA')) || (nome === 'LD' && (ha === 'A' || ha === 'DA') && hb === 'M') || (nome === 'RU' && ha === 'DM' && hb === 'A') || (nome === 'LD' && ha === 'A' && hb === 'DM') || (nome === 'RD' && ((ha === 'A' && hb === 'M') || (ha === 'M' && hb === 'A') || (ha === 'DM' && hb === 'A') || (ha === 'A' && hb === 'DM'))); if (!mista && (ha !== hb || (ha !== 'A' && ha !== 'M'))) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nome + '_' + ha + hb); continue; }   // alta+porta: só existem o < e o > com a porta na parede de trás (RU_ADA, LD_DAA)
     let nm = nome + '_' + ha + hb;
     if (nm === 'RU_MA') nm = 'RU_CC'; else if (nm === 'LD_AM') nm = 'LD_CC'; else if (nm === 'RU_MDA') nm = 'RU_PP'; else if (nm === 'LD_DAM') nm = 'LD_PP'; else if (nm === 'LU_MM' && postaIni(wa) && postaIni(wb)) nm = 'LU_CC';   // PP = canto com a porta no fundo;   // sala: < com a frente média e o fundo alto; > idem; V com os dois começos encostando em parede alta
-    if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm] && ha === 'A' && !mista) faltam.add(nm); continue; }
+    if (!peca(nm)) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nm); if (typeof PECAS !== 'undefined' && !PECAS[nm] && ha === 'A' && !mista) faltam.add(nm); continue; }
     const dC = Math.max(wa.key, wb.key) + 0.002;
     const ehDM = Hh(wa) === 'DM' || Hh(wb) === 'DM';
-    if (wa.atras !== wb.atras || ehDM) {   // um braço está atrás do personagem e o outro na frente: o canto é partido por braço (cada pixel vai com a parede a que pertence), senão cobriria o personagem
+    const oC = peca(nm), cX = sx(v.x, v.y) - (oC ? oC.ax : 0), cY = sy(v.x, v.y) - (oC ? oC.ay : 0), tocaJog = !!oC && cX < H0[0] + H0[2] - 10 && cX + oC.w > H0[0] + 10 && cY < H0[1] + H0[3] && cY + oC.h > H0[1];   // (H0 = [x, y, largura, altura]) só parte o canto por braço se ele realmente passa pelo corpo do personagem; senão vai a peça pronta INTEIRA
+    if ((wa.atras !== wb.atras && tocaJog) || ehDM) {   // um braço está atrás do personagem e o outro na frente: o canto é partido por braço (cada pixel vai com a parede a que pertence), senão cobriria o personagem
       const X = sx(v.x, v.y), Y = sy(v.x, v.y), cv2 = pecaPorBraco(nm, nome, wa, wb, false); if (cv2) { const o = peca(nm), r = [X - o.ax, Y - o.ay, o.w, o.h];
         out.push({ d: dC, atras: wa.atras, r, f: () => ctx.drawImage(cv2.a, X - o.ax, Y - o.ay) }); out.push({ d: dC, atras: wb.atras, r, f: () => ctx.drawImage(cv2.b, X - o.ax, Y - o.ay) });
         if (cv2.j) { const A = Hh(wa) === 'DM' ? nome[0] : nome[1], jx = v.x + (A === 'R' ? .15 : A === 'L' ? -.15 : 0), jy = v.y + (A === 'D' ? .15 : A === 'U' ? -.15 : 0); out.push({ d: dC, atras: hx + hy > jx + jy, r, f: () => ctx.drawImage(cv2.j, X - o.ax, Y - o.ay) }); } }
@@ -187,7 +197,7 @@ function itensCasa() {
     const k = Hh(w); if (k === null) { faltam.add('parede baixa'); continue; }
     const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
     if (k === 'DM') { for (const i of [1, 2]) if (!(i === 1 && semJ1.has(w))) itemPeca(w.p.a + '_DM' + i, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), hx + hy > (w.p.a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n) + (i === 1 ? .15 : .85)); continue; }   // porta média = os dois batentes
-    const nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
+    let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k); if (w.p.a === 'y' && k === 'DA' && peca('y_DA_f1')) nm = 'y_DA_f' + quadroDaPorta(w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     itemPeca(nm, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), w.atras); }
   window.FALTAM = faltam;
   return out;
@@ -252,7 +262,7 @@ function bateArv(o, wx, wy) { const d = OBJS[o.id]; if (d.deco && !d.pe) return 
   for (const [ax, ay] of [[0, 0], [-5, 0], [5, 0], [0, -2], [0, 2]]) { const px = A.cx + (fx + ax - A.sx) / A.e, py = Math.floor(A.by + (fy + ay - A.sy) / A.e), k = py - d.pe.y0; if (k >= 0 && k < d.pe.l.length && px >= d.pe.l[k] && px <= d.pe.r[k]) return true; }
   return false; }
 let mostraCol = false;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
-const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyC') mostraCol = !mostraCol; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
+const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyP') { let d = document.getElementById('posdbg'); if (d) { d.remove(); } else { d = document.createElement('div'); d.id = 'posdbg'; d.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#000c;color:#ffd75e;font:14px monospace;padding:6px 10px;z-index:9;user-select:all'; document.body.appendChild(d); const at = () => { if (!d.isConnected) return; d.textContent = 'x=' + hx.toFixed(3) + ' y=' + hy.toFixed(3) + ' z=' + K + '  (P fecha)'; setTimeout(at, 150); }; at(); } } if (e.code === 'KeyC') mostraCol = !mostraCol; if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); } }); addEventListener('keyup', e => keys[e.code] = false);
 function tratarCasa(e, fx, fy, cx, cy) {
   const vx = Math.round(fx), vy = Math.round(fy), ic = cantos.findIndex(c => c.x === vx && c.y === vy), perto = Math.hypot(fx - vx, fy - vy) < .45;
   if (e.button === 2 && ic >= 0 && perto) { cantos.splice(ic, 1); autosave(); return true; }
@@ -301,11 +311,14 @@ function frame(now) {
   const casa = itensCasa(); lista.push({ d: hx + hy, jog: true, f: () => PERS.draw(ctx, P, hsx, hsy) }); if (mostraCol) lista.push({ d: 1e9, f: () => { ctx.strokeStyle = '#ff2d2d'; ctx.lineWidth = 1 / K; for (const o of objetos) { const d = OBJS[o.id]; if (!d.pe) continue; const A = ancora(o), X = px => A.sx + (px - A.cx) * A.e, Y = k => A.sy + (d.pe.y0 + k - A.by) * A.e; ctx.beginPath(); d.pe.l.forEach((v, k) => { k ? ctx.lineTo(X(v), Y(k)) : ctx.moveTo(X(v), Y(k)); }); for (let k = d.pe.r.length - 1; k >= 0; k--) ctx.lineTo(X(d.pe.r[k]), Y(k)); ctx.closePath(); ctx.stroke(); } ctx.beginPath(); for (const [a, b, c, d] of rectsP) { const P2 = (x, y) => [(x - y) * 64 + M * 64, (x + y) * 32]; const q = [P2(a, b), P2(c, b), P2(c, d), P2(a, d)]; ctx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach(([x, y]) => ctx.lineTo(x, y)); ctx.closePath(); } ctx.stroke(); ctx.fillStyle = '#2dff2d'; ctx.fillRect(hsx - 1, hsy - 1, 2, 2); } }); lista.sort((a, b) => a.d - b.d);
   { const pi = lista.findIndex(it => it.jog), antes = lista.slice(0, pi), jog = lista[pi], depois = lista.slice(pi + 1);
     const ins = (arr, its) => { for (const it of its.sort((a, b) => a.d - b.d)) { let k = arr.findIndex(x => x.d > it.d); if (k < 0) k = arr.length; arr.splice(k, 0, it); } };
-    const H0 = [hsx - 16, hsy - 64, hsx + 16, hsy + 4], cobre = it => it.r[0] < H0[2] && it.r[0] + it.r[2] > H0[0] && it.r[1] < H0[3] && it.r[1] + it.r[3] > H0[1];
+    const H0 = [hsx - 16, hsy - 64, hsx + 16, hsy + 4], cobre = it => it.r[0] < H0[2] - 4 && it.r[0] + it.r[2] > H0[0] + 4 && it.r[1] < H0[3] - 4 && it.r[1] + it.r[3] > H0[1] + 4;   // encostar 1-3 px na caixa do personagem não conta como cobrir (senão o canto e a parede vizinha ficavam em ordens diferentes e sobravam pontos soltos do contorno)
     const presas = casa.filter(cobre), soltas = casa.filter(it => !cobre(it));
-    ins(antes, soltas.filter(it => it.d <= hx + hy)); ins(depois, soltas.filter(it => it.d > hx + hy));   // as que não tocam o personagem: profundidade real
+    // uma parede solta que NÃO toca o personagem pode ficar de qualquer lado dele sem mudar nada visualmente; então ela vai para o lado em que respeita a ordem em relação às peças que cobrem o personagem (senão uma parede vizinha cobria o poste do canto em T e deixava um toco com o topo cortado)
+    const ov2 = (p, q) => p.r[0] < q.r[0] + q.r[2] && p.r[0] + p.r[2] > q.r[0] && p.r[1] < q.r[1] + q.r[3] && p.r[1] + p.r[3] > q.r[1];
+    const vaiAntes = it => it.d <= hx + hy ? !presas.some(q => !q.atras && q.d < it.d && ov2(q, it)) : presas.some(q => q.atras && q.d > it.d && ov2(q, it));
+    ins(antes, soltas.filter(vaiAntes)); ins(depois, soltas.filter(it => !vaiAntes(it)));   // as que não tocam o personagem: profundidade real
     ins(antes, presas.filter(it => it.atras)); ins(depois, presas.filter(it => !it.atras));   // as que o cobrem: as de trás antes dele, as da frente depois
-    [...antes, jog, ...depois].forEach(it => it.f()); } ctx.restore(); requestAnimationFrame(frame);
+    window.ORDEM = [...antes, jog, ...depois].map(it => (it.n || (it.jog ? 'JOG' : '?')) + ' d=' + it.d.toFixed(4) + (it.atras ? ' atras' : '') + ' r=' + (it.r ? it.r.join(',') : '')); [...antes, jog, ...depois].forEach((it, i) => { if (!(window.SKIP && window.SKIP.has(i))) it.f(); }); } ctx.restore(); requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 </script></body></html>

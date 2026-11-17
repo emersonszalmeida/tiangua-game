@@ -118,6 +118,9 @@ button{touch-action:manipulation}
     <h4>Seleção de pixels</h4>
     <div class="row"><button id="bMarcar" title="S: arraste sobre os pixels que quer pegar (qualquer um, mesmo soltos). Alt ou botão direito tira da marcação.">Marcar pixels (S)</button><button id="bClonar" title="Ctrl+D: deixa uma cópia aqui; a seleção continua solta para mover">Clonar (Ctrl+D)</button></div>
     <div class="row"><button id="bSelEspH" title="H">Espelhar ↔ (H)</button><button id="bSelEspV" title="V">Espelhar ↕ (V)</button></div>
+    <div class="row"><button id="bSelFrenteT" title="Shift+Page Up: a seleção vira objeto e vai para cima de tudo">Para frente de tudo</button><button id="bSelTrasT" title="Shift+Page Down: a seleção vira objeto e vai para baixo de tudo (inclusive dos pixels do desenho)">Para trás de tudo</button></div>
+    <div class="row"><button id="bSelFrente" title="Page Up">Para frente</button><button id="bSelTras" title="Page Down">Para trás</button></div>
+    <div class="row"><button id="bSelEsticar" title="T: a seleção vira um objeto com alças para esticar, girar e inclinar">Esticar (T)</button></div>
     <div class="row"><button id="bSelSolta" title="Enter">Soltar (Enter)</button><button id="bSelApaga" title="Delete">Apagar</button></div>
 
     <h4>Varinha (W)</h4>
@@ -156,7 +159,7 @@ button{touch-action:manipulation}
 const $ = id => document.getElementById(id);
 const cv = $('v'), ctx = cv.getContext('2d'), wrap = $('wrap');
 let selObj = null, modoGira = false, sel = null, clipPx = null, clipObj = null, W = 128, H = 128, layers = [], cur = 0, view = { z: 4, ox: 20, oy: 20 }, tool = 'selecionar', hover = [0, 0], espaco = false;
-let ref = null, imgs = [], nodeSel = [], hoverNo = null, ptSel = -1, zSeq = 0;   // zSeq: ordem de empilhamento global; tudo que é novo recebe o próximo número e fica por cima de tudo   // imgs = todas as imagens importadas; ref = a imagem ativa (a última selecionada)
+let ref = null, imgs = [], nodeSel = [], hoverNo = null, ptSel = -1, polySel = [], zSeq = 0;   // zSeq: ordem de empilhamento global; tudo que é novo recebe o próximo número e fica por cima de tudo   // imgs = todas as imagens importadas; ref = a imagem ativa (a última selecionada)
 const undoS = [], redoS = [];
 const TOQ = matchMedia('(pointer: coarse)').matches ? 18 : 6;   // distância (px da tela) para pegar uma alça: maior no dedo
 let varinha = null, aviso = '', tAviso = 0;   // varinha: { m: máscara W×H, tint: canvas do realce }; aviso: recado curto na barra de status
@@ -250,21 +253,25 @@ const mm = o => o.m || (o.m = [1, 0, 0, 1]);   // matriz [a,b,c,d]: ponto do mun
 const upg = o => { if (!o.m) { const r = (o.rot || 0) * Math.PI / 180; o.m = [Math.cos(r), -Math.sin(r), Math.sin(r), Math.cos(r)]; } delete o.rot; if (o.z == null) o.z = ++zSeq; zSeq = Math.max(zSeq, o.z); return o; };
 function paraMundo(o, u, v) { const [a, b, c, d] = mm(o), [cx, cy] = ctr(o); return [cx + a * u + b * v, cy + c * u + d * v]; }
 // quanto o objeto se estende para cada lado do centro, em x e y da tela (a caixa de seleção fica alinhada à tela, como no Corel)
-function extensao(o) { const [a, b, c, d] = mm(o), hw = o.w / 2, hh = o.h / 2; if (o.t === 'elipse') return [Math.hypot(a * hw, b * hh), Math.hypot(c * hw, d * hh)]; if (o.t === 'losango') return [Math.max(Math.abs(a) * hw, Math.abs(b) * hh), Math.max(Math.abs(c) * hw, Math.abs(d) * hh)]; return [Math.abs(a) * hw + Math.abs(b) * hh, Math.abs(c) * hw + Math.abs(d) * hh]; }
+function extensao(o) { const [a, b, c, d] = mm(o), hw = o.w / 2, hh = o.h / 2; if (o.t === 'poligono') return [Math.max(...o.poly.map(p => Math.abs(a * p[0] + b * p[1]))), Math.max(...o.poly.map(p => Math.abs(c * p[0] + d * p[1])))]; if (o.t === 'elipse') return [Math.hypot(a * hw, b * hh), Math.hypot(c * hw, d * hh)]; if (o.t === 'losango') return [Math.max(Math.abs(a) * hw, Math.abs(b) * hh), Math.max(Math.abs(c) * hw, Math.abs(d) * hh)]; return [Math.abs(a) * hw + Math.abs(b) * hh, Math.abs(c) * hw + Math.abs(d) * hh]; }
 const caixa = o => {
   const [px, py] = ctr(o); let l, t, r, b;
   if (o.t === 'traco') { const bx = tracoBox(o); if (bx) { const ps = tracoCantos(o, bx); l = Math.min(...ps.map(p => p[0])); r = Math.max(...ps.map(p => p[0])); t = Math.min(...ps.map(p => p[1])); b = Math.max(...ps.map(p => p[1])); } else { l = r = px; t = b = py; } }
-  else if (o.t === 'imagem' && o.crop) { const ps = o.crop.map(p => paraMundo(o, p[0], p[1])); l = Math.min(...ps.map(p => p[0])); r = Math.max(...ps.map(p => p[0])); t = Math.min(...ps.map(p => p[1])); b = Math.max(...ps.map(p => p[1])); }
+  else if ((o.t === 'imagem' && o.crop) || o.t === 'poligono') { const ps = (o.t === 'poligono' ? o.poly : o.crop).map(p => paraMundo(o, p[0], p[1])); l = Math.min(...ps.map(p => p[0])); r = Math.max(...ps.map(p => p[0])); t = Math.min(...ps.map(p => p[1])); b = Math.max(...ps.map(p => p[1])); }
   else { const [ex, ey] = extensao(o); l = px - ex; r = px + ex; t = py - ey; b = py + ey; }
   return { l, t, r, b, cx: (l + r) / 2, cy: (t + b) / 2, ex: Math.max(.01, (r - l) / 2), ey: Math.max(.01, (b - t) / 2), px, py };
 };
 // se virou só um esticar nos eixos da tela, volta para o formato simples (largura e altura inteiras)
-function normaliza(o) { const m = mm(o); if (Math.abs(m[1]) < 1e-6 && Math.abs(m[2]) < 1e-6 && m[0] > 0 && m[3] > 0) { const [cx, cy] = ctr(o), w0 = o.w, h0 = o.h; o.w = Math.max(1, Math.round(o.w * m[0])); o.h = Math.max(1, Math.round(o.h * m[3])); if (o.crop) o.crop = o.crop.map(p => [p[0] * o.w / w0, p[1] * o.h / h0]); if (o.pts) o.pts = o.pts.map(p => [p[0] * o.w / w0, p[1] * o.h / h0]); o.x = Math.round(cx - o.w / 2); o.y = Math.round(cy - o.h / 2); o.m = [1, 0, 0, 1]; } }
+function normaliza(o) { if (o.t === 'traco') return;   // o traço guarda a escala na matriz (arredondar w/h da página inteira deixava a caixa fora da grade de pixels)
+  const m = mm(o); if (Math.abs(m[1]) < 1e-6 && Math.abs(m[2]) < 1e-6 && m[0] > 0 && m[3] > 0) { const [cx, cy] = ctr(o), w0 = o.w, h0 = o.h; o.w = Math.max(1, Math.round(o.w * m[0])); o.h = Math.max(1, Math.round(o.h * m[3])); if (o.crop) o.crop = o.crop.map(p => [p[0] * o.w / w0, p[1] * o.h / h0]); if (o.pts) o.pts = o.pts.map(p => [p[0] * o.w / w0, p[1] * o.h / h0]); if (o.poly) o.poly = o.poly.map(p => [p[0] * o.w / w0, p[1] * o.h / h0]); o.x = Math.round(cx - o.w / 2); o.y = Math.round(cy - o.h / 2); o.m = [1, 0, 0, 1]; } }
 const gira = (o, graus) => { const B0 = caixa(o), r = graus * Math.PI / 180, cs = Math.cos(r), sn = Math.sin(r), [a, b, c, d] = mm(o); o.m = [cs * a - sn * c, cs * b - sn * d, sn * a + cs * c, sn * b + cs * d]; const B1 = caixa(o); o.x += B0.cx - B1.cx; o.y += B0.cy - B1.cy; };
 const anguloDe = o => Math.atan2(mm(o)[2], mm(o)[0]) * 180 / Math.PI;
 function ajustaCaixa(o, l, t, w, h) { const B = caixa(o), kx = w / (2 * B.ex), ky = h / (2 * B.ey), m = mm(o); o.m = [m[0] * kx, m[1] * kx, m[2] * ky, m[3] * ky]; const cx = l + (B.px - B.l) * kx, cy = t + (B.py - B.t) * ky; o.x = cx - o.w / 2; o.y = cy - o.h / 2; normaliza(o); }
+// objeto sem rotação com a caixa fora da grade de pixels (resto de um esticar antigo): leva a caixa para pixels inteiros
+function encaixaPixel(o) { if (!o || o.t === 'linha' || o.t === 'poligono') return false; const m = mm(o); if (Math.abs(m[1]) > 1e-6 || Math.abs(m[2]) > 1e-6) return false; const B = caixa(o), l = Math.round(B.l), t = Math.round(B.t), r = Math.max(l + 1, Math.round(B.r)), b = Math.max(t + 1, Math.round(B.b)); if (Math.abs(l - B.l) < 1e-6 && Math.abs(t - B.t) < 1e-6 && Math.abs(r - B.r) < 1e-6 && Math.abs(b - B.b) < 1e-6) return false; ajustaCaixa(o, l, t, r - l, b - t); return true; }
 function paraLocal(o, X, Y) { const [a, b, c, d] = mm(o), [cx, cy] = ctr(o), det = (a * d - b * c) || 1e-9, dx = X - cx, dy = Y - cy; return [(d * dx - b * dy) / det, (-c * dx + a * dy) / det]; }
 function dentro(o, u, v, sh) {
+  if (o.t === 'poligono') { const P = o.poly, n = P.length; let in_ = false, dmin = 1e9; for (let i = 0, j = n - 1; i < n; j = i++) { const A = P[i], B = P[j]; if ((A[1] > v) !== (B[1] > v) && u < (B[0] - A[0]) * (v - A[1]) / (B[1] - A[1]) + A[0]) in_ = !in_; if (sh > 0) { const dx = B[0] - A[0], dy = B[1] - A[1], q = dx * dx + dy * dy, t = q ? Math.max(0, Math.min(1, ((u - A[0]) * dx + (v - A[1]) * dy) / q)) : 0; dmin = Math.min(dmin, Math.hypot(u - A[0] - dx * t, v - A[1] - dy * t)); } } return in_ && (sh <= 0 || dmin >= sh); }
   if (o.t === 'retangulo') return Math.abs(u) <= o.w / 2 - sh && Math.abs(v) <= o.h / 2 - sh;
   const rx = o.w / 2, ry = o.h / 2; if (ry - sh <= 0 || rx - sh <= 0) return false;
   if (o.t === 'elipse') { const a = rx - sh, b = ry - sh; return (u / a) * (u / a) + (v / b) * (v / b) <= 1; }
@@ -289,7 +296,7 @@ function rasteriza(o) {
 const OCACHE = new WeakMap();
 function canvasObj(o) {   // desenho do objeto guardado; só refaz quando algo muda
   if (o.t === 'traco') { const c = canvasTraco(); desenhaTraco(c.getContext('2d'), o); return c; }
-  const k = [o.t, o.x, o.y, o.w, o.h, mm(o).join(), o.pre, o.con, o.th, o.fy, o.c1, o.c2, W, H].join('|'); let e = OCACHE.get(o);
+  const k = [o.t, o.poly ? JSON.stringify(o.poly) : '', o.x, o.y, o.w, o.h, mm(o).join(), o.pre, o.con, o.th, o.fy, o.c1, o.c2, W, H].join('|'); let e = OCACHE.get(o);
   if (!e || e.k !== k) { const c = e ? e.c : document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d').putImageData(rasteriza(o), 0, 0); e = { k, c }; OCACHE.set(o, e); }
   return e.c;
 }
@@ -311,7 +318,7 @@ function objetoNoPonto(px, py) {   // o objeto ou imagem mais na frente que est�
   for (const x of it) if (ehImg(x.o) ? imgHit1(x.o, px, py) : cobre(x.o, px, py)) return x; return null;
 }
 function selecionaItem(h) { if (ehImg(h.o)) selecionaRef(h.o); else selecionaObj(h.li, h.o); }
-function selecionaObj(li, o) { commitSel(); cur = li; if (selObj !== o) modoGira = false; selObj = o; camadasUi(); formaUi(); redraw(); }
+function selecionaObj(li, o) { polySel = []; commitSel(); cur = li; if (selObj !== o) modoGira = false; selObj = o; if (encaixaPixel(o)) toca(); camadasUi(); formaUi(); redraw(); }
 function formaUi() {
   const on = !!selObj; $('forma').classList.toggle('off', !on); if (!on) return; const o = selObj, B = caixa(o);
   $('fx').value = Math.round(B.l); $('fy').value = Math.round(B.t); $('fw').value = Math.round(2 * B.ex); $('fh').value = Math.round(2 * B.ey); $('frot').value = Math.round(anguloDe(o) * 100) / 100; $('fpre').checked = o.pre; $('fcon').checked = o.con; $('fesp').value = o.th; if (o === ref) refCampos();
@@ -328,6 +335,7 @@ function numerico() {
 $('ratio').onchange = () => { const r = ratioDe(); if (selObj && r) { pushUndo(); const B = caixa(selObj); ajustaCaixa(selObj, B.l, B.t, 2 * B.ex, 2 * B.ex * r[1] / r[0]); toca(); } };
 $('bCH').onclick = () => { if (selObj) { pushUndo(); const B = caixa(selObj); selObj.x += Math.round((W - 2 * B.ex) / 2 - B.l); toca(); } }; $('bCV').onclick = () => { if (selObj) { pushUndo(); const B = caixa(selObj); selObj.y += Math.round((H - 2 * B.ey) / 2 - B.t); toca(); } };
 function ordem(d) {   // um passo para frente (d > 0) ou para trás, para TUDO que está selecionado (objetos, traços, imagens, grupo); atravessa o desenho de pixels
+  if (sel && !grupo && !itensSelecionados().length) selParaObjeto();   // pixels soltos selecionados viram objeto para poder mudar de ordem
   const sels = itensSelecionados(); if (!sels.length) return; const S = new Set(sels), todos = () => { const t = []; layers.forEach(l => l.objs.forEach(o => t.push(o))); imgs.forEach(o => t.push(o)); return t.sort((a, b) => chaveZ(a) - chaveZ(b)); };
   pushUndo(); const dir = d > 0 ? 1 : -1; [...sels].sort((a, b) => dir * (chaveZ(b) - chaveZ(a))).forEach(o => {
     const all = todos(); let j = all.indexOf(o) + dir; while (j >= 0 && j < all.length && S.has(all[j])) j += dir; if (j < 0 || j >= all.length) return; const n = all[j];
@@ -337,6 +345,7 @@ function ordem(d) {   // um passo para frente (d > 0) ou para trás, para TUDO q
 $('bFrente').onclick = () => ordem(1); $('bTras').onclick = () => ordem(-1);
 // frente/trás de tudo: objeto fica no topo ou no fundo da pilha; imagem também sobe para cima do desenho ou desce para baixo dele
 function ordemTudo(frente) {   // TUDO que está selecionado vai para o topo de tudo ou para baixo de tudo (inclusive abaixo dos pixels do desenho)
+  if (sel && !grupo && !itensSelecionados().length) selParaObjeto();
   const sels = itensSelecionados(); if (!sels.length) return; pushUndo(); const todos = []; layers.forEach(l => l.objs.forEach(o => todos.push(o))); imgs.forEach(o => todos.push(o));
   const ord = [...sels].sort((a, b) => chaveZ(a) - chaveZ(b));
   if (frente) ord.forEach(o => { o.z = ++zSeq; poePlano(o, false); }); else [...ord].reverse().forEach(o => { o.z = Math.min(0, ...todos.map(q => q.z || 0)) - 1; poePlano(o, true); });
@@ -364,7 +373,7 @@ function duplicaGrupo() {
 function duplica() { if (grupo) { duplicaGrupo(); return; } if (!selObj) return; pushUndo(); if (ehImg(selObj)) { const n = { ...imgEstado(selObj), id: ++idImg, nome: selObj.nome + ' cópia', z: ++zSeq }; n.x += 3; n.y += 3; n.m = [...selObj.m]; n.crop = selObj.crop && selObj.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[selObj.id]; n.im = selObj.im; n.c = selObj.c; imgs.push(n); selecionaRef(n); return; } const n = JSON.parse(JSON.stringify(selObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
 function apagaObj() { if (ehImg(selObj)) { pushUndo(); imgs = imgs.filter(o => o !== selObj); if (ref === selObj) ref = imgs[imgs.length - 1] || null; selObj = null; nodeSel = []; refUi(); formaUi(); redraw(); return; } if (!selObj) return; pushUndo(); L().objs.splice(L().objs.indexOf(selObj), 1); selObj = null; camadasUi(); toca(); }
 $('bDup').onclick = duplica; $('bApaga').onclick = apagaObj;
-$('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSelecionado(true); $('bSelEspV').onclick = () => espelhaSelecionado(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
+$('bSelEsticar').onclick = selParaObjeto; $('bSelFrenteT').onclick = () => ordemTudo(true); $('bSelTrasT').onclick = () => ordemTudo(false); $('bSelFrente').onclick = () => ordem(1); $('bSelTras').onclick = () => ordem(-1); $('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSelecionado(true); $('bSelEspV').onclick = () => espelhaSelecionado(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
 // ---------- mover com ímã e cópia (como no Corel) ----------
 // ao arrastar um objeto aparece só o contorno azul de onde ele vai ficar; os pontos do objeto "grudam" nos pontos dos outros;
 // clicar com o botão direito durante o arrasto faz o objeto ficar como cópia no lugar novo
@@ -373,6 +382,7 @@ function nosMundo(o) {   // pontos de ímã do objeto: [{ p: [x, y], nome }]
   const w = o.w / 2, h = o.h / 2, P = (u, v) => paraMundo(o, u, v), out = [{ p: ctr(o), nome: 'centro' }];
   if (o.t === 'linha') { const [a, b] = pontasLinha(o); out.push({ p: [a[0] + .5, a[1] + .5], nome: 'nó' }, { p: [b[0] + .5, b[1] + .5], nome: 'nó' }); }
   else if (o.t === 'imagem') nosRef(o).forEach(q => out.push({ p: P(q[0], q[1]), nome: 'nó' }));
+  else if (o.t === 'poligono') o.poly.forEach(q => out.push({ p: P(q[0], q[1]), nome: 'nó' }));
   else if (o.t === 'retangulo') [[-w, -h], [w, -h], [w, h], [-w, h]].forEach(q => out.push({ p: P(q[0], q[1]), nome: 'nó' }));
   else [[-w, 0], [w, 0], [0, -h], [0, h]].forEach(q => out.push({ p: P(q[0], q[1]), nome: 'nó' }));   // elipse e losango
   (o.pts || []).forEach(q => out.push({ p: P(q[0], q[1]), nome: 'nó', extra: true }));   // pontos criados com a ferramenta Forma
@@ -383,6 +393,7 @@ function contornoObj(o) {
   const w = o.w / 2, h = o.h / 2, P = (u, v) => paraMundo(o, u, v);
   if (o.t === 'linha') { const [a, b] = pontasLinha(o); return [[a[0] + .5, a[1] + .5], [b[0] + .5, b[1] + .5]]; }
   if (o.t === 'imagem') return nosRef(o).map(q => P(q[0], q[1]));
+  if (o.t === 'poligono') return o.poly.map(q => P(q[0], q[1]));
   if (o.t === 'retangulo') return [[-w, -h], [w, -h], [w, h], [-w, h]].map(q => P(q[0], q[1]));
   if (o.t === 'losango') return [[-w, 0], [0, -h], [w, 0], [0, h]].map(q => P(q[0], q[1]));
   const pts = []; for (let i = 0; i < 64; i++) { const a = i / 64 * Math.PI * 2; pts.push(P(Math.cos(a) * w, Math.sin(a) * h)); } return pts;
@@ -415,10 +426,19 @@ function noPertoGeral(pf) {   // ponto (nó) mais perto; se não houver, ponto d
   if ($('gImaB').checked) { let b = null; for (const it of lst) { const e = bordaPerto(it.o, pf); if (e && (!b || e.d < b.n.d)) b = { ...it, n: e }; } return b; }
   return null;
 }
+// retângulo e losango viram polígono ao mexer num canto com a ferramenta Forma: poly = vértices em coordenadas locais (centro do objeto = 0,0)
+function polyLocalDe(o) { const w = o.w / 2, h = o.h / 2; return o.t === 'retangulo' ? [[-w, -h], [w, -h], [w, h], [-w, h]] : o.t === 'losango' ? [[-w, 0], [0, -h], [w, 0], [0, h]] : null; }
+function viraPoligono(o) { if (o.t === 'poligono') return true; const p = polyLocalDe(o); if (!p) return false; o.poly = p; o.t = 'poligono'; return true; }
+function recentraPoli(o) {   // a caixa (w, h) acompanha os vértices, com o centro no meio deles
+  const xs = o.poly.map(p => p[0]), ys = o.poly.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), cu = (x0 + x1) / 2, cv = (y0 + y1) / 2, [a, b, c, d] = mm(o), [cx, cy] = ctr(o);
+  o.w = Math.max(1, x1 - x0); o.h = Math.max(1, y1 - y0); o.poly = o.poly.map(p => [p[0] - cu, p[1] - cv]); const ncx = cx + a * cu + b * cv, ncy = cy + c * cu + d * cv; o.x = ncx - o.w / 2; o.y = ncy - o.h / 2; }
+function verticeEm(e) { const o = selObj; if (!o || ehImg(o) || !(o.t === 'retangulo' || o.t === 'losango' || o.t === 'poligono')) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ps = contornoObj(o); for (let i = 0; i < ps.length; i++) if (Math.abs(mx - (view.ox + ps[i][0] * view.z)) <= 8 && Math.abs(my - (view.oy + ps[i][1] * view.z)) <= 8) return i; return -1; }
 function adicionaPonto(pf) {   // duplo clique numa aresta (ferramenta Forma): cria um ponto extra, que serve para pegar e grudar
   const o = selObj; if (!o || ehImg(o)) return; const poly = contornoObj(o), fecha = o.t !== 'linha', n = poly.length; let melhor = null, md = 1e9;
   for (let i = 0; i < (fecha ? n : n - 1); i++) { const A = poly[i], B = poly[(i + 1) % n], dx = B[0] - A[0], dy = B[1] - A[1], q = dx * dx + dy * dy, t = q ? Math.max(0, Math.min(1, ((pf[0] - A[0]) * dx + (pf[1] - A[1]) * dy) / q)) : 0, X = A[0] + dx * t, Y = A[1] + dy * t, d = Math.hypot(pf[0] - X, pf[1] - Y); if (d < md) { md = d; melhor = [X, Y]; } }
-  if (!melhor || md * view.z > 12) return; pushUndo(); o.pts = (o.pts || []).concat([paraLocal(o, melhor[0], melhor[1])]); ptSel = o.pts.length - 1; toca();
+  if (!melhor || md * view.z > 12) return;
+  if (o.t === 'retangulo' || o.t === 'losango' || o.t === 'poligono') { let ia = 0, md2 = 1e9; for (let i = 0; i < n; i++) { const A = poly[i], B = poly[(i + 1) % n], dx = B[0] - A[0], dy = B[1] - A[1], q = dx * dx + dy * dy, t = q ? Math.max(0, Math.min(1, ((pf[0] - A[0]) * dx + (pf[1] - A[1]) * dy) / q)) : 0, d = Math.hypot(pf[0] - A[0] - dx * t, pf[1] - A[1] - dy * t); if (d < md2) { md2 = d; ia = i; } } pushUndo(); viraPoligono(o); const q = paraLocal(o, Math.round(melhor[0]), Math.round(melhor[1])); o.poly.splice(ia + 1, 0, q); ptSel = ia + 1; polySel = [ia + 1]; recentraPoli(o); toca(); return; }
+  pushUndo(); o.pts = (o.pts || []).concat([paraLocal(o, melhor[0], melhor[1])]); ptSel = o.pts.length - 1; toca();
 }
 cv.addEventListener('dblclick', e => { if (tool === 'forma' && selObj && !ehImg(selObj)) adicionaPonto(ptF(e)); });
 function pontoExtraEm(e) { const o = selObj; if (!o || ehImg(o)) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ps = o.pts || []; for (let i = 0; i < ps.length; i++) { const [X, Y] = paraMundo(o, ps[i][0], ps[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
@@ -439,6 +459,13 @@ function aplicaMover(d) {
 addEventListener('mousedown', e => { if (e.button === 2) marcaCopia(); }); addEventListener('contextmenu', () => { if (!(drag && drag.k === 'selmove')) marcaCopia(); }); addEventListener('mouseup', e => { if (e.button === 2 && drag && drag.k === 'selmove') { drag.rd = false; cv.style.cursor = 'move'; } });
 // ---------- seleção de pixels soltos (quando não há objeto) ----------
 let grupo = null;   // seleção de vários itens pelo retângulo do Selecionar: { itens, comPx } (os pixels soltos ficam em sel)
+// Esticar (T): a seleção de pixels vira um objeto (traço) na camada, com alças para esticar, girar e inclinar como qualquer objeto; Ctrl+E depois junta de novo em pixels
+function selParaObjeto() {
+  if (grupo) { avisa('com vários itens selecionados, agrupe (Ctrl+G) ou solte (Enter) antes'); return; } if (!sel) { avisa('selecione pixels antes (Q ou S)'); return; }
+  pushUndo(); const c = canvasTraco(); c.getContext('2d').drawImage(sel.c, sel.ox, sel.oy); sel = null;
+  const o = { t: 'traco', x: 0, y: 0, w: W, h: H, m: [1, 0, 0, 1], z: ++zSeq, cid: ++idTr, pai: 0 }; TRACOS[o.cid] = c; L().objs.push(o);
+  if (tool !== 'selecionar') escolhe('selecionar'); selecionaObj(cur, o); modoGira = false; camadasUi(); toca(); avisa('agora é um objeto: arraste as alças para esticar (Shift mantém a proporção); clique de novo para girar ou inclinar; Ctrl+E junta em pixels');
+}
 function commitSel() { grupo = null; if (!sel) return; L().x.drawImage(sel.c, sel.ox, sel.oy); sel = null; salvaAuto(); redraw(); }
 function levanta(mask, bx, by, bw, bh) {
   pushUndo(); const im = L().x.getImageData(0, 0, W, H), out = new ImageData(W, H), d = im.data, o = out.data; let n = 0;
@@ -517,7 +544,17 @@ function agrupa() {
   grupo.itens.forEach(o => { o.grp = id; }); camadasUi(); salvaAuto(); redraw();
 }
 function desagrupa() { const its = itensSelecionados(); if (!its.some(o => o.grp)) return; pushUndo(); its.forEach(o => { delete o.grp; }); salvaAuto(); redraw(); }
-function imgEm(x, o) { if (!(o.im || o.c)) return false; const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform(m[0], m[2], m[1], m[3], cx, cy); x.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { x.beginPath(); o.crop.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip(); } x.drawImage(o.im || o.c, -o.w / 2, -o.h / 2, o.w, o.h); x.restore(); return true; }
+// imagem com recorte (pontos da Forma): em vez de clip (que deixa pixels pela metade nas bordas), cada pixel fica ou sai conforme o CENTRO dele estar dentro do recorte
+const NITIDO = new WeakMap();
+function imgNitido(o) {
+  const src = o.im || o.c, k = [o.x, o.y, o.w, o.h, mm(o).join(), JSON.stringify(o.crop), W, H, escalaRef(o) < 1].join('|'); let e = NITIDO.get(o); if (e && e.k === k && e.src === src) return e.c;
+  const c = e ? e.c : document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d', { willReadFrequently: true }); g.clearRect(0, 0, W, H); const [cx, cy] = ctr(o), m = mm(o); g.save(); g.transform(m[0], m[2], m[1], m[3], cx, cy); g.imageSmoothingEnabled = escalaRef(o) < 1; g.drawImage(src, -o.w / 2, -o.h / 2, o.w, o.h); g.restore();
+  if (!o.crop) { NITIDO.set(o, { k, src, c }); return c; }
+  const ps = o.crop.map(p => paraMundo(o, p[0], p[1])), x0 = Math.max(0, Math.floor(Math.min(...ps.map(p => p[0])))), x1 = Math.min(W - 1, Math.ceil(Math.max(...ps.map(p => p[0])))), y0 = Math.max(0, Math.floor(Math.min(...ps.map(p => p[1])))), y1 = Math.min(H - 1, Math.ceil(Math.max(...ps.map(p => p[1])))), poly = nosRef(o);
+  if (x1 >= x0 && y1 >= y0) { const d = g.getImageData(x0, y0, x1 - x0 + 1, y1 - y0 + 1), a = d.data; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!dentroPoli(paraLocal(o, x + .5, y + .5), poly)) a[((y - y0) * (x1 - x0 + 1) + (x - x0)) * 4 + 3] = 0; g.clearRect(0, 0, W, H); g.putImageData(d, x0, y0); } else g.clearRect(0, 0, W, H);
+  NITIDO.set(o, { k, src, c }); return c;
+}
+function imgEm(x, o) { if (!(o.im || o.c)) return false; if (o.crop) { x.drawImage(imgNitido(o), 0, 0); return true; } const [cx, cy] = ctr(o), m = mm(o); x.save(); x.transform(m[0], m[2], m[1], m[3], cx, cy); x.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { x.beginPath(); o.crop.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip(); } x.drawImage(o.im || o.c, -o.w / 2, -o.h / 2, o.w, o.h); x.restore(); return true; }
 // Unir: o que está selecionado vira pixels da camada atual, na mesma ordem em que aparece na tela
 // Unir é tudo-ou-nada: se qualquer passo der erro, o desenho volta exatamente como estava (nada some)
 function une() {
@@ -608,15 +645,16 @@ const nosRef = (o = ref) => o.crop || [[-o.w / 2, -o.h / 2], [o.w / 2, -o.h / 2]
 const imgHit1 = (o, px, py) => dentroPoli(paraLocal(o, px + .5, py + .5), nosRef(o));
 function refHit(px, py) { for (let i = imgs.length - 1; i >= 0; i--) { const o = imgs[i]; if (o.vis && imgHit1(o, px, py)) return o; } return null; }
 function desenhaImg(o) {
+  if ((o.crop || escalaRef(o) >= 1) && (o.im || o.c)) { ctx.save(); ctx.globalAlpha = o.op; ctx.imageSmoothingEnabled = false; ctx.drawImage(imgNitido(o), 0, 0); ctx.restore(); return; }
   const [cx, cy] = ctr(o), m = mm(o); ctx.save(); ctx.globalAlpha = o.op; ctx.transform(m[0], m[2], m[1], m[3], cx, cy);
   ctx.imageSmoothingEnabled = escalaRef(o) < 1; if (o.crop) { ctx.beginPath(); o.crop.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.clip(); }
   ctx.drawImage(o.im, -o.w / 2, -o.h / 2, o.w, o.h); ctx.restore();
 }
-function desenhaUm(o) { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') desenhaTraco(ctx, o); else ctx.drawImage(canvasObj(o), 0, 0); }
+function desenhaUm(o) { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') ctx.drawImage(tracoRaster(o), 0, 0); else ctx.drawImage(canvasObj(o), 0, 0); }
 function desenhaRef(acima) { const it = []; imgs.forEach(o => { if (o.vis && o.acima === acima) it.push(o); }); if (!acima) layers.forEach(l => { if (l.vis) l.objs.forEach(o => { if (embaixoDe(o)) it.push(o); }); }); it.sort(porZ).forEach(desenhaUm); }   // imagens "por baixo do desenho"
 function desenhaItens() {   // objetos e imagens "por cima": tudo na mesma ordem; o que foi criado por último fica na frente
   const it = []; layers.forEach(l => { if (l.vis) l.objs.forEach(o => { if (!embaixoDe(o)) it.push(o); }); }); imgs.forEach(o => { if (o.vis && o.acima) it.push(o); });
-  it.sort(porZ).forEach(o => { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') desenhaTraco(ctx, o); else ctx.drawImage(canvasObj(o), 0, 0); });
+  it.sort(porZ).forEach(o => { if (ehImg(o)) desenhaImg(o); else if (o.t === 'traco') ctx.drawImage(tracoRaster(o), 0, 0); else ctx.drawImage(canvasObj(o), 0, 0); });
 }
 function corDaRef(px, py) {
   for (let k = imgs.length - 1; k >= 0; k--) {
@@ -626,7 +664,7 @@ function corDaRef(px, py) {
   }
   return null;
 }
-function selecionaRef(o) { commitSel(); if (selObj !== o) modoGira = false; ref = o; selObj = o; nodeSel = []; camadasUi(); formaUi(); refUi(); redraw(); }
+function selecionaRef(o) { commitSel(); if (selObj !== o) modoGira = false; ref = o; selObj = o; if (encaixaPixel(o)) toca(); nodeSel = []; camadasUi(); formaUi(); refUi(); redraw(); }
 $('bRefImp').onclick = () => $('fRef').click(); $('fRef').onchange = e => { [...e.target.files].forEach(carregaRef); e.target.value = ''; };
 $('bRefTira').onclick = () => { if (ref) { selObj = ref; apagaObj(); } };
 $('rVis').onchange = () => { if (ref) { ref.vis = $('rVis').checked; redraw(); } }; $('rAcima').onchange = () => { if (ref) { ref.acima = $('rAcima').checked; redraw(); } };
@@ -638,8 +676,12 @@ $('bRefFit').onclick = () => { if (!ref) return; pushUndo(); const B = caixa(ref
 function noEm(e) { if (!ref || selObj !== ref) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ns = nosRef(); for (let i = 0; i < ns.length; i++) { const [X, Y] = paraMundo(ref, ns[i][0], ns[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
 function formaDown(e, pf, px, py) {
   if (!ehImg(selObj)) {   // objeto desenhado: seleciona, mostra os pontos e mexe nos pontos extras
+    const iv = verticeEm(e); if (iv >= 0) {   // clicar num ponto seleciona e arrasta; Shift+clique soma ou tira pontos da seleção; arrastar um dos selecionados leva todos
+      if (e.shiftKey && polySel.includes(iv)) { polySel = polySel.filter(i => i !== iv); ptSel = polySel.length ? polySel[polySel.length - 1] : -1; redraw(); return; }
+      pushUndo(); viraPoligono(selObj); if (e.shiftKey) polySel = polySel.concat(iv); else if (!polySel.includes(iv)) polySel = [iv]; ptSel = iv; const W0 = contornoObj(selObj); drag = { k: 'polyV', idxs: polySel.slice(), p0: pf, w0s: polySel.map(i => W0[i]) }; redraw(); return; }
     const k = pontoExtraEm(e); if (k >= 0) { ptSel = k; pushUndo(); drag = { k: 'ptExtra', idx: k }; redraw(); return; }
-    ptSel = -1; const hit = objetoNoPonto(px, py); if (hit && hit.o !== selObj) selecionaItem(hit); redraw(); return;
+    ptSel = -1; const hit = objetoNoPonto(px, py); if (hit && hit.o !== selObj) { polySel = []; selecionaItem(hit); redraw(); return; }
+    if (!e.shiftKey) polySel = []; if (selObj.t === 'retangulo' || selObj.t === 'losango' || selObj.t === 'poligono') drag = { k: 'polyMarq', p0: pf, p1: pf }; redraw(); return;   // arrastar no vazio: retângulo de seleção de pontos
   }
   const i = noEm(e);
   if (i >= 0) { let alterna = false; if (e.shiftKey) { if (nodeSel.includes(i)) alterna = true; else nodeSel = nodeSel.concat(i); } else if (!nodeSel.includes(i)) nodeSel = [i]; drag = { k: 'noMove', p0: pf, pts: nosRef().map(p => [...p]), undo: false, alterna, idx: i, moveu: false }; redraw(); return; }
@@ -665,6 +707,13 @@ addEventListener('dragover', e => e.preventDefault()); addEventListener('drop', 
 const TRACOS = {}, TRBOX = {}; let idTr = 0, trabalho = null, apagaCtx = [];
 const canvasTraco = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; c.getContext('2d', { willReadFrequently: true }); return c; };
 // o traço pode ser escalado e girado como qualquer objeto: a imagem dele é desenhada com a matriz do objeto, sem suavização
+// o traço esticado é montado em pixels REAIS da página (1x) e só então ampliado pelo zoom: assim cada pixel da tela é um pixel inteiro (desenhar a imagem escalada direto na tela ampliada mostrava pixels de 0,875 etc.)
+const RASTER = new WeakMap();
+function tracoRaster(o) {
+  if (tracoSimples(o)) return TRACOS[o.cid];   // sem escala nem giro: a própria imagem do traço (ela muda enquanto se desenha com o lápis, por isso nada de guardar cópia)
+  const k = [o.cid, mm(o).join(), o.x, o.y, o.w, o.h, W, H].join('|'); let e = RASTER.get(o); if (e && e.k === k) return e.c;
+  const c = e ? e.c : canvasTraco(); if (c.width !== W || c.height !== H) { c.width = W; c.height = H; } const g = c.getContext('2d'); g.clearRect(0, 0, W, H); desenhaTraco(g, o); RASTER.set(o, { k, c }); return c;
+}
 function desenhaTraco(c, o) { const [cx, cy] = ctr(o), m = mm(o); c.save(); c.transform(m[0], m[2], m[1], m[3], cx, cy); c.imageSmoothingEnabled = false; c.drawImage(TRACOS[o.cid], -o.w / 2, -o.h / 2, o.w, o.h); c.restore(); }
 function tracoCantos(o, bx) { const c = TRACOS[o.cid], kx = o.w / c.width, ky = o.h / c.height; return [[bx.x0, bx.y0], [bx.x1 + 1, bx.y0], [bx.x1 + 1, bx.y1 + 1], [bx.x0, bx.y1 + 1]].map(([a, b]) => paraMundo(o, (a - c.width / 2) * kx, (b - c.height / 2) * ky)); }
 const tracoSimples = o => { const t = TRACOS[o.cid]; return mm(o).join() === '1,0,0,1' && o.w === t.width && o.h === t.height; };
@@ -685,7 +734,7 @@ function iniciaBorracha() {   // apaga os pixels da camada e todos os traços vi
 }
 // ---------- ferramentas ----------
 function ferrUi() { $('tools').innerHTML = FERR.map(([id, ic, nome]) => '<button data-f="' + id + '" title="' + nome + '" class="' + (id === tool ? 'on' : '') + '"><b>' + ic + '</b>' + nome.split(' (')[0] + '</button>').join(''); $('tools').querySelectorAll('button').forEach(b => b.onclick = () => escolhe(b.dataset.f)); }
-function escolhe(id) { commitSel(); tool = id; nodeSel = []; if (id === 'losango') $('ratio').value = '2:1'; else if ($('ratio').value === '2:1') $('ratio').value = 'livre'; ferrUi(); cv.style.cursor = id === 'mover' ? 'move' : id === 'selecionar' ? 'default' : 'crosshair'; redraw(); }
+function escolhe(id) { commitSel(); tool = id; nodeSel = []; polySel = []; if (id === 'losango') $('ratio').value = '2:1'; else if ($('ratio').value === '2:1') $('ratio').value = 'livre'; ferrUi(); cv.style.cursor = id === 'mover' ? 'move' : id === 'selecionar' ? 'default' : 'crosshair'; redraw(); }
 const ptF = e => { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left - view.ox) / view.z, (e.clientY - r.top - view.oy) / view.z]; };
 const toPx = e => ptF(e).map(Math.floor);
 function pincela(x, y, cor, apaga) { const t = +$('tam').value || 1, o = Math.floor(t / 2); if (apaga) apagaCtx.forEach(([c, ox, oy]) => c.clearRect(x - o - ox, y - o - oy, t, t)); else { trabalho.fillStyle = cor; trabalho.fillRect(x - o, y - o, t, t); } }
@@ -762,6 +811,8 @@ cv.addEventListener('pointermove', e => {
   const [px, py] = toPx(e), pf = ptF(e); hover = [px, py]; status();
   if (drag && drag.k === 'omove' && (e.buttons & 2)) marcaCopia();
   if (!drag) { const gn0 = tool === 'selecionar' && !alcaEm(e) ? noPertoGeral(pf) : null, hn = gn0 && gn0.n; if ((hn ? hn.p.join() : '') !== (hoverNo ? hoverNo.p.join() : '')) { hoverNo = hn; redraw(); } if (tool === 'selecionar' || FORMAS.includes(tool)) { const h = alcaEm(e); cv.style.cursor = h ? (modoGira ? 'alias' : (h.dx && h.dy ? (h.dx * h.dy > 0 ? 'nwse-resize' : 'nesw-resize') : h.dx ? 'ew-resize' : 'ns-resize')) : (tool === 'selecionar' ? (dentroSel(px, py) || objetoNoPonto(px, py) ? 'move' : 'default') : 'crosshair'); if (hoverNo) cv.style.cursor = 'crosshair'; } return; }
+  if (drag.k === 'polyMarq') { drag.p1 = pf; redraw(); return; }
+  if (drag.k === 'polyV') { const o = selObj, novos = new Map(drag.idxs.map((i, k) => [i, paraLocal(o, Math.round(drag.w0s[k][0] + pf[0] - drag.p0[0]), Math.round(drag.w0s[k][1] + pf[1] - drag.p0[1]))])); if (drag.idxs.some(i => o.poly[i][0] !== novos.get(i)[0] || o.poly[i][1] !== novos.get(i)[1])) { o.poly = o.poly.map((p, i) => novos.has(i) ? novos.get(i) : p); recentraPoli(o); toca(); } return; }
   if (drag.k === 'ptExtra') { const o = selObj, q = paraLocal(o, pf[0], pf[1]); o.pts = o.pts.map((p, i) => i === drag.idx ? q : p); toca(); return; }
   if (drag.k === 'noMove') {   // todos os pontos selecionados andam a mesma distância; Shift = linha reta (horizontal ou vertical)
     if (!drag.undo) { drag.undo = true; pushUndo(); }
@@ -814,6 +865,7 @@ cv.addEventListener('pointermove', e => {
     if (r - l < 1) { if (dx < 0) l = r - 1; else r = l + 1; } if (b - t < 1) { if (dy < 0) t = b - 1; else b = t + 1; }
     const rt = e.shiftKey ? [B.r - B.l, B.b - B.t] : ratioDe();
     if (rt) { if (dx) { const nh = Math.max(1, (r - l) * rt[1] / rt[0]); if (dy < 0) t = b - nh; else if (dy > 0) b = t + nh; else { const m = (t + b) / 2; t = m - nh / 2; b = m + nh / 2; } } else { const nw = Math.max(1, (b - t) * rt[0] / rt[1]), m = (l + r) / 2; l = m - nw / 2; r = m + nw / 2; } }
+    l = Math.round(l); t = Math.round(t); r = Math.max(l + 1, Math.round(r)); b = Math.max(t + 1, Math.round(b));   // a caixa cai SEMPRE em pixels inteiros (senão aparecem colunas de menos de 1 pixel)
     if (!drag.undo) { drag.undo = true; pushUndoCom(o, o0.m, o0); }
     o.m = o0.m; o.w = o0.w; o.h = o0.h; o.x = o0.x; o.y = o0.y; o.crop = o0.crop; o.pts = o0.pts; ajustaCaixa(o, l, t, r - l, b - t); toca();
   }
@@ -821,6 +873,7 @@ cv.addEventListener('pointermove', e => {
 cv.addEventListener('pointerup', () => {
   if (drag && drag.k === 'omove' && drag.moveu) aplicaMover(drag);
   if (drag && drag.k === 'noMove' && drag.alterna && !drag.moveu) nodeSel = nodeSel.filter(k => k !== drag.idx);   // Shift+clique num ponto já selecionado, sem arrastar, tira ele da seleção
+  if (drag && drag.k === 'polyMarq' && selObj && selObj.t !== 'traco') { const x0 = Math.min(drag.p0[0], drag.p1[0]), x1 = Math.max(drag.p0[0], drag.p1[0]), y0 = Math.min(drag.p0[1], drag.p1[1]), y1 = Math.max(drag.p0[1], drag.p1[1]), dentroR = contornoObj(selObj).map((q, i) => [i, q]).filter(([, q]) => q[0] >= x0 && q[0] <= x1 && q[1] >= y0 && q[1] <= y1).map(([i]) => i); polySel = [...new Set((polySel || []).concat(dentroR))]; ptSel = polySel.length ? polySel[polySel.length - 1] : -1; }
   if (drag && drag.k === 'noMarq') { const x0 = Math.min(drag.p0[0], drag.p1[0]), x1 = Math.max(drag.p0[0], drag.p1[0]), y0 = Math.min(drag.p0[1], drag.p1[1]), y1 = Math.max(drag.p0[1], drag.p1[1]); nodeSel = nosRef().map((p, i) => [i, paraMundo(ref, p[0], p[1])]).filter(([, q]) => q[0] >= x0 && q[0] <= x1 && q[1] >= y0 && q[1] <= y1).map(([i]) => i); }
   if (drag && drag.k === 'marq') { const [a, b] = drag.p0, [c, d] = drag.p1; if (Math.abs(c - a) + Math.abs(d - b) > 0) marcaRet(Math.min(a, c), Math.min(b, d), Math.max(a, c), Math.max(b, d), drag.soma); }
   if (drag && drag.k === 'marcar') { const d = drag; drag = null; somaSel(d.m, d.tira); }
@@ -847,6 +900,8 @@ addEventListener('keydown', e => {
   if (grupo && e.key.startsWith('Arrow')) { e.preventDefault(); const p = e.shiftKey ? 8 : 1; if (!grupo.comPx) pushUndo(); moveGrupo(e.key === 'ArrowLeft' ? -p : e.key === 'ArrowRight' ? p : 0, e.key === 'ArrowUp' ? -p : e.key === 'ArrowDown' ? p : 0); salvaAuto(); return; }
   if (e.key === 'Escape') { if (sel) commitSel(); else { selObj = null; modoGira = false; formaUi(); redraw(); } return; }
   if (e.key === 'Enter' && sel) { commitSel(); return; }
+  if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey && (sel || grupo)) { e.preventDefault(); selParaObjeto(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj && selObj.t === 'poligono' && (polySel.length || ptSel >= 0)) { const lista = polySel.length ? polySel : [ptSel]; e.preventDefault(); if (selObj.poly.length - lista.length >= 3) { pushUndo(); selObj.poly = selObj.poly.filter((_, i) => !lista.includes(i)); ptSel = -1; polySel = []; recentraPoli(selObj); toca(); } return; }   // um polígono não pode ficar com menos de 3 pontos: nesse caso o Delete não faz nada (não apaga a forma)
   if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj && !ehImg(selObj) && ptSel >= 0 && selObj.pts && selObj.pts[ptSel]) { e.preventDefault(); pushUndo(); selObj.pts = selObj.pts.filter((_, i) => i !== ptSel); ptSel = -1; toca(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && tool === 'forma' && selObj === ref && nodeSel.length) { e.preventDefault(); apagaNos(); return; }
   if (e.key === 'Delete' || e.key === 'Backspace') { if (selObj) { e.preventDefault(); apagaObj(); } else if (sel) { e.preventDefault(); sel = null; salvaAuto(); redraw(); } return; }
@@ -898,12 +953,14 @@ function desenha() {
   if (tool === 'forma' && selObj && !ehImg(selObj)) {   // pontos do objeto: vértices (brancos) e pontos extras (azuis)
     const o = selObj, ps = contornoObj(o).map(p => [p[0] * z, p[1] * z]); ctx.beginPath(); ps.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); if (o.t !== 'linha') ctx.closePath(); ctx.strokeStyle = '#2f8cff'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
     nosMundo(o).forEach(n => { if (n.nome === 'centro') return; const x = n.p[0] * z, y = n.p[1] * z; ctx.fillStyle = n.extra ? '#2f8cff' : '#fff'; ctx.fillRect(x - 4, y - 4, 8, 8); ctx.strokeStyle = '#2f8cff'; ctx.lineWidth = 1; ctx.strokeRect(x - 3.5, y - 3.5, 8, 8); });
+    if (o.t === 'poligono') polySel.forEach(i => { if (!o.poly[i]) return; const [X, Y] = paraMundo(o, o.poly[i][0], o.poly[i][1]); ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 2; ctx.strokeRect(X * z - 6, Y * z - 6, 12, 12); });
     (o.pts || []).forEach((q, i) => { if (i !== ptSel) return; const [X, Y] = paraMundo(o, q[0], q[1]); ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 2; ctx.strokeRect(X * z - 6, Y * z - 6, 12, 12); });
   }
   if (tool === 'forma' && ref && selObj === ref) {
     const ns = nosRef(), ps = ns.map(p => paraMundo(ref, p[0], p[1]).map(v => v * z));
     ctx.beginPath(); ps.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.strokeStyle = '#2f8cff'; ctx.lineWidth = 1; ctx.setLineDash([5, 4]); ctx.stroke(); ctx.setLineDash([]);
     ps.forEach((p, i) => { ctx.fillStyle = nodeSel.includes(i) ? '#2f8cff' : '#fff'; ctx.fillRect(p[0] - 4, p[1] - 4, 8, 8); ctx.strokeStyle = '#2f8cff'; ctx.strokeRect(p[0] - 3.5, p[1] - 3.5, 8, 8); });
+    if (drag && drag.k === 'polyMarq') { const a = Math.min(drag.p0[0], drag.p1[0]), b = Math.min(drag.p0[1], drag.p1[1]); ants(a * z, b * z, Math.abs(drag.p1[0] - drag.p0[0]) * z, Math.abs(drag.p1[1] - drag.p0[1]) * z); }
     if (drag && drag.k === 'noMarq') { const a = Math.min(drag.p0[0], drag.p1[0]), b = Math.min(drag.p0[1], drag.p1[1]); ants(a * z, b * z, Math.abs(drag.p1[0] - drag.p0[0]) * z, Math.abs(drag.p1[1] - drag.p0[1]) * z); }
   }
   ctx.restore(); status(); salvaAuto();
