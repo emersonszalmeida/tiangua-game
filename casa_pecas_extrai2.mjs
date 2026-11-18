@@ -52,4 +52,18 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
   [[71, 885], [237, 880], [381, 898], [528, 897], [676, 896]].forEach(([X0, Y0], k) => { const w = 68, h = 126, d = new Uint8Array(w * h * 4); let n = 0;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2]; if (!P.data[i + 3]) continue; if (g > r + 25 && g > b + 40) continue; const j = (y * w + x) * 4; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
     saida['y_DA_f' + (k + 1)] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax: 67, ay: 93 }; console.log(('y_DA_f' + (k + 1)).padEnd(8), w + 'x' + h, 'pixels', n); }); }
+// porta ↘ alta ANIMADA (x_DA_f1..5): ESPELHO dos quadros da ↙. Medido nas peças do dono: a parede ↘ é o espelho exato da ↙ (forma 100%), só com luz diferente
+// (cada tom ~14% mais claro: 181→205, 140→160, 94→110; a linha escura 47,38,34 não muda). Então: onde o quadro espelhado ainda é parede (pixel igual ao y_DA espelhado), usa a x_DA do dono;
+// o resto (porta e batente de madeira) recebe a mesma luz da parede (×LUZ_X), menos o contorno escuro. LUZ_X=1 deixa a madeira igual à da ↙.
+{ const LUZ_X = +(process.env.LUZ_X || 1.14);
+  const dec = k => { const f = (process.env.TEMP || '.') + '/pe_' + k + '_' + process.pid + '.png'; fs.writeFileSync(f, Buffer.from(saida[k].src.split(',')[1], 'base64')); const im = decodePNG(f); fs.unlinkSync(f); return im; };
+  const YB = dec('y_DA'), XB = dec('x_DA'), w = 68, h = 126;
+  for (let k = 1; k <= 5; k++) { const F = dec('y_DA_f' + k), d = new Uint8Array(w * h * 4); let par = 0, mad = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + (w - 1 - x)) * 4, j = (y * w + x) * 4; if (!F.data[i + 3]) continue;
+      const parede = YB.data[i + 3] && F.data[i] === YB.data[i] && F.data[i + 1] === YB.data[i + 1] && F.data[i + 2] === YB.data[i + 2];
+      if (parede && XB.data[j + 3]) { for (let c = 0; c < 4; c++) d[j + c] = XB.data[j + c]; par++; continue; }
+      const r = F.data[i], g = F.data[i + 1], b = F.data[i + 2], esc = r + g + b < 150;   /* contorno escuro (47,38,34 e vizinhos) fica igual, como na parede */
+      d[j] = esc ? r : Math.min(255, Math.round(r * LUZ_X)); d[j + 1] = esc ? g : Math.min(255, Math.round(g * LUZ_X)); d[j + 2] = esc ? b : Math.min(255, Math.round(b * LUZ_X)); d[j + 3] = 255; mad++; }
+    saida['x_DA_f' + k] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax: saida.x_DA.ax, ay: saida.x_DA.ay };
+    console.log(('x_DA_f' + k).padEnd(8), w + 'x' + h, 'parede do dono', par, 'madeira com luz', mad); } }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');
