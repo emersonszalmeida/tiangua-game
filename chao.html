@@ -305,7 +305,7 @@ function pintaMouse(e) {
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
 const P = PERS.create('NE'); let hx = M / 2 + .5, hy = M / 2 + .5, last = performance.now();
-window.CENTRO = new URLSearchParams(location.search).has('centro');
+window.CENTRO = !new URLSearchParams(location.search).has('antigo');   // SISTEMA DE COLUNAS (desenho21 do dono) é o PADRÃO; ?antigo volta às paredes do desenho17 com as peças de canto
 const q = new URLSearchParams(location.search); if (q.has('x')) hx = +q.get('x'); if (q.has('y')) hy = +q.get('y'); if (q.has('z')) K = +q.get('z');
 if (q.has('demoporta')) {   // exemplo da porta animada: sala 3x3 (células 4..6) com porta alta nas 4 paredes (↙ e ↘, fundo e frente); personagem fora, perto da porta do fundo. Não grava no mapa salvo.
   pisos = new Set(); paredes = []; for (let x = 4; x <= 6; x++) for (let y = 4; y <= 6; y++) pisos.add(x + ',' + y);
