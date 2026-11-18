@@ -295,6 +295,11 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
 const P = PERS.create('NE'); let hx = M / 2 + .5, hy = M / 2 + .5, last = performance.now();
 const q = new URLSearchParams(location.search); if (q.has('x')) hx = +q.get('x'); if (q.has('y')) hy = +q.get('y'); if (q.has('z')) K = +q.get('z');
+if (q.has('demoporta')) {   // exemplo da porta animada: sala 3x3 (células 4..6) com porta alta nas duas paredes ↙ (a do fundo e a da frente); personagem fora, perto da porta do fundo. Não grava no mapa salvo.
+  pisos = new Set(); paredes = []; for (let x = 4; x <= 6; x++) for (let y = 4; y <= 6; y++) pisos.add(x + ',' + y);
+  for (let i = 4; i <= 6; i++) { paredes.push({ a: 'x', c: 4, n: i, k: 'high' }, { a: 'x', c: 7, n: i, k: 'high' }, { a: 'y', c: 4, n: i, k: i === 5 ? 'door' : 'high' }, { a: 'y', c: 7, n: i, k: i === 5 ? 'door' : 'high' }); }
+  recalcParedes(); if (!q.has('x')) { hx = 2.4; hy = 5.5; } autosave = () => {};
+}
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
   const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), run = keys.ShiftLeft || keys.ShiftRight;

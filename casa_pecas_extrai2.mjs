@@ -47,9 +47,9 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
       if (Math.max(r, g, b) - Math.min(r, g, b) > 110 && (r > 150 || g > 150 || b > 150)) continue;   /* piso */
       const j = (y * w + x) * 4; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
     saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax, ay }; console.log(nome.padEnd(6), w + 'x' + h, 'âncora', ax + ',' + ay, 'pixels', n); } }
-// porta ↙ alta ANIMADA (exemplo do dono, desenho18.png, linha de baixo): 5 quadros (1 fechada ... 5 aberta), mesma caixa e âncora do y_DA (68x126, 67,93); só o piso verde de apoio é tirado
-{ const P = decodePNG('arte_casa/exportado_2026-11-17/desenho18.png');
-  [[70, 940], [196, 925], [327, 902], [483, 892], [639, 886]].forEach(([X0, Y0], k) => { const w = 68, h = 126, d = new Uint8Array(w * h * 4); let n = 0;
+// porta ↙ alta ANIMADA (do dono: desenho19.png, porta de madeira com almofadas, linha de baixo; antes desenho18 = porta lisa): 5 quadros (1 fechada ... 5 aberta), mesma caixa e âncora do y_DA (68x126, 67,93); só o piso verde de apoio é tirado
+{ const P = decodePNG('arte_casa/exportado_2026-11-17/desenho19.png');
+  [[71, 885], [237, 880], [381, 898], [528, 897], [676, 896]].forEach(([X0, Y0], k) => { const w = 68, h = 126, d = new Uint8Array(w * h * 4); let n = 0;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2]; if (!P.data[i + 3]) continue; if (g > r + 25 && g > b + 40) continue; const j = (y * w + x) * 4; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
     saida['y_DA_f' + (k + 1)] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax: 67, ay: 93 }; console.log(('y_DA_f' + (k + 1)).padEnd(8), w + 'x' + h, 'pixels', n); }); }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');

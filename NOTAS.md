@@ -161,3 +161,7 @@ O dono desistiu das toras desenhadas e NÃO quer textura de madeira: as peças d
 ## Editor-pixel: pintura presa à imagem (2026-11-09)
 - Traço/forma/balde feitos com o primeiro ponto sobre uma imagem importada recebem `pai = id da imagem`; mover a imagem (arrastar, setas, campos X/Y) leva a pintura; Alt+arrastar duplica imagem + pintura. Escalar/girar a imagem ainda NÃO leva a pintura.
 - Dono refez a parede alta ↘ com largura de 1 tile (64 px + espessura), sem a moldura rosa: ao aplicar as folhas, detectar a peça pela caixa dos pixels não transparentes, não pela moldura magenta.
+
+## Porta animada de madeira — 2026-11-17
+- Folha do dono `arte_casa/exportado_2026-11-17/desenho19.png` (igual à desenho17/18, só a linha de baixo mudou: porta de madeira com almofadas em 5 quadros). `casa_pecas_extrai2.mjs` lê os quadros dela (posições achadas encaixando a parede de cada quadro na do desenho18: 100%). Regerar: `node casa_pecas_extrai2.mjs arte_casa/exportado_2026-11-16/desenho17.png`.
+- Ver funcionando: `chao.html?novo&demoporta` (sala 3x3 com porta alta nas duas paredes ↙; não grava no mapa salvo). Só a porta ↙ alta (y_DA) é animada; a ↘ e a porta média ainda são fixas.
