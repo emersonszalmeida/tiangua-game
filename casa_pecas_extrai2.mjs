@@ -1,4 +1,17 @@
-// Folha nova do dono (desenho (9).png): peças soltas em cima, montagens com piso embaixo. As montagens mostram o encaixe:
+// ============================================================================================================
+// EXTRATOR DAS PEÇAS DA CASA -> casa_pecas_dados.js (const PECAS, lido pelo chao.html)
+// Uso atual (rodar na pasta do projeto):
+//   node casa_pecas_extrai2.mjs arte_casa/exportado_2026-11-16/desenho17.png
+// Fontes:
+//   - paredes/cantos/portas médias: a folha passada no argumento (desenho17.png, exportada do editor-pixel pelo dono)
+//   - peças de encontro: arte_casa/exportado_2026-11-16/print_pecas_encontro.png
+//   - porta alta ANIMADA (5 quadros): arte_casa/exportado_2026-11-17/desenho19.png (linha de baixo)
+// Saídas:
+//   - casa_pecas_dados.js (todas as peças embutidas em base64; não editar à mão)
+//   - arte_casa/portas_animadas/*.png (os quadros das portas, para conferir/editar; ver o bloco das portas no fim)
+// Para mudar uma peça: o dono redesenha no editor-pixel, exporta a folha, e o Claude acha as posições novas e roda este script.
+// ============================================================================================================
+// Folha do dono (era desenho (9).png, hoje desenho17.png): peças soltas em cima, montagens com piso embaixo. As montagens mostram o encaixe:
 //   a parede ↘ (x) começa no vértice e vai para a direita; a parede ↙ (y) começa no vértice e vai para a esquerda.
 //   Medido nas montagens: x_A tem o vértice a 1 px da borda esquerda e a parede y_A a 67 px; a base fica 33 px acima da borda de baixo da peça (ay = altura - 33).
 // uso: node casa_pecas_extrai2.mjs "caminho/desenho (9).png"
@@ -71,4 +84,16 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
     saida['y_DA_f' + k].src = enc(dy, w, h);
     saida['x_DA_f' + k] = { src: enc(dx, w, h), w, h, ax: saida.x_DA.ax, ay: saida.x_DA.ay };
     console.log('porta quadro ' + k + ': madeira ' + mad + ' px (↘ ×' + LUZ_X.toFixed(3) + ', ↙ ×' + LUZ_Y.toFixed(3) + ')'); } }
+// PNGs das portas animadas, para o dono ver e editar no editor-pixel (em qualquer computador: vão para o GitHub)
+//   arte_casa/portas_animadas/y_DA_f1..5.png (↙, contra a luz) e x_DA_f1..5.png (↘, iluminada); 68x126 cada, âncora no vértice (↙: 67,93; ↘: 1,93)
+//   arte_casa/portas_animadas/_folha.png: os 10 quadros juntos em 1x (linha de cima ↙, de baixo ↘), fundo transparente
+// ATENÇÃO: estes PNGs são SAÍDA (este script os sobrescreve). Para mudar a porta de verdade, edite o desenho19.png (a madeira da ↘)
+// ou entregue o PNG editado ao Claude para virar a nova fonte.
+{ const dir = 'arte_casa/portas_animadas'; fs.mkdirSync(dir, { recursive: true });
+  const dec = k => { const f = (process.env.TEMP || '.') + '/pp_' + k + '_' + process.pid + '.png'; fs.writeFileSync(f, Buffer.from(saida[k].src.split(',')[1], 'base64')); const im = decodePNG(f); fs.unlinkSync(f); return im; };
+  const cw = 76, ch = 134, FW = cw * 5, FH = ch * 2, folha = new Uint8Array(FW * FH * 4);
+  ['y', 'x'].forEach((a, lin) => { for (let k = 1; k <= 5; k++) { const nome = a + '_DA_f' + k;
+    fs.writeFileSync(dir + '/' + nome + '.png', Buffer.from(saida[nome].src.split(',')[1], 'base64'));
+    const im = dec(nome); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) { const i = (y * im.w + x) * 4, j = ((lin * ch + 4 + y) * FW + (k - 1) * cw + 4 + x) * 4; for (let c = 0; c < 4; c++) folha[j + c] = im.data[i + c]; } } });
+  fs.writeFileSync(dir + '/_folha.png', encodePNG(FW, FH, folha)); console.log('PNGs das portas em', dir); }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');

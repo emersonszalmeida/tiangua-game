@@ -7,6 +7,16 @@
 - O foco agora é a **casa** no editor `chao.html` (paredes, cantos, portas animadas, peças desenhadas pelo dono no editor-pixel). Ver os commits de 10 a 17/11 para as regras de encaixe dos cantos (V/L/</>, T, porta média) e a porta animada (desenho18).
 - `pl_skin.mjs`: experimento de skin do personagem pela API do PixelLab (chave em `.pixellab_secret`, fora do git). Ainda não gerou nada.
 
+## ▶ POR ONDE RETOMAR (fim do dia 2026-11-17)
+1. `git pull` na pasta do projeto.
+2. Ver a casa funcionando: abrir `chao.html?novo&demoporta` (duplo clique no chao.html e acrescentar `?novo&demoporta` no endereço). Sala 3x3 com porta alta animada nas 4 paredes; WASD anda, a porta abre em 5 quadros quando o personagem chega perto.
+3. **Imagens das portas para editar:** `arte_casa/portas_animadas/` — `y_DA_f1..5.png` (↙, contra a luz), `x_DA_f1..5.png` (↘, iluminada, cores do dono) e `_folha.png` (os 10 juntos em 1x). Abrir no editor-pixel com "Abrir PNG".
+   - São SAÍDA do `casa_pecas_extrai2.mjs` (ele sobrescreve). Depois de editar, exporte e passe o PNG ao Claude: ele troca a fonte da porta no extrator e regera `casa_pecas_dados.js`.
+   - A fonte atual da madeira é `arte_casa/exportado_2026-11-17/desenho19.png` (linha de baixo); as folhas exportadas `arte_casa/exportado_*/*.png` agora vão para o GitHub (liberadas no `.gitignore`).
+4. Projeto aberto no editor-pixel: `arte_casa/em_andamento/casa_porta_2026-11-17.pixel.json` (botão "Abrir projeto"; o `?abrir=` só funciona no GitHub Pages, não com duplo clique).
+5. Editor-pixel: corrigido hoje o traço movido que aparecia no lugar antigo (arrastar grupo deixava a parede para trás).
+6. Pendente na casa: porta MÉDIA animada (hoje só batentes fixos), janelas, móveis, telhado que some com o personagem dentro. Nome do repositório no GitHub: o dono vai renomear para `jogo-pixelart-isometrico` (Settings → General → Repository name); depois, `git remote set-url origin https://github.com/emersonszalmeida/jogo-pixelart-isometrico.git` nos dois computadores (o endereço antigo continua redirecionando).
+
 ## O que era o projeto (antes, só histórico)
 Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **praças** são os objetivos.
 - Disputa em horário marcado, no modelo dos castelos do *Warspear Online*: 4 portões/ruas de entrada; clãs de fora matam um chefe para ganhar o "passe", entram e destroem um objeto central antes do tempo acabar.
