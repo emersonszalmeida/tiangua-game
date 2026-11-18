@@ -1,0 +1,5 @@
+Folha 1454x1760, tamanho real (1 pixel = 1 pixel), fundo transparente (arquivo @x,y largura x altura):
+exportado_2026-11-16/desenho17.png @0,0 910x1472
+exportado_2026-11-16/print_cantos_porta.png (4x -> 1x) @930,0 307x171
+exportado_2026-11-16/print_pecas_encontro.png (3x -> 1x) @930,191 524x265
+portas_animadas/_folha.png @0,1492 380x268

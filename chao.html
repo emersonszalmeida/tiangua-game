@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=23"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=24"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -178,11 +178,13 @@ function itensCasa() {
     const wa = arm(v, nome[0]), wb = arm(v, nome[1]); if (!wa || !wb) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb) continue; const mista = (ha === 'A' && hb === 'DA') || (ha === 'DA' && hb === 'A') || (nome === 'LU' && ((ha === 'M' && hb === 'DM') || (ha === 'DM' && hb === 'M'))) || (nome === 'RU' && ha === 'M' && (hb === 'A' || hb === 'DA')) || (nome === 'LD' && (ha === 'A' || ha === 'DA') && hb === 'M') || (nome === 'RU' && ha === 'DM' && hb === 'A') || (nome === 'LD' && ha === 'A' && hb === 'DM') || (nome === 'RD' && ((ha === 'A' && hb === 'M') || (ha === 'M' && hb === 'A') || (ha === 'DM' && hb === 'A') || (ha === 'A' && hb === 'DM'))); if (!mista && (ha !== hb || (ha !== 'A' && ha !== 'M'))) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nome + '_' + ha + hb); continue; }   // alta+porta: só existem o < e o > com a porta na parede de trás (RU_ADA, LD_DAA)
     let nm = nome + '_' + ha + hb;
     if (nm === 'RU_MA') nm = 'RU_CC'; else if (nm === 'LD_AM') nm = 'LD_CC'; else if (nm === 'RU_MDA') nm = 'RU_PP'; else if (nm === 'LD_DAM') nm = 'LD_PP'; else if (nm === 'LU_MM' && postaIni(wa) && postaIni(wb)) nm = 'LU_CC';   // PP = canto com a porta no fundo;   // sala: < com a frente média e o fundo alto; > idem; V com os dois começos encostando em parede alta
+    // MODO COLUNA (?centro, protótipo 2026-11-18): canto de 2 braços, os dois da mesma altura (alta ou média), sem porta = só a COLUNA do centro (C_RD_A, C_LU_M ...) por cima das duas paredes soltas, em vez do canto inteiro
+    const nBr = (v.L ? 1 : 0) + (v.R ? 1 : 0) + (v.U ? 1 : 0) + (v.D ? 1 : 0), usaCol = !!window.CENTRO && !emT && nBr === 2 && ha === hb && (ha === 'A' || ha === 'M') && !!peca('C_' + nome + '_' + ha); if (usaCol) nm = 'C_' + nome + '_' + ha;
     if (!peca(nm)) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nm); if (typeof PECAS !== 'undefined' && !PECAS[nm] && ha === 'A' && !mista) faltam.add(nm); continue; }
     const dC = Math.max(wa.key, wb.key) + 0.002;
     const ehDM = Hh(wa) === 'DM' || Hh(wb) === 'DM';
     const oC = peca(nm), cX = sx(v.x, v.y) - (oC ? oC.ax : 0), cY = sy(v.x, v.y) - (oC ? oC.ay : 0), tocaJog = !!oC && cX < H0[0] + H0[2] - 10 && cX + oC.w > H0[0] + 10 && cY < H0[1] + H0[3] && cY + oC.h > H0[1];   // (H0 = [x, y, largura, altura]) só parte o canto por braço se ele realmente passa pelo corpo do personagem; senão vai a peça pronta INTEIRA
-    if ((wa.atras !== wb.atras && tocaJog) || ehDM) {   // um braço está atrás do personagem e o outro na frente: o canto é partido por braço (cada pixel vai com a parede a que pertence), senão cobriria o personagem
+    if (!usaCol && ((wa.atras !== wb.atras && tocaJog) || ehDM)) {   // um braço está atrás do personagem e o outro na frente: o canto é partido por braço (cada pixel vai com a parede a que pertence), senão cobriria o personagem
       const X = sx(v.x, v.y), Y = sy(v.x, v.y), cv2 = pecaPorBraco(nm, nome, wa, wb, false); if (cv2) { const o = peca(nm), r = [X - o.ax, Y - o.ay, o.w, o.h];
         out.push({ d: dC, atras: wa.atras, r, f: () => ctx.drawImage(cv2.a, X - o.ax, Y - o.ay) }); out.push({ d: dC, atras: wb.atras, r, f: () => ctx.drawImage(cv2.b, X - o.ax, Y - o.ay) });
         if (cv2.j) { const A = Hh(wa) === 'DM' ? nome[0] : nome[1], jx = v.x + (A === 'R' ? .15 : A === 'L' ? -.15 : 0), jy = v.y + (A === 'D' ? .15 : A === 'U' ? -.15 : 0); out.push({ d: dC, atras: hx + hy > jx + jy, r, f: () => ctx.drawImage(cv2.j, X - o.ax, Y - o.ay) }); } }
@@ -294,6 +296,7 @@ function pintaMouse(e) {
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
 const P = PERS.create('NE'); let hx = M / 2 + .5, hy = M / 2 + .5, last = performance.now();
+window.CENTRO = new URLSearchParams(location.search).has('centro');
 const q = new URLSearchParams(location.search); if (q.has('x')) hx = +q.get('x'); if (q.has('y')) hy = +q.get('y'); if (q.has('z')) K = +q.get('z');
 if (q.has('demoporta')) {   // exemplo da porta animada: sala 3x3 (células 4..6) com porta alta nas 4 paredes (↙ e ↘, fundo e frente); personagem fora, perto da porta do fundo. Não grava no mapa salvo.
   pisos = new Set(); paredes = []; for (let x = 4; x <= 6; x++) for (let y = 4; y <= 6; y++) pisos.add(x + ',' + y);

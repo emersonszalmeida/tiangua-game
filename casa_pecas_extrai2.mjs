@@ -96,4 +96,15 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
     fs.writeFileSync(dir + '/' + nome + '.png', Buffer.from(saida[nome].src.split(',')[1], 'base64'));
     const im = dec(nome); for (let y = 0; y < im.h; y++) for (let x = 0; x < im.w; x++) { const i = (y * im.w + x) * 4, j = ((lin * ch + 4 + y) * FW + (k - 1) * cw + 4 + x) * 4; for (let c = 0; c < 4; c++) folha[j + c] = im.data[i + c]; } } });
   fs.writeFileSync(dir + '/_folha.png', encodePNG(FW, FH, folha)); console.log('PNGs das portas em', dir); }
+// FOLHA 2026-11-18 (desenho19b.png): peças soltas do dono (22 = 8 paredes + 10 portas + 4 batentes) e 8 COLUNAS de canto (centros), alta e média. Substitui x_DA, y_DA e os 4 batentes (as portas animadas são idênticas às de desenho19) e cria C_<canto>_<A|M>.
+// As colunas ficam sobre o piso colorido da folha, no vértice certo: RD = topo (^), LU = base (V), RU = esquerda (<), LD = direita (>). Âncora = vértice do canto inteiro de que a coluna é o miolo (calibrado: cada coluna encaixa 98,6-100% pixel a pixel no miolo de RD_AA, LU_AA, RU_AA, LD_AA, RD_MM, LU_MM, RU_MM, LD_MM).
+{ const P = decodePNG('arte_casa/exportado_2026-11-18/desenho19b.png');
+  const recorta = (nome, X0, Y0, w, h, ax, ay) => { const d = new Uint8Array(w * h * 4); let n = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2], j = (y * w + x) * 4; if (!P.data[i + 3]) continue; if (Math.max(r, g, b) - Math.min(r, g, b) > 110 && (r > 150 || g > 150 || b > 150)) continue; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
+    if (n < 30) throw new Error('peça vazia: ' + nome); saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax, ay }; console.log(nome.padEnd(8), w + 'x' + h, 'âncora', ax + ',' + ay, 'pixels', n); };
+  const ant = n => saida[n];   // mantém as âncoras que já funcionavam
+  for (const [nome, X0, Y0] of [['x_DA', 2, 130], ['y_DA', 72, 130]]) recorta(nome, X0, Y0, 68, 126, ant(nome).ax, ant(nome).ay);
+  for (const [nome, X0, Y0] of [['x_DM1', 142, 196], ['y_DM1', 260, 196], ['x_DM2', 190, 220], ['y_DM2', 212, 220]]) recorta(nome, X0, Y0, 20, 36, ant(nome).ax, ant(nome).ay);
+  for (const [nome, X0, Y0, w, h, ax, ay] of [['C_RD_A', 583, 11, 10, 99, 5, 95], ['C_LU_A', 583, 137, 10, 99, 5, 97], ['C_RU_A', 457, 76, 6, 97, 5, 95], ['C_LD_A', 713, 76, 6, 97, 1, 95],
+    ['C_RD_M', 785, 109, 10, 33, 5, 29], ['C_LU_M', 785, 171, 10, 33, 5, 31], ['C_RU_M', 723, 142, 6, 31, 5, 29], ['C_LD_M', 851, 142, 6, 31, 1, 29]]) recorta(nome, X0, Y0, w, h, ax, ay); }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');
