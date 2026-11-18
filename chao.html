@@ -208,7 +208,7 @@ function itensCasa() {
     const k = Hh(w); if (k === null) { faltam.add('parede baixa'); continue; }
     const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
     if (k === 'DM') { for (const i of [1, 2]) if (!(i === 1 && semJ1.has(w))) itemPeca(w.p.a + '_DM' + i, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), hx + hy > (w.p.a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n) + (i === 1 ? .15 : .85)); continue; }   // porta média = os dois batentes
-    let nm = w.p.a + '_' + (k === 'M' && !window.CENTRO && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // modo coluna: sem a perninha alta (a coluna alta cobre) if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
+    let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // média que começa encostada numa parede alta: peça com o pedaço alto (no modo coluna, a x_C_n / y_C_n do desenho21) if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     itemPeca(nm, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), w.atras); }
   window.FALTAM = faltam;
   return out;

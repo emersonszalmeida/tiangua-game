@@ -7,6 +7,12 @@
 - O foco agora é a **casa** no editor `chao.html` (paredes, cantos, portas animadas, peças desenhadas pelo dono no editor-pixel). Ver os commits de 10 a 17/11 para as regras de encaixe dos cantos (V/L/</>, T, porta média) e a porta animada (desenho18).
 - `pl_skin.mjs`: experimento de skin do personagem pela API do PixelLab (chave em `.pixellab_secret`, fora do git). Ainda não gerou nada.
 
+## ▶ SISTEMA DE COLUNAS (2026-11-18, desenho21.png)
+- Folha nova do dono: `arte_casa/exportado_2026-11-18/desenho21.png` (projeto do editor: `arte_casa/em_andamento/desenho20_2026-11-18.pixel.json`). Paredes soltas aparadas (62 px), portas, batentes, quadros da porta animada e 6 colunas (3 altas, 3 médias).
+- Ver no jogo: `chao.html?novo&demoporta&centro`. Com `?centro`: coluna em TODO vértice com parede, sem peças de canto; sem `?centro` o jogo continua como antes.
+- Coluna: 1ª (simétrica, C_O) em ^ e V (e T/cruz/reta/ponta), 2ª (C_RU) no <, 3ª (C_LD) no >; alta se alguma parede do vértice é alta/porta alta.
+- Posições tiradas das montagens do dono na folha (canto ^ e V em 823..1340 x 390..578) e do print dos 4 pilares no losango: ↘ âncora 0,92, ↙ 64,92, coluna 6,95 / 6,29. Detalhes no bloco desenho21 do `casa_pecas_extrai2.mjs`.
+
 ## ▶ POR ONDE RETOMAR (fim do dia 2026-11-17)
 1. `git pull` na pasta do projeto.
 2. Ver a casa funcionando: abrir `chao.html?novo&demoporta` (duplo clique no chao.html e acrescentar `?novo&demoporta` no endereço). Sala 3x3 com porta alta animada nas 4 paredes; WASD anda, a porta abre em 5 quadros quando o personagem chega perto.
