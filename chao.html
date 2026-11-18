@@ -134,7 +134,8 @@ function itensCasa() {
   const cobreAlvo = (p, key) => alvos.some(t => (t.jog || key > t.key) && ov(rectDe(p, PIECE[p.a + 'High']), t.r) && fracCoberta(p, t.r) >= (t.jog ? 0.04 : 0.12));   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
   const encosta = (v, eixo) => { const q = vertices.get(v[0] + ',' + v[1]); return !!q && (eixo === 'x' ? (q.U || q.D) : (q.L || q.R)); };   // há parede perpendicular nesse vértice?
   // ---- peças do dono (casa_pecas_dados.js): parede alta/média soltas, cantos de dois braços, perninhas e portas; o que ele não desenhou fica EM BRANCO (e é listado em FALTAM) ----
-  const peca = n => { const d = typeof PECAS !== 'undefined' && PECAS[n]; if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } return d.im.complete && d.im.naturalWidth ? d : null; };
+  // no MODO COLUNA (?centro) vale a versão aparada da peça (sufixo _n, desenho20.png) quando ela existe; senão a peça normal
+  const peca = n => { const d = typeof PECAS !== 'undefined' && ((window.CENTRO && PECAS[n + '_n']) || PECAS[n]); if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } return d.im.complete && d.im.naturalWidth ? d : null; };
   for (const w of inf) {
     const frente = frenteDe(w.p);
     w.corta = w.p.k === 'mid' || (w.p.k !== 'low' && (frente === 1 || (frente === 0 && !w.atras && !!(w.adj || (sala && cobreAlvo(w.p, w.key))))));
@@ -164,7 +165,15 @@ function itensCasa() {
   const postaIni = w => { const vx = w.p.a === 'x' ? w.p.n : w.p.c, vy = w.p.a === 'x' ? w.p.c : w.p.n; if (nBraços(vx, vy) >= 3) return false; return w.p.a === 'x' ? altaPerp(vx, vy, ['U', 'D']) : altaPerp(vx, vy, ['L', 'R']); };   // regra do dono: nada de peças de canto/encontro num T
   const semJ1 = new Set();   // portas médias cujo batente do começo já vem dentro do canto (T): não desenhar o batente solto por cima
   const usado = new Set();   // (vazio de propósito: as paredes soltas continuam desenhadas por baixo do canto)
+  // MODO COLUNA (?centro, desenho20.png do dono): nada de peças de canto; em TODO vértice que tem parede entra uma coluna por cima das pontas aparadas.
+  //   tipo: só braços R+U (canto <) = C_RU; só L+D (canto >) = C_LD; qualquer outro (^, V, T, cruz, ponta solta, parede reta) = C_O (simétrica)
+  //   altura: alta (_A) se algum braço é alto ou porta alta; senão média (_M)
+  if (window.CENTRO) for (const v of vertices.values()) {
+    const bs = ['L', 'R', 'U', 'D'].filter(A => v[A]).map(A => [A, arm(v, A)]).filter(([, w]) => w && Hh(w)); if (!bs.length) continue;
+    const tem = bs.map(([A]) => A).join(''), tipo = tem === 'RU' ? 'RU' : tem === 'LD' ? 'LD' : 'O', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
+    itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), Math.max(...bs.map(([, w]) => w.key)) + 0.002, bs.every(([, w]) => w.atras), 0); }
   for (const v of vertices.values()) {
+    if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
     let nome = v.L && v.U && !v.R && !v.D ? 'LU' : v.R && v.D && !v.L && !v.U ? 'RD' : v.R && v.U && !v.L && !v.D ? 'RU' : v.L && v.D && !v.R && !v.U ? 'LD' : null;
     // REGRA DO DONO: as peças em formato de < / > (linha 3 e as de porta) só valem quando o vértice NÃO forma um T (2 braços). Quando forma um T, entram as peças Λ de alturas misturadas (RD_AM, RD_MA, RD_ADM, RD_DMA):
     //   T-a: a parede ↘ alta atravessa o vértice (braços L e R) e sai um ramo ↙ médio/porta média (braço D)  -> RD com R alta + D média/porta
@@ -199,7 +208,7 @@ function itensCasa() {
     const k = Hh(w); if (k === null) { faltam.add('parede baixa'); continue; }
     const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
     if (k === 'DM') { for (const i of [1, 2]) if (!(i === 1 && semJ1.has(w))) itemPeca(w.p.a + '_DM' + i, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), hx + hy > (w.p.a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n) + (i === 1 ? .15 : .85)); continue; }   // porta média = os dois batentes
-    let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k); if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
+    let nm = w.p.a + '_' + (k === 'M' && !window.CENTRO && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // modo coluna: sem a perninha alta (a coluna alta cobre) if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
     itemPeca(nm, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), w.atras); }
   window.FALTAM = faltam;
   return out;
