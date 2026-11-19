@@ -11,40 +11,42 @@ import { encodePNG } from './pngenc.mjs';
 const arq = process.argv[2] || 'arte_casa/casa/casa_folha_final.png', P = decodePNG(arq), saida = {}, DIR = 'arte_casa/casa/pecas';
 fs.rmSync(DIR, { recursive: true, force: true });
 const grupo = {};   // pasta -> [{nome,w,h,d}]
-function recorta(pasta, nome, X0, Y0, w, h, ax, ay) {
+function recorta(pasta, nome, X0, Y0, w, h, ax, ay, bg) {
   const d = new Uint8Array(w * h * 4); let n = 0;
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, j = (y * w + x) * 4; if (!P.data[i + 3]) continue; d[j] = P.data[i]; d[j + 1] = P.data[i + 1]; d[j + 2] = P.data[i + 2]; d[j + 3] = 255; n++; }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, j = (y * w + x) * 4; if (bg(X0 + x, Y0 + y)) continue; d[j] = P.data[i]; d[j + 1] = P.data[i + 1]; d[j + 2] = P.data[i + 2]; d[j + 3] = 255; n++; }
   if (n < 30) throw new Error('peça vazia: ' + nome + ' (a folha mudou de lugar?)');
   const png = Buffer.from(encodePNG(w, h, d)); saida[nome] = { src: 'data:image/png;base64,' + png.toString('base64'), w, h, ax, ay };
   fs.mkdirSync(DIR + '/' + pasta, { recursive: true }); fs.writeFileSync(DIR + '/' + pasta + '/' + nome + '.png', png); (grupo[pasta] ||= []).push({ nome, w, h, d });
 }
-// [pasta, nome, x, y, largura, altura, ax, ay]
+// A folha é uma GRADE de células (66 px de passo na horizontal, 127 na vertical; cada célula = 1 OBJETO, as partes dele sempre vão juntas), fundo azul (41,128,185) que vira transparente.
+// Dentro da célula (interior de 64x125, origem em +1,+1 da borda) cada objeto fica no MESMO quadro, então a âncora é a mesma para todo o tipo:
+//   quadro alto 62x123 em (1,1): âncora x -1,92 / y 63,92;  quadro médio 62x57 em (1,67): x -1,26 / y 63,26;  coluna alta 10x97 em (27,14) âncora 5,95;  coluna média 10x31 em (27,80) âncora 5,29.
+const F123 = [1, 1, 62, 123], F57 = [1, 67, 62, 57], CA = [27, 14, 10, 97], CM = [27, 80, 10, 31];
 const L = [];
-const add = (pasta, nome, x, y, w, h, ax, ay) => L.push([pasta, nome, x, y, w, h, ax, ay]);
+// [pasta, nome, linha, coluna, quadro, ax, ay]
+const add = (pasta, nome, r, c, q, ax, ay) => L.push([pasta, nome, r, c, q, ax, ay]);
+const X = (pasta, nome, r, c, q, y) => add(pasta, nome, r, c, q, -1, q === F57 ? 26 : 92), Y = (pasta, nome, r, c, q) => add(pasta, nome, r, c, q, 63, q === F57 ? 26 : 92);
 // 1) paredes retas: alta (A), média (M), média com o pedaço alto no começo (C)
-add('1_paredes', 'x_A', 3, 3, 62, 123, -1, 92); add('1_paredes', 'y_A', 71, 3, 62, 123, 63, 92);
-add('1_paredes', 'x_M', 142, 68, 62, 57, -1, 26); add('1_paredes', 'y_M', 206, 68, 62, 57, 63, 26);
-add('1_paredes', 'x_C', 282, 2, 62, 123, -1, 92); add('1_paredes', 'y_C', 358, 2, 62, 123, 63, 92);
-// 2) colunas dos vértices (4 altas, 4 médias): ^ (RD), simétrica (O: V, T, cruz), < (RU), > (LD)
-for (const [t, x] of [['RD', 447], ['O', 464], ['RU', 487], ['LD', 511]]) { add('2_colunas', 'C_' + t + '_A', x, t === 'RD' ? 7 : t === 'O' ? 8 : 9, 10, 97, 5, 95); add('2_colunas', 'C_' + t + '_M', x, t === 'O' || t === 'RU' ? 112 : 111, 10, 31, 5, 29); }
-// 3) porta alta: quadro de 1 (fechada) a 5 (aberta); ↙ (y) linha de cima, ↘ (x) linha de baixo
-add('3_porta_alta', 'x_DA', 2, 129, 62, 123, -1, 92); add('3_porta_alta', 'y_DA', 68, 129, 62, 123, 63, 92);
-[13, 89, 165, 241, 317].forEach((X, k) => add('3_porta_alta', 'y_DA_f' + (k + 1), X, 276, 62, 123, 63, 92));
-[[10, 403], [87, 410], [163, 410], [239, 410], [315, 410]].forEach(([X, Y], k) => add('3_porta_alta', 'x_DA_f' + (k + 1), X, Y, 62, 123, -1, 92));
-// 4) porta média animada (a porta vira média quando o personagem está na sala): _DMP_f1 = inteira; _DMP_f2..5 = folha com o batente do fim; _DMJ = batente do começo (igual nos quadros 2..5)
-add('4_porta_media', 'y_DMP_f1', 447, 345, 62, 57, 63, 26); add('4_porta_media', 'x_DMP_f1', 443, 474, 62, 57, -1, 26);
-[[523, 352, 43, 50, 19], [599, 356, 36, 46, 15], [675, 362, 24, 40, 9], [751, 368, 16, 34, 3]].forEach(([X, Y, w, h, ay], k) => add('4_porta_media', 'y_DMP_f' + (k + 2), X, Y, w, h, 63, ay));
-[[539, 481, 43, 50, -20, 19], [622, 485, 36, 46, -27, 15], [710, 491, 24, 40, -39, 9], [794, 497, 16, 34, -47, 3]].forEach(([X, Y, w, h, ax, ay], k) => add('4_porta_media', 'x_DMP_f' + (k + 2), X, Y, w, h, ax, ay));
-add('4_porta_media', 'y_DMJ', 567, 345, 18, 35, 19, 26); add('4_porta_media', 'x_DMJ', 520, 474, 18, 35, -1, 26);
-// 5) porta média que começa encostada numa parede alta: _DMT_f1 = inteira com a perna alta; _DMTJ = perna alta (substitui o batente do começo); os quadros 2..5 da folha são os de 4_porta_media
-add('5_porta_media_perna_alta', 'y_DMT_f1', 904, 262, 62, 123, 63, 92); add('5_porta_media_perna_alta', 'x_DMT_f1', 913, 417, 62, 123, -1, 92);
-add('5_porta_media_perna_alta', 'y_DMTJ', 1024, 262, 18, 101, 19, 92); add('5_porta_media_perna_alta', 'x_DMTJ', 990, 417, 18, 101, -1, 92);
-// 6) peças da folha sem uso no jogo ainda (o dono não explicou): 2º par de batentes (16x34) e as duas pernas altas soltas (18x101)
-add('6_sem_uso', 'x_DM2', 188, 219, 16, 34, -47, 3); add('6_sem_uso', 'y_DM2', 218, 219, 16, 34, 63, 3);
-add('6_sem_uso', 'x_DM1', 142, 196, 18, 35, -1, 26); add('6_sem_uso', 'y_DM1', 262, 196, 18, 35, 19, 26);
-add('6_sem_uso', 'batente_b1', 332, 221, 16, 34, 0, 0); add('6_sem_uso', 'batente_b2', 362, 221, 16, 34, 0, 0);
-add('6_sem_uso', 'perna_alta_1', 282, 129, 18, 101, 0, 0); add('6_sem_uso', 'perna_alta_2', 406, 132, 18, 101, 0, 0);
-for (const a of L) recorta(...a);
+X('1_paredes', 'x_A', 0, 0, F123); Y('1_paredes', 'y_A', 0, 1, F123); X('1_paredes', 'x_M', 0, 2, F57); Y('1_paredes', 'y_M', 0, 3, F57); X('1_paredes', 'x_C', 0, 4, F123); Y('1_paredes', 'y_C', 0, 5, F123);
+// 2) colunas dos vértices (4 altas na linha 1, 4 médias na linha 2): ^ (RD), simétrica (O: V, T, cruz), < (RU), > (LD)
+['RD', 'O', 'RU', 'LD'].forEach((t, k) => { add('2_colunas', 'C_' + t + '_A', 0, 6 + k, CA, 5, 95); add('2_colunas', 'C_' + t + '_M', 1, 6 + k, CM, 5, 29); });
+// 3) porta alta: moldura vazia (linha 2) e os quadros 1 (fechada) a 5 (aberta); ↙ (y) linha 3, ↘ (x) linha 4
+X('3_porta_alta', 'x_DA', 1, 0, F123); Y('3_porta_alta', 'y_DA', 1, 1, F123);
+for (let k = 0; k < 5; k++) { Y('3_porta_alta', 'y_DA_f' + (k + 1), 2, k, F123); X('3_porta_alta', 'x_DA_f' + (k + 1), 3, k, F123); }
+// 4) porta média animada (a porta da frente vira média com o personagem na sala): UM objeto por quadro (batentes + folha juntos); _DMB = só os batentes (= quadro 5)
+X('4_porta_media', 'x_DMB', 1, 2, F57); Y('4_porta_media', 'y_DMB', 1, 3, F57);
+for (let k = 0; k < 5; k++) { Y('4_porta_media', 'y_DMP_f' + (k + 1), 2, 5 + k, F57); X('4_porta_media', 'x_DMP_f' + (k + 1), 3, 5 + k, F57); }
+// 5) porta média que começa encostada numa parede alta: o batente do começo vira a perna alta; _DMTB = só os batentes
+X('5_porta_media_perna_alta', 'x_DMTB', 1, 4, F123); Y('5_porta_media_perna_alta', 'y_DMTB', 1, 5, F123);
+for (let k = 0; k < 5; k++) { Y('5_porta_media_perna_alta', 'y_DMT_f' + (k + 1), 2, 10 + k, F123); X('5_porta_media_perna_alta', 'x_DMT_f' + (k + 1), 3, 10 + k, F123); }
+const bg = (x, y) => { const i = (y * P.w + x) * 4; return !P.data[i + 3] || (P.data[i] === 41 && P.data[i + 1] === 128 && P.data[i + 2] === 185); };
+for (const [pasta, nome, r, c, q, ax, ay] of L) {
+  const X0 = 66 * c + 1, Y0 = 127 * r + 1; let [qx, qy, w, h] = q;
+  if (q === F123 && r >= 2 && c >= 10) {   // objetos com perna alta: o topo da perna fica na linha 1 do quadro; se a célula estiver 1 px fora do lugar, acompanha (aviso)
+    let top = 1e9; for (let y = 0; y < 125 && top === 1e9; y++) for (let x = nome[0] === 'x' ? 1 : 45; x < (nome[0] === 'x' ? 19 : 63); x++) if (!bg(X0 + x, Y0 + y)) { top = y; break; }
+    if (top !== qy) { console.log('AVISO: ' + nome + ' está ' + (qy - top) + ' px fora do lugar na célula; corrigido na extração'); qy = top; } }
+  recorta(pasta, nome, X0 + qx, Y0 + qy, w, h, ax, ay, bg);
+}
 // folha de conferência por pasta (peças lado a lado sobre fundo cinza, 1x) para abrir no editor
 for (const [pasta, ps] of Object.entries(grupo)) {
   const FW = ps.reduce((s, p) => s + p.w + 8, 8), FH = Math.max(...ps.map(p => p.h)) + 16, f = new Uint8Array(FW * FH * 4); let cx = 8;

@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=30"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=31"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -207,10 +207,9 @@ function itensCasa() {
     if (usado.has(w)) continue;
     const k = Hh(w); if (k === null) { faltam.add('parede baixa'); continue; }
     const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
-    if (k === 'DM') {   // porta média ANIMADA (folha final): quadro 1 = peça inteira; quadros 2..5 = batente do começo + folha (com o batente do fim); com parede alta perpendicular no começo usa a perna alta (_DMT)
+    if (k === 'DM') {   // porta média ANIMADA (folha final): UM objeto por quadro (batentes + folha juntos, sempre inteiros); com parede alta perpendicular no começo usa a versão com a perna alta (_DMT)
       const a = w.p.a, soma = a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n, dd = w.key + (passa(w) ? 0.001 : 0) + (a === 'x' ? 0.0002 : 0), alta = postaIni(w) && !!peca(a + '_DMT_f1'), f = quadroDaPorta(a, w.p.c, w.p.n);
-      if (f === 1) itemPeca(a + (alta ? '_DMT_f1' : '_DMP_f1'), X, Y, dd, hx + hy > soma + .5);
-      else { itemPeca(a + (alta ? '_DMTJ' : '_DMJ'), X, Y, dd, hx + hy > soma + .15); itemPeca(a + '_DMP_f' + f, X, Y, dd, hx + hy > soma + .85); }
+      itemPeca(a + (alta ? '_DMT_f' : '_DMP_f') + f, X, Y, dd, hx + hy > soma + .5);
       continue; }
     let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // média que começa encostada numa parede alta: peça com o pedaço alto (no modo coluna, a x_C / y_C)
     if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
