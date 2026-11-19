@@ -8,7 +8,7 @@
 - `pl_skin.mjs`: experimento de skin do personagem pela API do PixelLab (chave em `.pixellab_secret`, fora do git). Ainda não gerou nada.
 
 ## ▶ SISTEMA DE COLUNAS (2026-11-18, desenho21.png)
-- Folha atual do dono: `arte_casa/exportado_2026-11-18/desenho22.png` (= desenho21 + pilar do canto ^) (projeto do editor: `arte_casa/em_andamento/desenho20_2026-11-18.pixel.json`). Paredes soltas aparadas (62 px), portas, batentes, quadros da porta animada e 6 colunas (3 altas, 3 médias).
+- Folha atual do dono: `arte_casa/exportado_2026-11-18/desenho22.png` (= desenho21 + pilar do canto ^) (projeto do editor: `arte_casa/em_andamento/desenho20_2026-11-18.pixel.json`). Paredes soltas aparadas (62 px), portas, batentes, quadros da porta animada e 8 colunas (4 altas, 4 médias: ^, V, <, >).
 - É o PADRÃO do jogo: `chao.html?novo&demoporta`. Coluna em TODO vértice com parede, sem peças de canto. `?antigo` volta às paredes do desenho17 com as peças de canto.
 - Coluna: 1ª (simétrica, C_O) em ^ e V (e T/cruz/reta/ponta), 2ª (C_RU) no <, 3ª (C_LD) no >; alta se alguma parede do vértice é alta/porta alta.
 - Posições tiradas das montagens do dono na folha (canto ^ e V em 823..1340 x 390..578) e do print dos 4 pilares no losango: ↘ âncora 0,92, ↙ 64,92, coluna 6,95 / 6,29. Detalhes no bloco desenho21 do `casa_pecas_extrai2.mjs`.
