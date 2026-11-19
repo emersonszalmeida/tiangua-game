@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=38"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=39"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -106,6 +106,8 @@ function papelNovo(a, c, n) {
   return 'b';
 }
 // Porta animada (desenho19.png do dono): a porta alta tem 5 quadros (↙ = y_DA_f*, ↘ = x_DA_f*, espelho com a luz da parede ↘) (1 fechada ... 5 aberta); abre quando o personagem chega perto (~1,3 tile do centro do vão) e fecha quando se afasta
+// carrega TODAS as peças da casa já na abertura: antes a imagem de cada quadro da porta só começava a carregar quando era usada, então o 1º abrir depois do F5 piscava (peça ausente por alguns quadros)
+if (typeof PECAS !== 'undefined') for (const d of Object.values(PECAS)) if (!d.im) { d.im = new Image(); d.im.src = d.src; d.im.decode && d.im.decode().catch(() => { }); }
 const PORTA_ANIM = {};
 function quadroDaPorta(a, c, n) {   // a='y': parede na linha x=c, vão no meio da célula n (em y); a='x': linha y=c, célula n (em x)
   const id = a + c + '|' + n, agora = performance.now(), A = PORTA_ANIM[id] || (PORTA_ANIM[id] = { f: 1, t: agora });
