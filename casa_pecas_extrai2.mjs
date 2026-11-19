@@ -133,5 +133,9 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
   [898, 974, 1050, 1126, 1202].forEach((X0, k) => recorta('y_DA_f' + (k + 1) + '_n', X0, 25, 62, 123, 63, 92));
   [[895, 152], [972, 159], [1048, 159], [1124, 159], [1200, 159]].forEach(([X0, Y0], k) => recorta('x_DA_f' + (k + 1) + '_n', X0, Y0, 62, 123, -1, 92));
   for (const k of ['C_RD_A', 'C_LU_A', 'C_RD_M', 'C_LU_M']) delete saida[k];   // colunas do protótipo de 19b substituídas pela C_O
+  // PILAR DO CANTO ^ (RD), criado pelo dono depois do desenho21 (print pilares_print_2026-11-18.png, 1º da esquerda, alto e médio): reduzido do print 6x para 1x
+  //   (o mesmo método reproduz os outros pilares do print 100% iguais aos da folha). Mesmo contorno da C_O, então mesma âncora. O V continua com a C_O.
+  for (const [nome, arq, ay] of [['C_RD_A', 'pilar_topo_alto', 95], ['C_RD_M', 'pilar_topo_medio', 29]]) { const im = decodePNG('arte_casa/exportado_2026-11-18/' + arq + '.png');
+    saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(im.w, im.h, im.data)).toString('base64'), w: im.w, h: im.h, ax: 5, ay }; console.log(nome.padEnd(10), im.w + 'x' + im.h, 'âncora 5,' + ay); }
 }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');
