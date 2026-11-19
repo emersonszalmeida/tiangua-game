@@ -166,11 +166,11 @@ function itensCasa() {
   const semJ1 = new Set();   // portas médias cujo batente do começo já vem dentro do canto (T): não desenhar o batente solto por cima
   const usado = new Set();   // (vazio de propósito: as paredes soltas continuam desenhadas por baixo do canto)
   // MODO COLUNA (?centro, desenho20.png do dono): nada de peças de canto; em TODO vértice que tem parede entra uma coluna por cima das pontas aparadas.
-  //   tipo: só braços R+U (canto <) = C_RU; só L+D (canto >) = C_LD; qualquer outro (^, V, T, cruz, ponta solta, parede reta) = C_O (simétrica)
+  //   tipo: só braços R+U (canto <) = C_RU; só L+D (canto >) = C_LD; EMENDA de parede reta: ↙ (U+D) = C_LD, ↘ (L+R) = C_RU (correção do dono: estava invertido); o resto (^, V, T, cruz, ponta solta) = C_O (simétrica)
   //   altura: alta (_A) se algum braço é alto ou porta alta; senão média (_M)
   if (window.CENTRO) for (const v of vertices.values()) {
     const bs = ['L', 'R', 'U', 'D'].filter(A => v[A]).map(A => [A, arm(v, A)]).filter(([, w]) => w && Hh(w)); if (!bs.length) continue;
-    const tem = bs.map(([A]) => A).join(''), tipo = tem === 'RU' ? 'RU' : tem === 'LD' ? 'LD' : 'O', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
+    const tem = bs.map(([A]) => A).join(''), tipo = tem === 'RU' ? 'RU' : tem === 'LD' ? 'LD' : tem === 'UD' ? 'LD' : tem === 'LR' ? 'RU' : 'O', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
     itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), v.x + v.y + 0.002, bs.every(([, w]) => w.atras), 0); }   // profundidade = a do PRÓPRIO vértice (x+y): a parede que sai dele para a frente (key = x+y+0,5) cobre o pilar; a que chega nele por trás (x+y-0,5) fica atrás dele
   for (const v of vertices.values()) {
     if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
