@@ -111,7 +111,7 @@ button{touch-action:manipulation}
       <div class="row"><button id="bCH">Centralizar ↔</button><button id="bCV">Centralizar ↕</button></div>
       <div class="row"><button id="bFrente">Para frente</button><button id="bTras">Para trás</button></div>
       <div class="row"><button id="bFrenteT" title="Shift+Page Up">Para frente de tudo</button><button id="bTrasT" title="Shift+Page Down">Para trás de tudo</button></div>
-      <div class="row"><button id="bDup">Duplicar (Ctrl+D)</button><button id="bApaga">Apagar</button></div>
+      <div class="row"><button id="bDup">Duplicar (Ctrl+D)</button><button id="bRep" title="Arraste um objeto, clique com o botão direito antes de soltar (deixa uma cópia) e depois Ctrl+R repete o mesmo movimento, quantas vezes quiser">Repetir (Ctrl+R)</button><button id="bApaga">Apagar</button></div>
     </div>
     <div class="row"><button id="bRast" title="Transforma todos os objetos da camada em pixels comuns">Rasterizar camada</button></div>
 
@@ -365,14 +365,24 @@ function clonaItens(itens, dx, dy) {
   pares.forEach(([o, n]) => { if (o.pai && mapId.has(o.pai)) n.pai = mapId.get(o.pai); });
   return pares.map(p => p[1]);
 }
-function duplicaGrupo() {
-  if (!grupo) return; if (!grupo.comPx) pushUndo(); const novos = clonaItens(grupo.itens, 3, 3), comPx = !!sel;
-  if (sel) { carimba(); sel.ox += 3; sel.oy += 3; }   // os pixels soltos deixam a cópia no lugar e a seleção segue 3 px para o lado
+function duplicaGrupo(dx = 3, dy = 3) {
+  if (!grupo) return; if (!grupo.comPx) pushUndo(); const novos = clonaItens(grupo.itens, dx, dy), comPx = !!sel;
+  if (sel) { carimba(); sel.ox += dx; sel.oy += dy; }   // os pixels soltos deixam a cópia no lugar e a seleção segue 3 px para o lado
   grupo = { itens: novos, comPx }; camadasUi(); formaUi(); refUi(); toca(); redraw();
 }
 function duplica() { if (grupo) { duplicaGrupo(); return; } if (!selObj) return; pushUndo(); if (ehImg(selObj)) { const n = { ...imgEstado(selObj), id: ++idImg, nome: selObj.nome + ' cópia', z: ++zSeq }; n.x += 3; n.y += 3; n.m = [...selObj.m]; n.crop = selObj.crop && selObj.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[selObj.id]; n.im = selObj.im; n.c = selObj.c; imgs.push(n); selecionaRef(n); return; } const n = JSON.parse(JSON.stringify(selObj)); n.x += 3; n.y += 3; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
+// REPETIR MOVIMENTO (Ctrl+R, como no Corel): depois de arrastar com o botão direito (deixa cópia), o deslocamento fica guardado; cada Ctrl+R faz outra cópia do que está selecionado, mais um passo na mesma direção
+let ULTMOV = null;
+function guardaMov(dx, dy) { if (dx || dy) { ULTMOV = { dx, dy }; $('status').textContent = 'Movimento guardado: ' + dx + ', ' + dy + ' px — Ctrl+R repete'; } }
+function repeteMov() {
+  if (!ULTMOV) { $('status').textContent = 'Ctrl+R: antes arraste algo e clique com o botão direito (cópia) para guardar o movimento'; return; }
+  const { dx, dy } = ULTMOV;
+  if (grupo) { duplicaGrupo(dx, dy); return; }
+  if (selObj) { if (ehImg(selObj)) { aplicaMover({ moveu: true, copia: true, dx, dy }); return; } pushUndo(); const n = clonaItens([selObj], dx, dy)[0]; selObj = n; camadasUi(); formaUi(); toca(); return; }
+  if (sel) { carimba(); sel.ox += dx; sel.oy += dy; redraw(); }
+}
 function apagaObj() { if (ehImg(selObj)) { pushUndo(); imgs = imgs.filter(o => o !== selObj); if (ref === selObj) ref = imgs[imgs.length - 1] || null; selObj = null; nodeSel = []; refUi(); formaUi(); redraw(); return; } if (!selObj) return; pushUndo(); L().objs.splice(L().objs.indexOf(selObj), 1); selObj = null; camadasUi(); toca(); }
-$('bDup').onclick = duplica; $('bApaga').onclick = apagaObj;
+$('bDup').onclick = () => duplica(); $('bRep').onclick = () => repeteMov(); $('bApaga').onclick = apagaObj;
 $('bSelEsticar').onclick = selParaObjeto; $('bSelFrenteT').onclick = () => ordemTudo(true); $('bSelTrasT').onclick = () => ordemTudo(false); $('bSelFrente').onclick = () => ordem(1); $('bSelTras').onclick = () => ordem(-1); $('bMarcar').onclick = () => escolhe('marcar'); $('bClonar').onclick = carimba; $('bSelEspH').onclick = () => espelhaSelecionado(true); $('bSelEspV').onclick = () => espelhaSelecionado(false); $('bSelSolta').onclick = () => { commitSel(); }; $('bSelApaga').onclick = () => { if (sel) { sel = null; salvaAuto(); redraw(); } };
 // ---------- mover com ímã e cópia (como no Corel) ----------
 // ao arrastar um objeto aparece só o contorno azul de onde ele vai ficar; os pontos do objeto "grudam" nos pontos dos outros;
@@ -443,14 +453,14 @@ function adicionaPonto(pf) {   // duplo clique numa aresta (ferramenta Forma): c
 cv.addEventListener('dblclick', e => { if (tool === 'forma' && selObj && !ehImg(selObj)) adicionaPonto(ptF(e)); });
 function pontoExtraEm(e) { const o = selObj; if (!o || ehImg(o)) return -1; const r = cv.getBoundingClientRect(), mx = e.clientX - r.left, my = e.clientY - r.top, ps = o.pts || []; for (let i = 0; i < ps.length; i++) { const [X, Y] = paraMundo(o, ps[i][0], ps[i][1]); if (Math.abs(mx - (view.ox + X * view.z)) <= 8 && Math.abs(my - (view.oy + Y * view.z)) <= 8) return i; } return -1; }
 function marcaCopia() {
-  if (drag && drag.k === 'selmove' && !drag.rd) { drag.rd = true; carimba(); cv.style.cursor = 'copy'; return; }   // pixels soltos: cada clique do botão direito (com o esquerdo apertado) deixa uma cópia aqui, e a seleção continua com você
-  if (drag && drag.k === 'gmove') { clonaItens(grupo.itens, 0, 0); if (sel) carimba(); camadasUi(); toca(); cv.style.cursor = 'copy'; return; }   // grupo: botão direito durante o arrasto deixa uma cópia de tudo aqui
+  if (drag && drag.k === 'selmove' && !drag.rd) { drag.rd = true; drag.c0 = [sel.ox, sel.oy]; carimba(); cv.style.cursor = 'copy'; return; }   // pixels soltos: cada clique do botão direito (com o esquerdo apertado) deixa uma cópia aqui, e a seleção continua com você
+  if (drag && drag.k === 'gmove') { drag.c0 = [...drag.ult]; clonaItens(grupo.itens, 0, 0); if (sel) carimba(); camadasUi(); toca(); cv.style.cursor = 'copy'; return; }   // grupo: botão direito durante o arrasto deixa uma cópia de tudo aqui
   if (drag && drag.k === 'omove' && !drag.copia) { drag.copia = true; cv.style.cursor = 'copy'; redraw(); }
 }
 function levaFilhos(o, dx, dy) { if (!ehImg(o) || (!dx && !dy)) return; layers.forEach(l => l.objs.forEach(f => { if (f.pai === o.id) { f.x += dx; f.y += dy; } })); }   // a pintura feita em cima de uma imagem anda junto com ela
 function aplicaMover(d) {
   const o = selObj; if (!o || !d.moveu) return; pushUndo();
-  if (d.copia) {
+  if (d.copia) { guardaMov(d.dx, d.dy);
     if (ehImg(o)) { const n = { ...imgEstado(o), id: ++idImg, nome: o.nome + ' cópia', z: ++zSeq }; n.x += d.dx; n.y += d.dy; n.m = [...o.m]; n.crop = o.crop && o.crop.map(p => [...p]); IMG_REG[n.id] = IMG_REG[o.id]; n.im = o.im; n.c = o.c; imgs.push(n);
       layers.forEach(l => { const fs = l.objs.filter(f => f.pai === o.id); fs.forEach(f => { const g = JSON.parse(JSON.stringify(f)); g.pai = n.id; g.x += d.dx; g.y += d.dy; g.z = ++zSeq; if (f.t === 'traco') { const c = canvasTraco(); c.getContext('2d').drawImage(TRACOS[f.cid], 0, 0); g.cid = ++idTr; TRACOS[g.cid] = c; } l.objs.push(g); }); }); selecionaRef(n); }
     else { const n = JSON.parse(JSON.stringify(o)); n.x += d.dx; n.y += d.dy; n.z = ++zSeq; L().objs.push(n); selObj = n; camadasUi(); toca(); }
@@ -871,6 +881,8 @@ cv.addEventListener('pointermove', e => {
   }
 });
 cv.addEventListener('pointerup', () => {
+  if (drag && drag.k === 'gmove' && drag.c0) guardaMov(drag.ult[0] - drag.c0[0], drag.ult[1] - drag.c0[1]);
+  if (drag && drag.k === 'selmove' && drag.c0 && sel) guardaMov(sel.ox - drag.c0[0], sel.oy - drag.c0[1]);
   if (drag && drag.k === 'omove' && drag.moveu) aplicaMover(drag);
   if (drag && drag.k === 'noMove' && drag.alterna && !drag.moveu) nodeSel = nodeSel.filter(k => k !== drag.idx);   // Shift+clique num ponto já selecionado, sem arrastar, tira ele da seleção
   if (drag && drag.k === 'polyMarq' && selObj && selObj.t !== 'traco') { const x0 = Math.min(drag.p0[0], drag.p1[0]), x1 = Math.max(drag.p0[0], drag.p1[0]), y0 = Math.min(drag.p0[1], drag.p1[1]), y1 = Math.max(drag.p0[1], drag.p1[1]), dentroR = contornoObj(selObj).map((q, i) => [i, q]).filter(([, q]) => q[0] >= x0 && q[0] <= x1 && q[1] >= y0 && q[1] <= y1).map(([i]) => i); polySel = [...new Set((polySel || []).concat(dentroR))]; ptSel = polySel.length ? polySel[polySel.length - 1] : -1; }
@@ -886,6 +898,7 @@ addEventListener('keydown', e => {
   if (e.key === 'F10') { e.preventDefault(); escolhe('forma'); return; }
   const campo = /INPUT|SELECT/.test(e.target.tagName) && e.target.type !== 'checkbox', k = e.key.toLowerCase(); if (e.code === 'Space' && !campo) { espaco = true; e.preventDefault(); return; }
   if (e.ctrlKey && k === 'z') { e.preventDefault(); e.shiftKey ? refaz() : desfaz(); return; } if (e.ctrlKey && k === 'y') { e.preventDefault(); refaz(); return; }
+  if (e.ctrlKey && k === 'r') { e.preventDefault(); if (!campo) repeteMov(); return; }   // Ctrl+R: repete o último movimento com cópia (não recarrega a página)
   if (campo) { if (e.key === 'Enter') e.target.blur(); return; }
   if (e.ctrlKey && k === 'c') { copia(); return; } if (e.ctrlKey && k === 'x') { copia(); if (selObj) apagaObj(); else if (sel) { sel = null; salvaAuto(); redraw(); } return; }
   if (e.ctrlKey && k === 'g') { e.preventDefault(); if (e.shiftKey) desagrupa(); else agrupa(); return; }
