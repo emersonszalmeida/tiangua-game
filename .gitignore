@@ -14,8 +14,8 @@ node_modules/
 !arte_terreno/**/*.png
 !arvore1.png
 # casa: folhas que o dono exporta do editor-pixel (fonte das peças) e as portas animadas geradas (para editar em outro computador)
-!arte_casa/exportado_*/*.png
-!arte_casa/portas_animadas/*.png
+!arte_casa/casa/*.png
+!arte_casa/casa/pecas/**/*.png
 
 # chave da API do PixelLab (nunca vai para o GitHub)
 .pixellab_secret

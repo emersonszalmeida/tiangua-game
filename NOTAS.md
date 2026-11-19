@@ -7,21 +7,13 @@
 - O foco agora é a **casa** no editor `chao.html` (paredes, cantos, portas animadas, peças desenhadas pelo dono no editor-pixel). Ver os commits de 10 a 17/11 para as regras de encaixe dos cantos (V/L/</>, T, porta média) e a porta animada (desenho18).
 - `pl_skin.mjs`: experimento de skin do personagem pela API do PixelLab (chave em `.pixellab_secret`, fora do git). Ainda não gerou nada.
 
-## ▶ SISTEMA DE COLUNAS (2026-11-18, desenho21.png)
-- Folha atual do dono: `arte_casa/exportado_2026-11-18/desenho22.png` (= desenho21 + pilar do canto ^) (projeto do editor: `arte_casa/em_andamento/desenho20_2026-11-18.pixel.json`). Paredes soltas aparadas (62 px), portas, batentes, quadros da porta animada e 8 colunas (4 altas, 4 médias: ^, V, <, >).
-- É o PADRÃO do jogo: `chao.html?novo&demoporta`. Coluna em TODO vértice com parede, sem peças de canto. `?antigo` volta às paredes do desenho17 com as peças de canto.
-- Coluna: 1ª (simétrica, C_O) em ^ e V (e T/cruz/reta/ponta), 2ª (C_RU) no <, 3ª (C_LD) no >; alta se alguma parede do vértice é alta/porta alta.
-- Posições tiradas das montagens do dono na folha (canto ^ e V em 823..1340 x 390..578) e do print dos 4 pilares no losango: ↘ âncora 0,92, ↙ 64,92, coluna 6,95 / 6,29. Detalhes no bloco desenho21 do `casa_pecas_extrai2.mjs`.
-
-## ▶ POR ONDE RETOMAR (fim do dia 2026-11-17)
-1. `git pull` na pasta do projeto.
-2. Ver a casa funcionando: abrir `chao.html?novo&demoporta` (duplo clique no chao.html e acrescentar `?novo&demoporta` no endereço). Sala 3x3 com porta alta animada nas 4 paredes; WASD anda, a porta abre em 5 quadros quando o personagem chega perto.
-3. **Imagens das portas para editar:** `arte_casa/portas_animadas/` — `y_DA_f1..5.png` (↙, contra a luz), `x_DA_f1..5.png` (↘, iluminada, cores do dono) e `_folha.png` (os 10 juntos em 1x). Abrir no editor-pixel com "Abrir PNG".
-   - São SAÍDA do `casa_pecas_extrai2.mjs` (ele sobrescreve). Depois de editar, exporte e passe o PNG ao Claude: ele troca a fonte da porta no extrator e regera `casa_pecas_dados.js`.
-   - A fonte atual da madeira é `arte_casa/exportado_2026-11-17/desenho19.png` (linha de baixo); as folhas exportadas `arte_casa/exportado_*/*.png` agora vão para o GitHub (liberadas no `.gitignore`).
-4. Projeto aberto no editor-pixel: `arte_casa/em_andamento/casa_porta_2026-11-17.pixel.json` (botão "Abrir projeto"; o `?abrir=` só funciona no GitHub Pages, não com duplo clique).
-5. Editor-pixel: corrigido hoje o traço movido que aparecia no lugar antigo (arrastar grupo deixava a parede para trás).
-6. Pendente na casa: porta MÉDIA animada (hoje só batentes fixos), janelas, móveis, telhado que some com o personagem dentro. Nome do repositório no GitHub: o dono vai renomear para `jogo-pixelart-isometrico` (Settings → General → Repository name); depois, `git remote set-url origin https://github.com/emersonszalmeida/jogo-pixelart-isometrico.git` nos dois computadores (o endereço antigo continua redirecionando).
+## ▶ CASA: FOLHA FINAL (2026-11-19) — LER PRIMEIRO
+- **Uma única fonte de arte:** `arte_casa/casa/casa_folha_final.png` (o dono exporta do editor-pixel e sobrescreve este arquivo; o git guarda as versões antigas — todas as folhas `exportado_*`, `desenho17..22`, `portas_animadas` etc. foram APAGADAS de propósito a pedido dele).
+- **Extrator:** `node casa_pecas_extrai2.mjs` (sem argumento) lê essa folha, regera `casa_pecas_dados.js` e uma PNG por peça em `arte_casa/casa/pecas/<tipo>/` (1_paredes, 2_colunas, 3_porta_alta, 4_porta_media, 5_porta_media_perna_alta, 6_sem_uso), cada pasta com `_folha.png` para abrir no editor. Posições fixas (caixas exatas) no próprio script.
+- **Jogo:** `chao.html?novo&demoporta`. Só o sistema de COLUNAS (o modo antigo com peças de canto `?antigo` foi removido): paredes soltas aparadas (62 px) + uma coluna por vértice (C_RD ^, C_O V/T/cruz, C_RU <, C_LD >, altas e médias). x (↘) começa no vértice e vai para a direita, y (↙) vai para a esquerda.
+- **Portas:** alta animada `x_DA_f1..5`/`y_DA_f1..5`; MÉDIA animada (quando o personagem está na sala, a porta da frente vira média): `_DMP_f1` inteira, `_DMP_f2..5` folha, `_DMJ` batente do começo; encostada em parede alta no começo usa `_DMT_f1` e `_DMTJ` (perna alta). A animação é a mesma da alta (`quadroDaPorta`, abre a ~1,3 tile).
+- Peças da folha SEM uso (dono não explicou): 2º par de batentes 16x34 e as 2 pernas altas soltas 18x101 (pasta 6_sem_uso).
+- Projeto do editor (não é o final): `arte_casa/em_andamento/desenho20_2026-11-18.pixel.json`.
 
 ## O que era o projeto (antes, só histórico)
 Jogo de clãs multiplayer no mapa real do centro de **Tianguá (CE)**. As **praças** são os objetivos.
