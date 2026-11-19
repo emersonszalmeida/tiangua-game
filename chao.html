@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=41"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=40"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -141,8 +141,7 @@ function itensCasa() {
   const peca = n => { const d = typeof PECAS !== 'undefined' && ((window.CENTRO && PECAS[n + '_n']) || PECAS[n]); if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } return d.im.complete && d.im.naturalWidth ? d : null; };
   for (const w of inf) {
     const frente = frenteDe(w.p);
-    // REGRA DO DONO (2026-11-19): com o personagem dentro de uma sala fechada, TODAS as paredes da frente dele (as que não estão atrás dele) viram médias, sem conta de cobertura; fora, nada é cortado
-    w.corta = w.p.k === 'mid' || (w.p.k !== 'low' && !!sala && !w.atras);
+    w.corta = w.p.k === 'mid' || (w.p.k !== 'low' && (frente === 1 || (frente === 0 && !w.atras && !!(w.adj || (sala && cobreAlvo(w.p, w.key))))));
   }
   const Hh = w => w.p.k === 'door' ? (w.corta ? 'DM' : 'DA') :   /* porta: sempre a peça alta dele, mesmo na parede da frente cortada (como no vídeo dele) */ w.p.k === 'low' ? null : (w.corta ? 'M' : 'A');
   const ed = new Map(inf.map(w => [w.p.a + '|' + w.p.c + '|' + w.p.n, w])), arm = (v, A) => ed.get(A === 'L' ? 'x|' + v.y + '|' + (v.x - 1) : A === 'R' ? 'x|' + v.y + '|' + v.x : A === 'U' ? 'y|' + v.x + '|' + (v.y - 1) : 'y|' + v.x + '|' + v.y);
