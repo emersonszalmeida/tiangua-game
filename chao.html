@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=31"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=32"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -162,7 +162,7 @@ function itensCasa() {
   // peça de encontro: a parede média que COMEÇA num vértice onde bate uma parede perpendicular ALTA mostra um pedaço dela (linha 3 do dono: x_C, y_C, cantos _CC)
   const altaPerp = (vx, vy, braços) => { const q = vertices.get(vx + ',' + vy); return !!q && braços.some(A => { const w = q[A] && arm(q, A); return w && Hh(w) === 'A'; }); };
   const nBraços = (vx, vy) => { const q = vertices.get(vx + ',' + vy); return q ? ['L', 'R', 'U', 'D'].filter(A => q[A]).length : 0; };
-  const postaIni = w => { const vx = w.p.a === 'x' ? w.p.n : w.p.c, vy = w.p.a === 'x' ? w.p.c : w.p.n; if (nBraços(vx, vy) >= 3) return false; return w.p.a === 'x' ? altaPerp(vx, vy, ['U', 'D']) : altaPerp(vx, vy, ['L', 'R']); };   // regra do dono: nada de peças de canto/encontro num T
+  const postaIni = w => { const vx = w.p.a === 'x' ? w.p.n : w.p.c, vy = w.p.a === 'x' ? w.p.c : w.p.n; return w.p.a === 'x' ? altaPerp(vx, vy, ['U', 'D']) : altaPerp(vx, vy, ['L', 'R']); };   // vale também em T (dono, 2026-11-19: x_C / y_C e a porta média com perna alta _DMT também no T)
   const semJ1 = new Set();   // portas médias cujo batente do começo já vem dentro do canto (T): não desenhar o batente solto por cima
   const usado = new Set();   // (vazio de propósito: as paredes soltas continuam desenhadas por baixo do canto)
   // MODO COLUNA (?centro, desenho20.png do dono): nada de peças de canto; em TODO vértice que tem parede entra uma coluna por cima das pontas aparadas.
