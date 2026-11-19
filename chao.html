@@ -122,7 +122,8 @@ function itensCasa() {
   const naSala = (...cel) => sala && cel.some(([a, b]) => sala.has(a + ',' + b));
   const H0 = [hsx - 16, hsy - 64, 32, 68], ov = (r, s) => r[0] < s[0] + s[2] && r[0] + r[2] > s[0] && r[1] < s[1] + s[3] && r[1] + r[3] > s[1];
   const rectDe = (p, pc) => [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - pc.c.width, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - pc.oy + 1, pc.c.width, pc.c.height];
-  const inf = paredes.map(p => ({ p, atras: p.a === 'x' ? hy > p.c - T / 2 : hx > p.c - T / 2, key: p.n + .5 + p.c, adj: naSala(...(p.a === 'x' ? [[p.n, p.c - 1], [p.n, p.c]] : [[p.c - 1, p.n], [p.c, p.n]])), cheia: PIECE[p.a + (p.k === 'door' ? 'Door' : 'High')] }));
+  // atras: a parede está atrás do personagem. Fora da faixa de espessura dela vale o plano (como antes); DENTRO da faixa (personagem passando por uma porta), vale o lado em que ele está ao longo da parede: se ainda não chegou ao começo dela, ela está na frente (antes ele era desenhado por cima da parede vizinha da porta e parecia estar dentro dela)
+  const inf = paredes.map(p => ({ p, atras: p.a === 'x' ? (hy > p.c + T / 2 ? true : hy <= p.c - T / 2 ? false : hx >= p.n) : (hx > p.c + T / 2 ? true : hx <= p.c - T / 2 ? false : hy >= p.n), key: p.n + .5 + p.c, adj: naSala(...(p.a === 'x' ? [[p.n, p.c - 1], [p.n, p.c]] : [[p.c - 1, p.n], [p.c, p.n]])), cheia: PIECE[p.a + (p.k === 'door' ? 'Door' : 'High')] }));
   // alvos que não podem ficar escondidos por parede alta: o personagem e as portas da sala dele
   // frente/fundo DA SALA do personagem: a parede é a frente da sala quando o piso da sala fica do lado − dela (norte/oeste); se fica do lado +, é o fundo da sala (nunca corta, mesmo que o plano dela passe na frente do personagem). Parede com a sala dos dois lados: vale a regra do plano.
   const frenteDe = p => { const mais = p.a === 'x' ? p.n + ',' + p.c : p.c + ',' + p.n, menos = p.a === 'x' ? p.n + ',' + (p.c - 1) : (p.c - 1) + ',' + p.n, dM = !!sala && sala.has(mais), dN = !!sala && sala.has(menos); return dN && !dM ? 1 : dM && !dN ? -1 : 0; };
@@ -159,7 +160,7 @@ function itensCasa() {
       const emJ = porta && py >= -31 && (porta === 'L' || porta === 'D' ? px >= -26 && px <= (emT ? -1 : 4) : px >= -4 && px <= 26); const D = emJ ? dj : paraA ? da : db;   // batente da porta média: camada própria, ordenada pela profundidade real (o personagem pode estar no vão, ao lado dele)
       D.data[i] = src[i]; D.data[i + 1] = src[i + 1]; D.data[i + 2] = src[i + 2]; D.data[i + 3] = src[i + 3]; }
     ga.putImageData(da, 0, 0); gb.putImageData(db, 0, 0); gj.putImageData(dj, 0, 0); return (o.fat[chave] = { a: ca, b: cb, j: porta ? cj : null }); };
-  const itemPeca = (nm, X, Y, d, atras, miolo) => { const o = peca(nm); if (!o) return; out.push({ n: nm, d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (miolo) ctx.drawImage(o.im, miolo, 0, o.w - 2 * miolo, o.h, X - o.ax + miolo, Y - o.ay, o.w - 2 * miolo, o.h); else ctx.drawImage(o.im, X - o.ax, Y - o.ay); } }); };
+  const itemPeca = (nm, X, Y, d, atras, miolo, faixa) => { const o = peca(nm); if (!o) return; if (faixa) { const [f0, f1] = faixa; out.push({ n: nm + '[' + f0 + '-' + f1 + ']', d, atras, r: [X - o.ax + f0, Y - o.ay, f1 - f0, o.h], f: () => ctx.drawImage(o.im, f0, 0, f1 - f0, o.h, X - o.ax + f0, Y - o.ay, f1 - f0, o.h) }); return; } out.push({ n: nm, d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (miolo) ctx.drawImage(o.im, miolo, 0, o.w - 2 * miolo, o.h, X - o.ax + miolo, Y - o.ay, o.w - 2 * miolo, o.h); else ctx.drawImage(o.im, X - o.ax, Y - o.ay); } }); };
   // cantos de dois braços que o dono desenhou: o V (LU: chegam uma ↘ pela esquerda e uma ↙ por cima, canto da frente) e o Λ (RD: saem uma ↘ para a direita e uma ↙ para baixo, canto do fundo),
   // só quando o vértice tem esses dois braços e nenhum outro, e os dois têm a mesma altura (alta/alta ou média/média). T, cruz e o resto ficam com as paredes soltas.
   // peça de encontro: a parede média que COMEÇA num vértice onde bate uma parede perpendicular ALTA mostra um pedaço dela (linha 3 do dono: x_C, y_C, cantos _CC)
@@ -215,7 +216,10 @@ function itensCasa() {
     const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
     if (k === 'DM') {   // porta média ANIMADA (folha final): UM objeto por quadro (batentes + folha juntos, sempre inteiros); com parede alta perpendicular no começo usa a versão com a perna alta (_DMT)
       const a = w.p.a, soma = a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n, dd = w.key + (passa(w) ? 0.001 : 0) + (a === 'x' ? 0.0002 : 0), alta = postaIni(w) && !!peca(a + '_DMT_f1'), f = quadroDaPorta(a, w.p.c, w.p.n);
-      itemPeca(a + (alta ? '_DMT_f' : '_DMP_f') + f, X, Y, dd, hx + hy > soma + .5);
+      const nmD = a + (alta ? '_DMT_f' : '_DMP_f') + f;
+      if (f === 1) itemPeca(nmD, X, Y, dd, hx + hy > soma + .5);
+      else { const ini = a === 'x' ? [0, 18] : [44, 62], resto = a === 'x' ? [18, 62] : [0, 44];   // porta aberta: o batente (ou perna alta) do COMEÇO e o resto (folha + batente do fim) têm profundidade própria, para o personagem passar entre eles
+        itemPeca(nmD, X, Y, dd, hx + hy > soma + .15, 0, ini); itemPeca(nmD, X, Y, dd, hx + hy > soma + .85, 0, resto); }
       continue; }
     let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // média que começa encostada numa parede alta: peça com o pedaço alto (no modo coluna, a x_C / y_C)
     if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
