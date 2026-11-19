@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=39"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=40"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -128,12 +128,13 @@ function itensCasa() {
   const frenteDe = p => { const mais = p.a === 'x' ? p.n + ',' + p.c : p.c + ',' + p.n, menos = p.a === 'x' ? p.n + ',' + (p.c - 1) : (p.c - 1) + ',' + p.n, dM = !!sala && sala.has(mais), dN = !!sala && sala.has(menos); return dN && !dM ? 1 : dM && !dN ? -1 : 0; };
   // a porta da sala que vira MÉDIA (frente) só ocupa a altura média: as paredes na frente dela não precisam mais descer
   const rectMedia = p => [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - 68, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - 27, 68, 60];
-  const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: frenteDe(w.p) === 1 ? rectMedia(w.p) : rectDe(w.p, w.cheia), key: w.key }); }
+  const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: frenteDe(w.p) === 1 ? rectMedia(w.p) : rectDe(w.p, w.cheia), key: w.key, q: w.p, h: frenteDe(w.p) === 1 ? 27 : 93 }); }
   // quanto do alvo (retângulo r) fica por trás do paralelogramo REAL da parede (não do retângulo que a envolve: o canto vazio do retângulo cortava paredes que nem encostavam no alvo)
-  const fracCoberta = (p, r) => { const Sx = p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n), Sy = p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n), dx = p.a === 'x' ? 64 : -64; let dentro = 0, total = 0;
-    for (let py = r[1] + 1; py < r[1] + r[3]; py += 3) for (let px = r[0] + 1; px < r[0] + r[2]; px += 3) { total++; const t = (px - Sx) / dx; if (t >= 0 && t <= 1 && py >= Sy + 32 * t - 93 && py <= Sy + 32 * t + 4) dentro++; }
+  const fracCoberta = (p, r, al) => { const Sx = p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n), Sy = p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n), dx = p.a === 'x' ? 64 : -64; let dentro = 0, total = 0;
+    const Qx = al && al.q ? (al.q.a === 'x' ? sx(al.q.n, al.q.c) : sx(al.q.c, al.q.n)) : 0, Qy = al && al.q ? (al.q.a === 'x' ? sy(al.q.n, al.q.c) : sy(al.q.c, al.q.n)) : 0, Qd = al && al.q ? (al.q.a === 'x' ? 64 : -64) : 1;   // porta: só conta o pedaço que a porta realmente ocupa (paralelogramo dela), não o retângulo que a envolve
+    for (let py = r[1] + 1; py < r[1] + r[3]; py += 3) for (let px = r[0] + 1; px < r[0] + r[2]; px += 3) { if (al && al.q) { const u = (px - Qx) / Qd; if (u < 0 || u > 1 || py < Qy + 32 * u - al.h || py > Qy + 32 * u + 4) continue; } total++; const t = (px - Sx) / dx; if (t >= 0 && t <= 1 && py >= Sy + 32 * t - 93 && py <= Sy + 32 * t + 4) dentro++; }
     return total ? dentro / total : 0; };
-  const cobreAlvo = (p, key) => alvos.some(t => (t.jog || key > t.key) && ov(rectDe(p, PIECE[p.a + 'High']), t.r) && fracCoberta(p, t.r) >= (t.jog ? 0.04 : 0.12));   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
+  const cobreAlvo = (p, key) => alvos.some(t => (t.jog || key > t.key) && ov(rectDe(p, PIECE[p.a + 'High']), t.r) && fracCoberta(p, t.r, t) >= (t.jog ? 0.04 : 0.9));   // porta da sala: a parede só desce se cobrir a porta INTEIRA (dono, 2026-11-19)   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
   const encosta = (v, eixo) => { const q = vertices.get(v[0] + ',' + v[1]); return !!q && (eixo === 'x' ? (q.U || q.D) : (q.L || q.R)); };   // há parede perpendicular nesse vértice?
   // ---- peças do dono (casa_pecas_dados.js): parede alta/média soltas, cantos de dois braços, perninhas e portas; o que ele não desenhou fica EM BRANCO (e é listado em FALTAM) ----
   // no MODO COLUNA (?centro) vale a versão aparada da peça (sufixo _n, desenho20.png) quando ela existe; senão a peça normal
