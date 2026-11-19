@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=33"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=34"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -160,7 +160,7 @@ function itensCasa() {
   // cantos de dois braços que o dono desenhou: o V (LU: chegam uma ↘ pela esquerda e uma ↙ por cima, canto da frente) e o Λ (RD: saem uma ↘ para a direita e uma ↙ para baixo, canto do fundo),
   // só quando o vértice tem esses dois braços e nenhum outro, e os dois têm a mesma altura (alta/alta ou média/média). T, cruz e o resto ficam com as paredes soltas.
   // peça de encontro: a parede média que COMEÇA num vértice onde bate uma parede perpendicular ALTA mostra um pedaço dela (linha 3 do dono: x_C, y_C, cantos _CC)
-  const altaPerp = (vx, vy, braços) => { const q = vertices.get(vx + ',' + vy); return !!q && braços.some(A => { const w = q[A] && arm(q, A); return w && Hh(w) === 'A'; }); };
+  const altaPerp = (vx, vy, braços) => { const q = vertices.get(vx + ',' + vy); return !!q && braços.some(A => { const w = q[A] && arm(q, A); return w && (Hh(w) === 'A' || Hh(w) === 'DA'); }); };   // porta alta também conta como parede alta (dono, 2026-11-19: canto ao lado de porta alta usa y_C / x_C)
   const nBraços = (vx, vy) => { const q = vertices.get(vx + ',' + vy); return q ? ['L', 'R', 'U', 'D'].filter(A => q[A]).length : 0; };
   const postaIni = w => { const vx = w.p.a === 'x' ? w.p.n : w.p.c, vy = w.p.a === 'x' ? w.p.c : w.p.n; return w.p.a === 'x' ? altaPerp(vx, vy, ['U', 'D']) : altaPerp(vx, vy, ['L', 'R']); };   // vale também em T (dono, 2026-11-19: x_C / y_C e a porta média com perna alta _DMT também no T)
   const semJ1 = new Set();   // portas médias cujo batente do começo já vem dentro do canto (T): não desenhar o batente solto por cima
