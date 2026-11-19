@@ -108,7 +108,7 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
   for (const [nome, X0, Y0, w, h, ax, ay] of [['C_RD_A', 583, 11, 10, 99, 5, 95], ['C_LU_A', 583, 137, 10, 99, 5, 97], ['C_RU_A', 457, 76, 6, 97, 5, 95], ['C_LD_A', 713, 76, 6, 97, 1, 95],
     ['C_RD_M', 785, 109, 10, 33, 5, 29], ['C_LU_M', 785, 171, 10, 33, 5, 31], ['C_RU_M', 723, 142, 6, 31, 5, 29], ['C_LD_M', 851, 142, 6, 31, 1, 29]]) recorta(nome, X0, Y0, w, h, ax, ay); }
 // ------------------------------------------------------------------------------------------------------------
-// FOLHA 2026-11-18 (desenho21.png, versão final do desenho20): SISTEMA DE COLUNAS do dono. Em cada vértice de parede entra uma COLUNA (pilar de 10 px),
+// FOLHA 2026-11-18 (desenho22.png = desenho21 + o pilar do canto ^, C_RD, em 506,240 / 506,344; mesmas posições de todo o resto): SISTEMA DE COLUNAS do dono. Em cada vértice de parede entra uma COLUNA (pilar de 10 px),
 // e as paredes soltas foram APARADAS nas duas pontas (62 px de largura em vez de 68), deixando um vão de 2 px no vértice que a coluna cobre.
 // As peças aparadas entram com o sufixo _n (x_A_n, y_DA_f3_n ...) e só são usadas no modo coluna do chao.html (?centro); sem ele tudo continua como antes.
 // POSIÇÃO (montagens do dono na própria folha, em 823..1340 x 390..578: um canto ^ e um canto V sobre piso 2x2, com o vão vermelho no vértice):
@@ -119,23 +119,19 @@ for (const [nome, [x0, y0, w, h, eixo, cax, cay, filtro]] of Object.entries(LIB)
 // COLUNAS (3 altas 10x97 e 3 médias 10x31, na mesma ordem; print do dono com os 4 pilares no losango): 1ª = C_O (simétrica) nos vértices ^ e V
 //   (e em T, cruz, ponta solta e parede reta), 2ª = C_RU no canto <, 3ª = C_LD no canto >. Âncora no vértice: 5,95 (alta) e 5,29 (média).
 // Peças da folha que NÃO são lidas: o 2º jogo de batentes (332..378,221), as perninhas com batente (282,129 e 406,132), as montagens e os pisos de teste.
-{ const P = decodePNG('arte_casa/exportado_2026-11-18/desenho21.png');
+{ const P = decodePNG('arte_casa/exportado_2026-11-18/desenho22.png');
   const recorta = (nome, X0, Y0, w, h, ax, ay) => { const d = new Uint8Array(w * h * 4); let n = 0;
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = ((Y0 + y) * P.w + X0 + x) * 4, r = P.data[i], g = P.data[i + 1], b = P.data[i + 2], j = (y * w + x) * 4; if (!P.data[i + 3]) continue; if (Math.max(r, g, b) - Math.min(r, g, b) > 110 && (r > 150 || g > 150 || b > 150)) continue; d[j] = r; d[j + 1] = g; d[j + 2] = b; d[j + 3] = 255; n++; }
-    if (n < 30) throw new Error('peça vazia: ' + nome + ' (a folha desenho21 mudou de lugar?)'); saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax, ay }; console.log(nome.padEnd(10), w + 'x' + h, 'âncora', ax + ',' + ay, 'pixels', n); };
+    if (n < 30) throw new Error('peça vazia: ' + nome + ' (a folha desenho22 mudou de lugar?)'); saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(w, h, d)).toString('base64'), w, h, ax, ay }; console.log(nome.padEnd(10), w + 'x' + h, 'âncora', ax + ',' + ay, 'pixels', n); };
   // [nome, x, y, largura, altura, ax, ay] (caixa = contorno exato da peça na folha)
   for (const a of [['x_A_n', 3, 3, 62, 123, -1, 92], ['y_A_n', 71, 3, 62, 123, 63, 92], ['x_C_n', 282, 2, 62, 123, -1, 92], ['y_C_n', 358, 2, 62, 123, 63, 92],
     ['x_M_n', 142, 68, 62, 57, -1, 26], ['y_M_n', 206, 68, 62, 57, 63, 26], ['x_DA_n', 2, 129, 62, 123, -1, 92], ['y_DA_n', 68, 129, 62, 123, 63, 92],
     ['x_DM1_n', 142, 196, 18, 35, -1, 26], ['y_DM1_n', 262, 196, 18, 35, 19, 26], ['x_DM2_n', 188, 219, 16, 34, -47, 3], ['y_DM2_n', 218, 219, 16, 34, 63, 3],
-    ['C_O_A', 523, 241, 10, 97, 5, 95], ['C_RU_A', 546, 242, 10, 97, 5, 95], ['C_LD_A', 570, 242, 10, 97, 5, 95],
-    ['C_O_M', 523, 345, 10, 31, 5, 29], ['C_RU_M', 546, 345, 10, 31, 5, 29], ['C_LD_M', 570, 344, 10, 31, 5, 29]]) recorta(...a);
+    ['C_RD_A', 506, 240, 10, 97, 5, 95], ['C_O_A', 523, 241, 10, 97, 5, 95], ['C_RU_A', 546, 242, 10, 97, 5, 95], ['C_LD_A', 570, 242, 10, 97, 5, 95],
+    ['C_RD_M', 506, 344, 10, 31, 5, 29], ['C_O_M', 523, 345, 10, 31, 5, 29], ['C_RU_M', 546, 345, 10, 31, 5, 29], ['C_LD_M', 570, 344, 10, 31, 5, 29]]) recorta(...a);
   // portas altas animadas (linha de cima = ↙ contra a luz, linha de baixo = ↘), quadros 1 (fechada) .. 5 (aberta)
   [898, 974, 1050, 1126, 1202].forEach((X0, k) => recorta('y_DA_f' + (k + 1) + '_n', X0, 25, 62, 123, 63, 92));
   [[895, 152], [972, 159], [1048, 159], [1124, 159], [1200, 159]].forEach(([X0, Y0], k) => recorta('x_DA_f' + (k + 1) + '_n', X0, Y0, 62, 123, -1, 92));
-  for (const k of ['C_RD_A', 'C_LU_A', 'C_RD_M', 'C_LU_M']) delete saida[k];   // colunas do protótipo de 19b substituídas pela C_O
-  // PILAR DO CANTO ^ (RD), criado pelo dono depois do desenho21 (print pilares_print_2026-11-18.png, 1º da esquerda, alto e médio): reduzido do print 6x para 1x
-  //   (o mesmo método reproduz os outros pilares do print 100% iguais aos da folha). Mesmo contorno da C_O, então mesma âncora. O V continua com a C_O.
-  for (const [nome, arq, ay] of [['C_RD_A', 'pilar_topo_alto', 95], ['C_RD_M', 'pilar_topo_medio', 29]]) { const im = decodePNG('arte_casa/exportado_2026-11-18/' + arq + '.png');
-    saida[nome] = { src: 'data:image/png;base64,' + Buffer.from(encodePNG(im.w, im.h, im.data)).toString('base64'), w: im.w, h: im.h, ax: 5, ay }; console.log(nome.padEnd(10), im.w + 'x' + im.h, 'âncora 5,' + ay); }
+  for (const k of ['C_LU_A', 'C_LU_M']) delete saida[k];   // colunas do protótipo de 19b substituídas pela C_O
 }
 fs.writeFileSync('casa_pecas_dados.js', '// gerado por casa_pecas_extrai2.mjs a partir da folha do dono (' + arq.split(/[\\/]/).pop() + '): não editar à mão\nconst PECAS = ' + JSON.stringify(saida) + ';\n');
