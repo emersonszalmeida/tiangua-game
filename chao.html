@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=37"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=38"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -173,7 +173,7 @@ function itensCasa() {
     // REGRA DO DONO (2026-11-19), sem olhar T, X, < nem >: só existem as formas ^ (braços R+D), V (braços L+U) e as paredes x (↘) e y (↙).
     //   ^ = C_RD (vale com 2, 3 ou 4 paredes: o ângulo continua visível); V = C_O só com exatamente 2 paredes; parede ↘ que não forma ^ nem V = C_RU; parede ↙ que não forma ^ nem V = C_LD. Cada regra que vale põe a sua coluna; se várias valem no mesmo vértice, ficam empilhadas e a de cima é a última desenhada (RD > O > LD > RU).
     const tem = bs.map(([A]) => A).join(''), has = A => tem.includes(A), ehA = has('R') && has('D'), ehV = tem.length === 2 && has('L') && has('U'), alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
-    const tipos = []; if ((has('L') && !ehV) || (has('R') && !ehA)) tipos.push('RU'); if ((has('U') && !ehV) || (has('D') && !ehA)) tipos.push('LD'); if (ehV) tipos.push('O'); if (ehA) tipos.push('RD');
+    const tipos = []; if (ehA) tipos.push('RD'); else if (ehV) tipos.push('O'); else { const x = has('L') || has('R'), y = has('U') || has('D'); if (x && y) tipos.push(has('R') ? 'RU' : 'LD'); else tipos.push(x ? 'RU' : 'LD'); }   // duas paredes (x e y) sem ser ^ nem V: manda a da FRENTE (a que sai do vértice para baixo na tela: R para a ↘, D para a ↙); R presente = x na frente = C_RU, senão a y (D) = C_LD
     for (const tipo of tipos) itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), v.x + v.y + 0.002, bs.every(([, w]) => w.atras), 0); }   // profundidade = a do PRÓPRIO vértice (x+y): a parede que sai dele para a frente (key = x+y+0,5) cobre o pilar; a que chega nele por trás (x+y-0,5) fica atrás dele
   for (const v of vertices.values()) {
     if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
