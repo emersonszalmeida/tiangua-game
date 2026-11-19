@@ -171,7 +171,7 @@ function itensCasa() {
   if (window.CENTRO) for (const v of vertices.values()) {
     const bs = ['L', 'R', 'U', 'D'].filter(A => v[A]).map(A => [A, arm(v, A)]).filter(([, w]) => w && Hh(w)); if (!bs.length) continue;
     const tem = bs.map(([A]) => A).join(''), tipo = tem === 'RU' ? 'RU' : tem === 'LD' ? 'LD' : 'O', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
-    itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), Math.max(...bs.map(([, w]) => w.key)) + 0.002, bs.every(([, w]) => w.atras), 0); }
+    itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), v.x + v.y + 0.002, bs.every(([, w]) => w.atras), 0); }   // profundidade = a do PRÓPRIO vértice (x+y): a parede que sai dele para a frente (key = x+y+0,5) cobre o pilar; a que chega nele por trás (x+y-0,5) fica atrás dele
   for (const v of vertices.values()) {
     if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
     let nome = v.L && v.U && !v.R && !v.D ? 'LU' : v.R && v.D && !v.L && !v.U ? 'RD' : v.R && v.U && !v.L && !v.D ? 'RU' : v.L && v.D && !v.R && !v.U ? 'LD' : null;
