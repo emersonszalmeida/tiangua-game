@@ -19,7 +19,7 @@ canvas{position:fixed;inset:0;image-rendering:pixelated}
 <canvas id="g"></canvas>
 <div id="ui"></div>
 <div id="painel"></div>
-<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=34"></script>
+<script src="sprites7.js"></script><script src="idles.js"></script><script src="personagem.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=35"></script>
 <script>
 const MATS = {
   grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
@@ -170,7 +170,7 @@ function itensCasa() {
   //   altura: alta (_A) se algum braço é alto ou porta alta; senão média (_M)
   if (window.CENTRO) for (const v of vertices.values()) {
     const bs = ['L', 'R', 'U', 'D'].filter(A => v[A]).map(A => [A, arm(v, A)]).filter(([, w]) => w && Hh(w)); if (!bs.length) continue;
-    const tem = bs.map(([A]) => A).join(''), tipo = tem === 'RU' ? 'RU' : tem === 'LD' ? 'LD' : (tem === 'RD' || tem === 'LRD' || tem === 'RUD') ? 'RD' : (tem === 'UD' || tem === 'U' || tem === 'D') ? 'LD' : (tem === 'LR' || tem === 'L' || tem === 'R') ? 'RU' : 'O', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
+    const tem = bs.map(([A]) => A).join(''), has = A => tem.includes(A), tipo = has('R') && has('D') ? 'RD' : has('L') && has('U') ? 'O' : has('R') && has('U') ? 'RU' : has('L') && has('D') ? 'LD' : (has('L') || has('R')) ? 'RU' : 'LD', alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';   // REGRA DO DONO (2026-11-19): forma ^ (braços R+D) = C_RD em qualquer combinação (T, X...); forma V (L+U) = C_O; senão parede ↘ (x) = C_RU e ↙ (y) = C_LD (nos cantos < e > fica a do ↘ no < e a do ↙ no >)
     itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), v.x + v.y + 0.002, bs.every(([, w]) => w.atras), 0); }   // profundidade = a do PRÓPRIO vértice (x+y): a parede que sai dele para a frente (key = x+y+0,5) cobre o pilar; a que chega nele por trás (x+y-0,5) fica atrás dele
   for (const v of vertices.values()) {
     if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
