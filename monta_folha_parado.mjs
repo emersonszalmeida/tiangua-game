@@ -6,7 +6,7 @@ const P = PARTES.map(p => decodePNG(`personagem_camadas/${p}/parado/SW.png`)), W
 const n = PARTES.length + 1, W = n * (W0 + G) + G, H = H0 + 2 * G; // 1ª célula = composto (referência), depois cada parte
 if (V) {
   const S = decodePNG(process.argv[process.argv.indexOf('--separa') + 1]);
-  PARTES.forEach((p, i) => { const b = new Uint8Array(W0 * H0 * 4), ox = G + (i + 1) * (W0 + G); for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) { const s = ((G + y) * S.w + ox + x) * 4, d = (y * W0 + x) * 4; if (S.data[s + 3]) b.set(S.data.slice(s, s + 4), d); }
+  PARTES.forEach((p, i) => { const b = new Uint8Array(W0 * H0 * 4), ox = G + (i + 1) * (W0 + G); for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) { const s = ((G + y) * S.w + ox + x) * 4, d = (y * W0 + x) * 4; if (S.data[s + 3] && !(S.data[s] === 0xb4 && S.data[s + 1] === 0xad && S.data[s + 2] === 0xa2)) b.set(S.data.slice(s, s + 4), d); }
     fs.mkdirSync(dir + '/separadas', { recursive: true }); fs.writeFileSync(`${dir}/separadas/${p}.png`, encodePNG(W0, H0, b)); });
   console.log('separadas em', dir + '/separadas'); process.exit();
 }
