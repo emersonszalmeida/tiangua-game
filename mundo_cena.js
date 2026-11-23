@@ -38,7 +38,7 @@ function desenhaNpc(id, x, y, cor, now) {
 function dlg(quem, txt, ops, fim) { D = { ativo: true, quem, txt, ops: ops || null, fim, n: 0 }; el('dlg').style.display = ''; el('dq').textContent = quem || ''; el('dq').style.display = quem ? '' : 'none'; el('dt').textContent = ''; el('dt').className = quem ? '' : 'narra'; el('dops').innerHTML = ''; el('dc').style.display = 'none'; desenhaHud(true); }
 function fecha() { D = { ativo: false }; el('dlg').style.display = 'none'; desenhaHud(true); salva(); }
 function dlgSeq(linhas, fim) { let i = 0; const passo = () => { if (i >= linhas.length) { fecha(); if (fim) fim(); return; } const [q, t] = linhas[i++]; dlg(q, t, null, passo); }; passo(); }
-function avanca() { if (!D.ativo) return; if (D.n < D.txt.length) { D.n = D.txt.length; mostraDlg(); return; } if (D.ops) return; const f = D.fim; fecha(); if (f) f(); }
+function avanca() { if (!D.ativo || D.trab) return; if (D.n < D.txt.length) { D.n = D.txt.length; mostraDlg(); return; } if (D.ops) return; const f = D.fim; fecha(); if (f) f(); }
 function escolhe(i) { if (!D.ativo || D.n < D.txt.length || !D.ops) return; const o = D.ops[i]; if (!o || o.off) return; const cur = D; o.f(); if (D === cur) fecha(); }
 function mostraDlg() {
   el('dt').textContent = D.txt.slice(0, Math.floor(D.n)); if (D.n < D.txt.length) return;
@@ -81,6 +81,7 @@ function menuTadeu() {
     { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
     { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
     J.f.b === 'volta' && { t: 'Entregar a bateria', f: entregaBateria },
+    J.inv.some(q => /^peca_/.test(q.t)) && { t: 'Vender as peças da carcaça', f: vendePecas },
     { t: 'Pedir um serviço', f: pedirServico },
     { t: 'Conversar sobre o corre', f: conversaTadeu },
     { t: 'Deixar pra lá', f: () => { } }].filter(Boolean));
@@ -100,8 +101,43 @@ function entregaBateria() {
   tiraItem('bateria'); J.grana += pg; f.b = 'feito'; f.bDia = Math.floor(J.t / 1440); desenhaHud(true);
   dlgSeq([['Tadeu', gasto <= 60 ? 'Rapidinho! Era isso.' : gasto <= 120 ? 'Demorou um pouco, mas serve.' : 'Demorou demais. O cliente já tava reclamando.'], ['', 'O Tadeu confere a bateria e entrega R$ ' + pg + '.'], ...(f.zecaAmigo ? [['Tadeu', 'Soube que você deu uma mão pro Zeca. Ele fala bem de você, e isso vale mais que o dinheiro.']] : []), ...(f.seco ? [['Tadeu', 'Descontei do que você me deve. Continua assim.']] : [])]);
 }
+// ---- desmontar a carcaça do Zeca ----
+const ETAPAS = [{ id: 'alt', nome: 'o alternador', valor: 50 }, { id: 'part', nome: 'o motor de partida', valor: 40 }, { id: 'bomba', nome: 'a bomba d\'água', valor: 25 }];
+function trabalha(min, fim) {
+  dlg('', 'Desmontando...', null, null); D.trab = true; D.n = D.txt.length; el('dc').style.display = 'none';
+  const ini = J.t, alvo = J.t + min, t0 = performance.now(), dur = 1800;
+  const iv = setInterval(() => { const p = Math.min(1, (performance.now() - t0) / dur), k = Math.floor(p * 20); J.t = ini + (alvo - ini) * p; el('dt').textContent = 'Desmontando a carcaça...   ' + '█'.repeat(k) + '░'.repeat(20 - k) + '   ' + horaTxt(); if (p >= 1) { clearInterval(iv); fecha(); fim(); } }, 60);
+}
+function falaCarcaca() {
+  const f = J.f, i = f.cEt || 0, h = (J.t / 60) % 24, dia = Math.floor(J.t / 1440);
+  if (!f.zecaAmigo) return dlgSeq([['', 'Uma carcaça de carro sem rodas, mais ferrugem que lata. O Seu Zeca fica de olho em quem mexe nela.']]);
+  if (i >= 3) return dlgSeq([['', 'A carcaça está limpa: sobrou só a lataria e a ferrugem. O Seu Zeca já tá de olho no ferro pra vender.']]);
+  if (!temItem('chave')) return dlgSeq([['', 'Sem a chave de roda não dá pra soltar nada aqui.']]);
+  if (h < 6 || h >= 20) return dlgSeq([['', 'Escuro demais pra mexer em motor. Volta de dia.']]);
+  if (f.cDia !== dia) { f.cDia = dia; f.cN = 0; }
+  if (f.cN >= 2) return dlgSeq([['', 'Já deu por hoje: as mãos estão em carne viva. Amanhã a gente continua.']]);
+  const e = ETAPAS[i];
+  dlg('', 'O Seu Zeca aponta para ' + e.nome + ' da carcaça. "Inteiro vale uns R$ ' + e.valor + ' pro Tadeu. Na marra, metade."', [
+    { t: 'Soltar com cuidado (1h de jogo, peça perfeita)', f: () => trabalha(60, () => pecaPronta(e, true)) },
+    { t: 'Soltar na força (20 min, peça danificada: vale metade)', f: () => trabalha(20, () => pecaPronta(e, false)) },
+    { t: 'Deixar pra depois', f: () => { } }]);
+}
+function pecaPronta(e, boa) {
+  const t = 'peca_' + e.id + (boa ? '' : '_d'); if (!daItem(t)) { aviso('Mochila cheia: a peça ficou na carcaça'); return; }
+  J.f.cEt = (J.f.cEt || 0) + 1; J.f.cN = (J.f.cN || 0) + 1; aviso('Pegou: ' + ITENS[t].nome);
+  dlgSeq([['', boa ? 'Parafuso por parafuso, ' + e.nome + ' sai inteiro e limpo.' : 'Você faz força até o ferro ceder. ' + e.nome + ' sai amassado e riscado, mas sai.'], ['Seu Zeca', boa ? 'Isso é trabalho de quem sabe o que tá fazendo.' : 'Rápido, mas olha o estrago. O Tadeu vai pagar menos.']]);
+}
+function vendePecas() {
+  let total = 0, boas = 0, ruins = 0; const itens = [];
+  for (const q of J.inv) { const m = /^peca_(alt|part|bomba)(_d)?$/.exec(q.t); if (!m) continue; const e = ETAPAS.find(x => x.id === m[1]), v = Math.round(e.valor * (m[2] ? .5 : 1)); total += v * q.n; (m[2] ? (ruins += q.n) : (boas += q.n)); itens.push(q); }
+  if (!itens.length) return dlgSeq([['Tadeu', 'Você não tem peça nenhuma pra eu ver.']]);
+  dlg('Tadeu', 'Deixa eu ver o que o Zeca te passou... ' + (boas ? 'Essas inteiras estão limpas, bom serviço. ' : '') + (ruins ? 'Essas amassadas não valem o mesmo. ' : '') + 'Dou R$ ' + total + ' por tudo.', [
+    { t: 'Vender tudo (R$ ' + total + ')', f: () => { for (const q of itens) { for (let k = q.n; k > 0; k--) tiraItem(q.t); } J.grana += total; aviso('+ R$ ' + total); desenhaHud(true); dlgSeq([['Tadeu', J.f.zecaAmigo ? 'O Zeca tá te passando coisa boa, hein. Mantém essa amizade.' : 'Combinado.']]); } },
+    { t: 'Ainda não', f: () => { } }]);
+}
 function falaZeca() {
   const f = J.f;
+  if (f.b !== 'buscar' && f.zecaAmigo && (f.cEt || 0) < 3) return dlgSeq([['Seu Zeca', 'Aquela carcaça ainda tem coisa boa: alternador, motor de partida e bomba d\'água. Tira com cuidado, que o Tadeu paga bem por peça inteira. Mão de obra boa eu reconheço.']]);
   if (f.b !== 'buscar') return dlgSeq([['Seu Zeca', f.b === 'volta' ? 'Já levou a bateria? Então vai, o Tadeu não gosta de esperar.' : 'Sucata, ferro-velho, peça usada. Se o Tadeu mandar, eu tenho.']]);
   const leva = custo => { f.bCusto = custo; f.b = 'volta'; J.grana -= custo; daItem('bateria'); aviso('Pegou: Bateria usada'); desenhaHud(true); };
   dlg('Seu Zeca', 'Ô, o menino do Tadeu. A bateria tá ali, usada mas ainda dá carga. Vinte e cinco e é tua.', [
@@ -242,7 +278,7 @@ function montaMoveis() {
   liga(osmar, 21.4, 24.4, 1.8, 'Falar com o Seu Osmar', falaOsmar);
   // ferro-velho do Seu Zeca (terreno a leste da rua lateral): carcaça, pilha de sucata e o dono
   const carc = movel({ x: 20.3, y: 10.4, w: 1.6, d: 1.1, partes: [{ w: 1.6, d: 1.1, h: 24, z0: 4, cores: ['#8a5a40', '#6d4733', '#563826'], det: (g, pr, o) => { ret(g, '#3a3a40', ...pr(.3, .3, o.zt), 18, 6); lin(g, '#b07a50', pr(.1, .8, o.zt - 8), pr(1.4, .8, o.zt - 8)); } }, { dx: .1, dy: .1, w: .25, d: .25, h: 6, cores: COR.preto }] });
-  liga(carc, 21.1, 11.1, 1.5, 'Olhar a carcaça', texto('Uma carcaça de carro sem rodas, mais ferrugem que lata. Um parafuso no capô está tão enferrujado que parece soldado.'));
+  liga(carc, 21.1, 11.1, 1.6, 'Mexer na carcaça', falaCarcaca);
   const pil = movel({ x: 22.5, y: 11.2, w: .9, d: .9, partes: [{ w: .9, d: .9, h: 22, cores: COR.ferro }, { dx: .1, dy: .1, w: .7, d: .6, h: 14, z0: 22, cores: ['#4a4f47', '#383c36', '#2b2e2a'], det: (g, pr, o) => { ret(g, '#c8473a', ...pr(.12, .1, o.zt), 3, 2); ret(g, '#9a9aa2', ...pr(.5, .1, o.zt), 3, 2); } }] });
   liga(pil, 22.9, 11.8, 1.4, 'Olhar a pilha de sucata', texto('Pilha de baterias velhas, pedaços de motor e fios enrolados. O Zeca sabe o preço de cada parafuso.'));
   const zeca = { x: 21.35, y: 12.05, w: .5, d: .5, bloq: true, npc: true, desenha: now => desenhaNpc('zeca', 21.6, 12.3, [hexRgb('#7a4a8a'), hexRgb('#3e2347'), hexRgb('#5c3668')], now) }; MOVEIS.push(zeca);

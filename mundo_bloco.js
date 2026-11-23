@@ -10,6 +10,15 @@ const ITENS = {
   bateria: { nome: 'Bateria usada', vida: 0, texto: 'Pesada, suja de graxa, ainda com um pouco de carga. É para o Tadeu recondicionar.', g: ['..kk..kk..', '..kRk.kSk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSkkSSkkSk', 'kSSSSSSSSk', 'kkkkkkkkkk'] },
   curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
+// peças da carcaça do Zeca (a versão danificada é a mesma, enferrujada)
+const PECAS_G = {
+  alt: ['..kkkkkk..', '.kSSSSSSk.', 'kSSkkkkSSk', 'kSkRRRRkSk', 'kSkRSSRkSk', 'kSkRRRRkSk', 'kSSkkkkSSk', '.kSSSSSSk.', '..kkkkkk..'],
+  part: ['......kk..', '......kRk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSOOOOOOSk', 'kSSSSSSSSk', 'kkkkkkkkkk'],
+  bomba: ['.k.kkkk.k.', 'kkkSSSSkkk', '.kSSkkSSk.', 'kSSkRRkSSk', 'kSSkRRkSSk', '.kSSkkSSk.', 'kkkSSSSkkk', '.k.kkkk.k.'] };
+for (const [id, nome] of [['alt', 'Alternador'], ['part', 'Motor de partida'], ['bomba', 'Bomba d\'água']]) {
+  ITENS['peca_' + id] = { nome, vida: 0, texto: 'Peça tirada da carcaça do Zeca. O Tadeu compra.', g: PECAS_G[id] };
+  ITENS['peca_' + id + '_d'] = { nome: nome + ' (danificado)', vida: 0, texto: 'Saiu amassada. Vale metade, mas o Tadeu ainda compra.', g: PECAS_G[id].map(l => l.replace(/S/g, 'O').replace(/R/g, 'n')) };
+}
 const ICONE = {};
 function icone(t) {
   if (ICONE[t]) return ICONE[t]; const g = ITENS[t].g, w = Math.max(...g.map(l => l.length)), c = document.createElement('canvas'); c.width = w; c.height = g.length; const x = c.getContext('2d');
