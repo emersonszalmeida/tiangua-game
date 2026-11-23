@@ -199,6 +199,6 @@ Direção nova do dono: sem fome/sede; história = cidade baixa, protagonista en
 - `mundo_patio.js` (entra entre bloco e cena em `faz_mundo.mjs`): pátio ao sul (x 3..16, y 24..30) com muro baixo (`mid`), portão a leste (x=17) e fresta no muro norte (x 4..5) por um corredor estreito entre a casa e o muro ("dutos").
 - Vigia em ronda em volta do bloco de paletes (cone 4,2 / 36°) + patota parada (olha oeste, leste, norte, leste a cada 2,8 s; cone 3,8 / 42°). O cone aparece no chão e é cortado por muro e paletes. Visto por 0,55 s = detectado: -20 de vida, jogado pra fora do portão, `f.visto` (cone +1 de alcance).
 - Latas no chão chamam o vigia (`f.ruido`); a pilha de latas no canto NE é o distrator (`f.distrator`).
-- Pagamento (Tadeu): R$ 120 limpo, R$ 100 com ruído/distrator, R$ 90 se visto. Disponível a partir de terça 18h (janela 18h–03h), depois de um corre feito; módulo só se pega à noite. Única.
+- Pagamento (Tadeu): R$ 120 limpo, R$ 100 com ruído/distrator, R$ 90 se visto. Disponível liberada na hora (sem janela de horário), depois de um corre feito; módulo só se pega à noite. Única.
 - Bicos únicos: ajudante de feira da Neide (6h–10h, 2 h, R$ 25, depois de ler o mural), recado do Tadeu à Neide (R$ 20, envelope), dobradiça do Seu Valdir (R$ 20, chave de roda, só após a entrega), 3 achados (R$ 6 / 10 / 8).
 - Corres agora únicos: Valdir, fiado do Osmar, bateria, zona industrial. Teste de alcançabilidade feito por busca em grade (anda 1,5 células/s): há caminho limpo pelo portão (24 s) e pelos dutos (27 s).

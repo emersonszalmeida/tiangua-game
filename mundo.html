@@ -549,7 +549,6 @@ function patioMoveis(movel, liga) {
   const prat = movel({ x: 3.2, y: 28.0, w: .8, d: 1.5, cobre: true, partes: [{ w: .8, d: 1.5, h: 46, cores: COR.ferro, det: (g, pr, o) => { ret(g, '#6fa3c4', ...pr(.2, .5, o.zt - 10), 4, 3); } }] });
   liga(prat, 4.6, 28.8, 1.5, 'Pegar o módulo da prateleira', () => {
     const f = J.f, h = (J.t / 60) % 24;
-    if (!(h >= 18 || h < 5)) return dlgSeq([['', 'Tem gente demais no pátio: carregadores, caminhão. Só vale a pena à noite.']]);
     if (!daItem('modulo')) return; f.z = 'volta'; desenhaHud(true);
     dlgSeq([['', 'Entre uma caixa e outra, preso numa prateleira de ferro: o módulo fora de linha, embrulhado em plástico bolha. Você guarda sem fazer barulho.'], ['', 'Agora é voltar até o Tadeu sem ninguém ver.']]);
   }, () => J.f.z === 'ir');
@@ -633,7 +632,7 @@ function tiraItem(t) { const i = J.inv.findIndex(q => q.t === t); if (i < 0) ret
 function interPerto() { let b = null, bd = 1e9; for (const a of INTER) { if (a.ativo && !a.ativo()) continue; const d = Math.hypot(hx - a.x, hy - a.y); if (d < a.r && d < bd) { bd = d; b = a; } } return b; }
 function interagir() { if (D.ativo) { avanca(); return; } if (J.morto) return; if (itemPerto()) { pegar(); return; } const a = interPerto(); if (a) a.f(); }
 const texto = (...linhas) => () => dlgSeq(linhas.map(t => ['', t]));
-function objetivo() { const f = J.f; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir (rua lateral, ao norte)'; if (f.z === 'ir') return 'Pegar o módulo no pátio da zona industrial (sul, a oeste da rua lateral), à noite, sem ser visto'; if (f.z === 'volta') return 'Levar o módulo ao Tadeu, sem ser visto'; if (f.rec === 'ir') return 'Levar o envelope do Tadeu à Dona Neide (mercadinho)'; if (f.rec === 'volta') return 'Voltar ao Tadeu com a resposta da Dona Neide'; if (f.b === 'buscar') return 'Buscar uma bateria usada com o Seu Zeca (ferro-velho, do outro lado da rua lateral)'; if (f.b === 'volta') return 'Levar a bateria ao Tadeu: R$ 55 até ' + horaDe(f.bIni + 60) + ', R$ 45 até ' + horaDe(f.bIni + 120); if (f.n === 'cobrar') return 'Cobrar o fiado de R$ 60 do Seu Osmar (casa ao sul da rua)'; if (f.n === 'volta') return 'Voltar ao mercadinho e acertar com a Dona Neide'; if (J.q === 'fim') return J.divida > 0 ? 'Juntar o dinheiro do aluguel: serviços do Tadeu e da Dona Neide' : 'Aluguel em dia'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
+function objetivo() { const f = J.f; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir (rua lateral, ao norte)'; if (f.z === 'ir') return 'Pegar o módulo no pátio da zona industrial (sul, a oeste da rua lateral), sem ser visto'; if (f.z === 'volta') return 'Levar o módulo ao Tadeu, sem ser visto'; if (f.rec === 'ir') return 'Levar o envelope do Tadeu à Dona Neide (mercadinho)'; if (f.rec === 'volta') return 'Voltar ao Tadeu com a resposta da Dona Neide'; if (f.b === 'buscar') return 'Buscar uma bateria usada com o Seu Zeca (ferro-velho, do outro lado da rua lateral)'; if (f.b === 'volta') return 'Levar a bateria ao Tadeu: R$ 55 até ' + horaDe(f.bIni + 60) + ', R$ 45 até ' + horaDe(f.bIni + 120); if (f.n === 'cobrar') return 'Cobrar o fiado de R$ 60 do Seu Osmar (casa ao sul da rua)'; if (f.n === 'volta') return 'Voltar ao mercadinho e acertar com a Dona Neide'; if (J.q === 'fim') return J.divida > 0 ? 'Juntar o dinheiro do aluguel: serviços do Tadeu e da Dona Neide' : 'Aluguel em dia'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
 // ---- bancada do quarto ----
 function bancadaQuarto() {
   const f = J.f, ops = [], resta = [];
@@ -672,7 +671,7 @@ function pedirServico() {
   if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
   if (f.z === 'ir' || f.z === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço do pátio, não tá? Termina esse primeiro.']]);
   if (f.rec === 'ir' || f.rec === 'volta') return dlgSeq([['Tadeu', 'O recado da Neide ainda tá na rua. Termina esse primeiro.']]);
-  const dia = h >= 5 && h < 20, noite = (h >= 18 || h < 3) && J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
+  const dia = h >= 5 && h < 20, noite = J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
   if (dia && f.b !== 'feito') ops.push({ t: 'A bateria do cliente (Seu Zeca)', f: servicoBateria });
   if (dia && !f.rec) ops.push({ t: 'Um recado pra Dona Neide', f: servicoRecado });
   if (noite && !f.z) ops.push({ t: 'O serviço pesado na zona industrial', f: servicoPatio });
@@ -699,7 +698,7 @@ function fimRecado() {
 }
 function servicoPatio() {
   const f = J.f;
-  dlg('Tadeu', 'Tem um serviço pesado lá na borda da zona industrial. Um contato precisa de um módulo fora de linha que ficou num pátio encostado no muro. Paga bem, entre R$ 90 e R$ 120, mas não é moleza. Se chamarem a segurança ou a guilda fechar o cerco por lá, sobra pra você. O pátio fica no fim da rua lateral, ao sul, do lado oeste. Dá pra entrar pelo portão ou contornar a casa por trás, pelos dutos. Só vale a pena à noite.', [
+  dlg('Tadeu', 'Tem um serviço pesado lá na borda da zona industrial. Um contato precisa de um módulo fora de linha que ficou num pátio encostado no muro. Paga bem, entre R$ 90 e R$ 120, mas não é moleza. Se chamarem a segurança ou a guilda fechar o cerco por lá, sobra pra você. O pátio fica no fim da rua lateral, ao sul, do lado oeste. Dá pra entrar pelo portão ou contornar a casa por trás, pelos dutos. Quanto menos gente no pátio, melhor, mas o vigia faz ronda o tempo todo.', [
     { t: 'Fechado. Eu pego esse módulo.', f: () => { f.z = 'ir'; dlgSeq([['Tadeu', 'Olha o ritmo do vigia antes de se mexer, e vê onde ele não enxerga. Se quiser desviar a atenção dele, tem latas por lá. Mas volta inteiro.']]); } },
     { t: 'Deixa pra lá.', f: () => { } }]);
 }

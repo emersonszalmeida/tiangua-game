@@ -73,7 +73,6 @@ function patioMoveis(movel, liga) {
   const prat = movel({ x: 3.2, y: 28.0, w: .8, d: 1.5, cobre: true, partes: [{ w: .8, d: 1.5, h: 46, cores: COR.ferro, det: (g, pr, o) => { ret(g, '#6fa3c4', ...pr(.2, .5, o.zt - 10), 4, 3); } }] });
   liga(prat, 4.6, 28.8, 1.5, 'Pegar o módulo da prateleira', () => {
     const f = J.f, h = (J.t / 60) % 24;
-    if (!(h >= 18 || h < 5)) return dlgSeq([['', 'Tem gente demais no pátio: carregadores, caminhão. Só vale a pena à noite.']]);
     if (!daItem('modulo')) return; f.z = 'volta'; desenhaHud(true);
     dlgSeq([['', 'Entre uma caixa e outra, preso numa prateleira de ferro: o módulo fora de linha, embrulhado em plástico bolha. Você guarda sem fazer barulho.'], ['', 'Agora é voltar até o Tadeu sem ninguém ver.']]);
   }, () => J.f.z === 'ir');
