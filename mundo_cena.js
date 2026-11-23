@@ -118,7 +118,7 @@ function falaNeide() {
   if (!aberto()) return dlgSeq([['', 'O mercadinho está fechado. A placa diz: "abre às 6h, fecha às 20h".']]);
   if (f.n === 'volta') return acertoNeide();
   const intro = !f.neide; f.neide = 1;
-  const menu = () => dlg('Dona Neide', intro && !f.neideMenu ? 'Ah, o rapaz da oficina do Tadeu! Aluguel apertado, né? Todo mundo sabe. Aqui ninguém passa fome, mas também ninguém leva de graça. O que vai ser?' : 'Fala, meu filho. O que vai ser?', [
+  const menu = () => dlg('Dona Neide', intro && !f.neideMenu ? 'Ah, o rapaz da oficina do Tadeu! Já te vi passando por aqui. Aqui o que é meu tá com preço na etiqueta, e fiado só pra quem eu conheço há tempo. O que vai ser?' : 'Fala, meu filho. O que vai ser?', [
     { t: 'Comprar curativo (R$ 18)', off: J.grana < 18, f: () => { compra('curativo', 18); menu(); } },
     { t: 'Comprar analgésico (R$ 10)', off: J.grana < 10, f: () => { compra('analgesico', 10); menu(); } },
     { t: 'Perguntar se tem serviço', f: servicoNeide },
