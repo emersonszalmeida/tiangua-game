@@ -202,3 +202,6 @@ Direção nova do dono: sem fome/sede; história = cidade baixa, protagonista en
 - Pagamento (Tadeu): R$ 120 limpo, R$ 100 com ruído/distrator, R$ 90 se visto. Disponível liberada na hora (sem janela de horário), depois de um corre feito; módulo só se pega à noite. Única.
 - Bicos únicos: ajudante de feira da Neide (6h–10h, 2 h, R$ 25, depois de ler o mural), recado do Tadeu à Neide (R$ 20, envelope), dobradiça do Seu Valdir (R$ 20, chave de roda, só após a entrega), 3 achados (R$ 6 / 10 / 8).
 - Corres agora únicos: Valdir, fiado do Osmar, bateria, zona industrial. Teste de alcançabilidade feito por busca em grade (anda 1,5 células/s): há caminho limpo pelo portão (24 s) e pelos dutos (27 s).
+
+## Limpeza (2026-11-23)
+Removidos protótipos antigos (conceito de clãs/Tianguá e experimentos): index.html (+map.js, osm.json, build.mjs), praca.html, poste.html/js, pista.html/js, tileset.html, teste_terreno.html, casa.html, exemplo_witchbrook.html e scripts de depuração avulsos. Tudo continua no histórico do git. Ficaram: chao.html (motor), mundo.html (jogo), teste_personagem.html e camadas.html (ferramentas do personagem), casa_pecas.html, arvore_ia.html.
