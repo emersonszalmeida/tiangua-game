@@ -125,19 +125,20 @@ function falaCarcaca() {
 function pecaPronta(e, boa) {
   const t = 'peca_' + e.id + (boa ? '' : '_d'); if (!daItem(t)) { aviso('Mochila cheia: a peça ficou na carcaça'); return; }
   J.f.cEt = (J.f.cEt || 0) + 1; J.f.cN = (J.f.cN || 0) + 1; aviso('Pegou: ' + ITENS[t].nome);
-  dlgSeq([['', boa ? 'Parafuso por parafuso, ' + e.nome + ' sai inteiro e limpo.' : 'Você faz força até o ferro ceder. ' + e.nome + ' sai amassado e riscado, mas sai.'], ['Seu Zeca', boa ? 'Isso é trabalho de quem sabe o que tá fazendo.' : 'Rápido, mas olha o estrago. O Tadeu vai pagar menos.']]);
+  dlgSeq([['', boa ? 'Parafuso por parafuso, ' + e.nome + ' sai inteiro e limpo.' : 'Você faz força até o ferro ceder. ' + e.nome + ' sai amassado e riscado, mas sai.'], ['Seu Zeca', boa ? 'Isso é trabalho de quem sabe o que tá fazendo. Lembra: a carcaça é minha, então 40% do que a peça render é meu. O Tadeu me acerta.' : 'Rápido, mas olha o estrago. O Tadeu vai pagar menos. E 40% do que render é meu, que a carcaça é minha.']]);
 }
 function vendePecas() {
   let total = 0, boas = 0, ruins = 0; const itens = [];
   for (const q of J.inv) { const m = /^peca_(alt|part|bomba)(_d)?$/.exec(q.t); if (!m) continue; const e = ETAPAS.find(x => x.id === m[1]), v = Math.round(e.valor * (m[2] ? .5 : 1)); total += v * q.n; (m[2] ? (ruins += q.n) : (boas += q.n)); itens.push(q); }
   if (!itens.length) return dlgSeq([['Tadeu', 'Você não tem peça nenhuma pra eu ver.']]);
-  dlg('Tadeu', 'Deixa eu ver o que o Zeca te passou... ' + (boas ? 'Essas inteiras estão limpas, bom serviço. ' : '') + (ruins ? 'Essas amassadas não valem o mesmo. ' : '') + 'Dou R$ ' + total + ' por tudo.', [
-    { t: 'Vender tudo (R$ ' + total + ')', f: () => { for (const q of itens) { for (let k = q.n; k > 0; k--) tiraItem(q.t); } J.grana += total; aviso('+ R$ ' + total); desenhaHud(true); dlgSeq([['Tadeu', J.f.zecaAmigo ? 'O Zeca tá te passando coisa boa, hein. Mantém essa amizade.' : 'Combinado.']]); } },
+  const zeca = Math.round(total * .4), liq = total - zeca;
+  dlg('Tadeu', 'Deixa eu ver o que o Zeca te passou... ' + (boas ? 'Essas inteiras estão limpas, bom serviço. ' : '') + (ruins ? 'Essas amassadas não valem o mesmo. ' : '') + 'Dou R$ ' + total + ' por tudo. A carcaça é do Zeca, então 40% (R$ ' + zeca + ') eu já separo pra ele. Sobram R$ ' + liq + ' pra você.', [
+    { t: 'Vender tudo (você recebe R$ ' + liq + ')', f: () => { for (const q of itens) { for (let k = q.n; k > 0; k--) tiraItem(q.t); } J.grana += liq; aviso('+ R$ ' + liq); desenhaHud(true); dlgSeq([['Tadeu', J.f.zecaAmigo ? 'O Zeca tá te passando coisa boa, hein. Mantém essa amizade.' : 'Combinado.']]); } },
     { t: 'Ainda não', f: () => { } }]);
 }
 function falaZeca() {
   const f = J.f;
-  if (f.b !== 'buscar' && f.zecaAmigo && (f.cEt || 0) < 3) return dlgSeq([['Seu Zeca', 'Aquela carcaça ainda tem coisa boa: alternador, motor de partida e bomba d\'água. Tira com cuidado, que o Tadeu paga bem por peça inteira. Mão de obra boa eu reconheço.']]);
+  if (f.b !== 'buscar' && f.zecaAmigo && (f.cEt || 0) < 3) return dlgSeq([['Seu Zeca', 'Aquela carcaça ainda tem coisa boa: alternador, motor de partida e bomba d\'água. Tira com cuidado, que o Tadeu paga bem por peça inteira. A carcaça é minha, então 40% do que render é meu; o resto é teu. Mão de obra boa eu reconheço.']]);
   if (f.b !== 'buscar') return dlgSeq([['Seu Zeca', f.b === 'volta' ? 'Já levou a bateria? Então vai, o Tadeu não gosta de esperar.' : 'Sucata, ferro-velho, peça usada. Se o Tadeu mandar, eu tenho.']]);
   const leva = custo => { f.bCusto = custo; f.b = 'volta'; J.grana -= custo; daItem('bateria'); aviso('Pegou: Bateria usada'); desenhaHud(true); };
   dlg('Seu Zeca', 'Ô, o menino do Tadeu. A bateria tá ali, usada mas ainda dá carga. Vinte e cinco e é tua.', [
