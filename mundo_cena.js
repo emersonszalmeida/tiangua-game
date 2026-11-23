@@ -106,8 +106,10 @@ function falaZeca() {
   const leva = custo => { f.bCusto = custo; f.b = 'volta'; J.grana -= custo; daItem('bateria'); aviso('Pegou: Bateria usada'); desenhaHud(true); };
   dlg('Seu Zeca', 'Ô, o menino do Tadeu. A bateria tá ali, usada mas ainda dá carga. Vinte e cinco e é tua.', [
     { t: 'Pagar R$ 25', off: J.grana < 25, f: () => { leva(25); dlgSeq([['Seu Zeca', 'Negócio fechado. Leva com cuidado, que é pesada.']]); } },
-    { t: 'Barganhar o preço', f: () => dlg('Seu Zeca', 'Barganhar? (ri) Tá bom, tá bom. Quinze e não se fala mais nisso.', [{ t: 'Pagar R$ 15', off: J.grana < 15, f: () => { leva(15); dlgSeq([['Seu Zeca', 'Assim que eu gosto, freguês que sabe conversar.']]); } }, { t: 'Deixa, eu volto depois', f: () => { } }]) },
-    { t: 'Soltar a peça emperrada com a chave de roda, em troca da bateria', off: !temItem('chave'), f: () => { f.zecaAmigo = 1; leva(0); dlgSeq([['', 'Você encaixa a chave de roda no parafuso enferrujado e faz força até ele ceder. O Seu Zeca assiste de braços cruzados.'], ['Seu Zeca', 'Anos que essa peça tava presa! Leva a bateria, é tua. E volta sempre.']]); } },
+    { t: 'Barganhar o preço', f: () => dlg('Seu Zeca', 'Barganhar? (ri) Tá bom, tá bom. Quinze e não se fala mais nisso. Ou então me dá uma mão com aquela peça emperrada na carcaça, que eu tô há anos tentando soltar.', [
+      { t: 'Pagar R$ 15', off: J.grana < 15, f: () => { leva(15); dlgSeq([['Seu Zeca', 'Assim que eu gosto, freguês que sabe conversar.']]); } },
+      { t: 'Soltar a peça emperrada com a chave de roda, em troca da bateria', off: !temItem('chave'), f: () => { f.zecaAmigo = 1; leva(0); dlgSeq([['', 'Você encaixa a chave de roda no parafuso enferrujado e faz força até ele ceder. O Seu Zeca assiste de braços cruzados.'], ['Seu Zeca', 'Anos que essa peça tava presa! Leva a bateria, é tua. E volta sempre.']]); } },
+      { t: 'Deixa, eu volto depois', f: () => { } }]) },
     { t: 'Voltar depois', f: () => { } }]);
 }
 function falaTadeu() {
