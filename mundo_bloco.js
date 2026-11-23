@@ -1,5 +1,6 @@
 // ---------- MUNDO: sobrevivência (fase 1) ----------
 // Bloco inserido em mundo.html por faz_mundo.mjs. Tudo daqui é novo; o resto do arquivo é o motor da cabana (chao.html).
+let CORRE_ON = false;   // Shift liga/desliga a corrida (um toque)
 const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_v2';
 // ---- itens (ícones desenhados por código; o dono refina depois no editor) ----
 const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6', p: '#e8788a' };

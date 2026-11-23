@@ -46,13 +46,14 @@ troca('const M = 24, NOMES', 'const M = 32, NOMES');
 troca("function autosave() { try { localStorage.setItem('cabana_mapa_v2', JSON.stringify(paraJson())); } catch (e) { } }", 'function autosave() { }');
 s = s.replace(/^if \(!new URLSearchParams\(location\.search\)\.has\('novo'\)\) try \{ const salvo = localStorage\.getItem\('cabana_mapa_v2'\);.*$/m, '');
 troca('editar = true, hsx', 'editar = false, hsx');
-troca("ui.innerHTML = 'WASD / setas: andar · Shift: correr · roda: zoom · T: grade · E: mostra/esconde o editor';", "ui.innerHTML = 'WASD / setas: andar · Shift: correr · E: pegar · 1-8: usar item · roda: zoom';");
-troca("if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); }", "if (e.code === 'KeyE') interagir(); if ((e.code === 'Space' || e.code === 'Enter') && D.ativo) { e.preventDefault(); avanca(); } if (e.code === 'KeyR' && J.morto) novoJogo(); { const n = +e.key; if (n >= 1 && n <= SLOTS) { if (D.ativo) escolhe(n - 1); else usa(n - 1); } }");
+troca("ui.innerHTML = 'WASD / setas: andar · Shift: correr · roda: zoom · T: grade · E: mostra/esconde o editor';", "ui.innerHTML = 'WASD / setas: andar · Shift: liga/desliga correr · E: pegar · 1-8: usar item · roda: zoom';");
+troca("if (e.code === 'KeyE') { editar = !editar; atualizaUi(); } const n = +e.key; if (n >= 1 && n <= VISIVEIS.length) { ferr = { t: 'chao', id: VISIVEIS[n - 1] }; atualizaUi(); }", "if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) CORRE_ON = !CORRE_ON; if (e.code === 'KeyE') interagir(); if ((e.code === 'Space' || e.code === 'Enter') && D.ativo) { e.preventDefault(); avanca(); } if (e.code === 'KeyR' && J.morto) novoJogo(); { const n = +e.key; if (n >= 1 && n <= SLOTS) { if (D.ativo) escolhe(n - 1); else usa(n - 1); } }");
 troca("const P = PERS.create('NE'); let hx = M / 2 + .5, hy = M / 2 + .5, last = performance.now();", bloco + "\nconst P = PERS.create('NE'); let hx = SPAWN.x, hy = SPAWN.y, last = performance.now();\ncarrega(); iniciaCena(); document.getElementById('novo').onclick = () => { if (confirm('Começar um jogo novo? O progresso atual será apagado.')) novoJogo(); }; desenhaHud(true);");
 troca('const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d);', 'const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d) || bateMovel(x, y);');
 troca('ctx.restore(); requestAnimationFrame(frame);', 'ctx.restore(); ambiente(now); requestAnimationFrame(frame);');
 troca('const dt = Math.min(.05, (now - last) / 1000); last = now;', 'const dt = Math.min(.05, (now - last) / 1000); last = now; jogoTick(dt);');
 troca("const casa = itensCasa(); lista.push({ d: hx + hy, jog: true,", "const casa = itensCasa(); for (const it of ITENS_MUNDO) if (!J.pegos[it.id]) lista.push({ d: it.x + it.y, f: () => desenhaItem(it, now) }); lista.push(...itensCena(now)); lista.push({ d: hx + hy, jog: true,");
+troca('run = keys.ShiftLeft || keys.ShiftRight;', 'run = CORRE_ON;');
 if (falhou) { console.log(falhou + ' trocas falharam; mundo.html NÃO escrito'); process.exit(1); }
 fs.writeFileSync('mundo.html', s.replace(/\n/g, '\r\n'));
 console.log('mundo.html escrito', s.length, 'bytes');

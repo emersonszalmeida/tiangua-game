@@ -293,7 +293,7 @@ const resize = () => { cv.width = innerWidth; cv.height = innerHeight; ctx.image
 const VISIVEIS = ['grama_baixa', 'terra_nova'];
 let larg = 1, inicio = null, snap = null;   // pincel (1x1, 2x2, 3x3), inicio do traco e copia do mapa para a linha reta
 const atualizaUi = () => {
-  ui.innerHTML = 'WASD / setas: andar · Shift: correr · E: pegar · 1-8: usar item · roda: zoom';
+  ui.innerHTML = 'WASD / setas: andar · Shift: liga/desliga correr · E: pegar · 1-8: usar item · roda: zoom';
   const pn = document.getElementById('painel'); pn.style.display = editar ? '' : 'none'; if (!editar) return;
   const bt = (t, id, img, nome) => '<button data-t="' + t + '" data-id="' + id + '" class="' + (ferr.t === t && ferr.id === id ? 'on' : '') + '"><img src="' + img + '">' + nome + '</button>';
   pn.innerHTML = '<h4>Chão (teclas 1 e 2)</h4><div class="g">' + VISIVEIS.map(m => bt('chao', m, MATS[m].icone, MATS[m].nome || m)).join('') + '</div>' +
@@ -320,7 +320,7 @@ function bateArv(o, wx, wy) { const d = OBJS[o.id]; if (d.deco && !d.pe) return 
   for (const [ax, ay] of [[0, 0], [-5, 0], [5, 0], [0, -2], [0, 2]]) { const px = A.cx + (fx + ax - A.sx) / A.e, py = Math.floor(A.by + (fy + ay - A.sy) / A.e), k = py - d.pe.y0; if (k >= 0 && k < d.pe.l.length && px >= d.pe.l[k] && px <= d.pe.r[k]) return true; }
   return false; }
 let mostraCol = false;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
-const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyP') { let d = document.getElementById('posdbg'); if (d) { d.remove(); } else { d = document.createElement('div'); d.id = 'posdbg'; d.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#000c;color:#ffd75e;font:14px monospace;padding:6px 10px;z-index:9;user-select:all'; document.body.appendChild(d); const at = () => { if (!d.isConnected) return; d.textContent = 'x=' + hx.toFixed(3) + ' y=' + hy.toFixed(3) + ' z=' + K + '  (P fecha)'; setTimeout(at, 150); }; at(); } } if (e.code === 'KeyC') mostraCol = !mostraCol; if (e.code === 'KeyE') interagir(); if ((e.code === 'Space' || e.code === 'Enter') && D.ativo) { e.preventDefault(); avanca(); } if (e.code === 'KeyR' && J.morto) novoJogo(); { const n = +e.key; if (n >= 1 && n <= SLOTS) { if (D.ativo) escolhe(n - 1); else usa(n - 1); } } }); addEventListener('keyup', e => keys[e.code] = false);
+const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyP') { let d = document.getElementById('posdbg'); if (d) { d.remove(); } else { d = document.createElement('div'); d.id = 'posdbg'; d.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#000c;color:#ffd75e;font:14px monospace;padding:6px 10px;z-index:9;user-select:all'; document.body.appendChild(d); const at = () => { if (!d.isConnected) return; d.textContent = 'x=' + hx.toFixed(3) + ' y=' + hy.toFixed(3) + ' z=' + K + '  (P fecha)'; setTimeout(at, 150); }; at(); } } if (e.code === 'KeyC') mostraCol = !mostraCol; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) CORRE_ON = !CORRE_ON; if (e.code === 'KeyE') interagir(); if ((e.code === 'Space' || e.code === 'Enter') && D.ativo) { e.preventDefault(); avanca(); } if (e.code === 'KeyR' && J.morto) novoJogo(); { const n = +e.key; if (n >= 1 && n <= SLOTS) { if (D.ativo) escolhe(n - 1); else usa(n - 1); } } }); addEventListener('keyup', e => keys[e.code] = false);
 function tratarCasa(e, fx, fy, cx, cy) {
   const vx = Math.round(fx), vy = Math.round(fy), ic = cantos.findIndex(c => c.x === vx && c.y === vy), perto = Math.hypot(fx - vx, fy - vy) < .45;
   if (e.button === 2 && ic >= 0 && perto) { cantos.splice(ic, 1); autosave(); return true; }
@@ -353,6 +353,7 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
 // ---------- MUNDO: sobrevivência (fase 1) ----------
 // Bloco inserido em mundo.html por faz_mundo.mjs. Tudo daqui é novo; o resto do arquivo é o motor da cabana (chao.html).
+let CORRE_ON = false;   // Shift liga/desliga a corrida (um toque)
 const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_v2';
 // ---- itens (ícones desenhados por código; o dono refina depois no editor) ----
 const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6', p: '#e8788a' };
@@ -671,7 +672,7 @@ function pedirServico() {
   if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
   if (f.z === 'ir' || f.z === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço do pátio, não tá? Termina esse primeiro.']]);
   if (f.rec === 'ir' || f.rec === 'volta') return dlgSeq([['Tadeu', 'O recado da Neide ainda tá na rua. Termina esse primeiro.']]);
-  const dia = h >= 5 && h < 20, noite = J.t >= 1440 && (h >= 18 || h < 3) && J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
+  const dia = h >= 5 && h < 20, noite = (h >= 18 || h < 3) && J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
   if (dia && f.b !== 'feito') ops.push({ t: 'A bateria do cliente (Seu Zeca)', f: servicoBateria });
   if (dia && !f.rec) ops.push({ t: 'Um recado pra Dona Neide', f: servicoRecado });
   if (noite && !f.z) ops.push({ t: 'O serviço pesado na zona industrial', f: servicoPatio });
@@ -1007,7 +1008,7 @@ if (q.has('demoporta')) {   // exemplo da porta animada: sala 3x3 (células 4..6
 }
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now; jogoTick(dt);
-  const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), run = keys.ShiftLeft || keys.ShiftRight;
+  const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), run = CORRE_ON;
   PERS.step(P, dx, dy, run, now);
   if (dx || dy) { const v = (run ? 190 : 110) * dt; // pixels de tela
     const sxv = dx / Math.hypot(dx, dy) * v, syv = dy / Math.hypot(dx, dy) * v * .5;

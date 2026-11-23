@@ -100,7 +100,7 @@ function pedirServico() {
   if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
   if (f.z === 'ir' || f.z === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço do pátio, não tá? Termina esse primeiro.']]);
   if (f.rec === 'ir' || f.rec === 'volta') return dlgSeq([['Tadeu', 'O recado da Neide ainda tá na rua. Termina esse primeiro.']]);
-  const dia = h >= 5 && h < 20, noite = J.t >= 1440 && (h >= 18 || h < 3) && J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
+  const dia = h >= 5 && h < 20, noite = (h >= 18 || h < 3) && J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
   if (dia && f.b !== 'feito') ops.push({ t: 'A bateria do cliente (Seu Zeca)', f: servicoBateria });
   if (dia && !f.rec) ops.push({ t: 'Um recado pra Dona Neide', f: servicoRecado });
   if (noite && !f.z) ops.push({ t: 'O serviço pesado na zona industrial', f: servicoPatio });
