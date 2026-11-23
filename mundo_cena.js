@@ -75,16 +75,22 @@ function bancadaQuarto() {
 // ---- Tadeu e o primeiro corre ----
 function repasse(v) { J.grana -= v; J.divida = Math.max(0, J.divida - v); desenhaHud(true); salva(); if (J.divida <= 0) { J.f.quitou = 1; dlgSeq([['Tadeu', J.f.seco ? 'Tá. Agora sim, a gente tá quite. Mas eu não esqueci.' : 'Fechou. O dono do galpão não enche mais o saco. Valeu, de verdade.']]); } else dlgSeq([['Tadeu', 'Anotado. Ainda faltam R$ ' + J.divida + '.' + (J.f.seco ? ' Continua mostrando serviço.' : '')]]); }
 function menuTadeu() {
-  const f = J.f, d = J.divida, pode = d > 0 && J.grana > 0, t = d <= 0 ? 'O aluguel tá em dia.' : (J.t >= PRAZO ? 'Você me deve R$ ' + d + '.' : 'Ainda faltam R$ ' + d + ' do aluguel. O prazo é sexta, 18h.');
-  dlg('Tadeu', f.seco ? 'Fala. ' + t : 'E aí. ' + t, [
-    { t: 'Repassar R$ 50', off: !pode || J.grana < 50 || d < 50, f: () => repasse(50) },
-    { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
-    { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
+  const f = J.f, oi = f.seco ? ['Fala.', 'O que é?'] : ['E aí, alguma novidade?', 'E aí, o que manda?', 'Fala aí, o que manda?'];
+  dlg('Tadeu', oi[Math.floor(J.t / 7) % oi.length], [
     J.f.b === 'volta' && { t: 'Entregar a bateria', f: entregaBateria },
     J.inv.some(q => /^peca_/.test(q.t)) && { t: 'Vender as peças da carcaça', f: vendePecas },
     { t: 'Pedir um serviço', f: pedirServico },
+    { t: 'Falar do aluguel', f: menuAluguel },
     { t: 'Conversar sobre o corre', f: conversaTadeu },
     { t: 'Deixar pra lá', f: () => { } }].filter(Boolean));
+}
+function menuAluguel() {
+  const f = J.f, d = J.divida, pode = d > 0 && J.grana > 0, t = d <= 0 ? 'O aluguel tá em dia.' : (J.t >= PRAZO ? 'Você me deve R$ ' + d + '.' : 'Ainda faltam R$ ' + d + ' do aluguel. O prazo é sexta, 18h.');
+  dlg('Tadeu', t, [
+    { t: 'Repassar R$ 50', off: !pode || J.grana < 50 || d < 50, f: () => repasse(50) },
+    { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
+    { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
+    { t: 'Voltar', f: menuTadeu }]);
 }
 function pedirServico() {
   const f = J.f, h = (J.t / 60) % 24, dia = Math.floor(J.t / 1440);
