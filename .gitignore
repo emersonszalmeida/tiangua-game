@@ -21,3 +21,4 @@ node_modules/
 .pixellab_secret
 !manequim/**/*.png
 !manequim/*.png
+!parado_sw_editar/*.png

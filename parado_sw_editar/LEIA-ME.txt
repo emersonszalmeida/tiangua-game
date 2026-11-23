@@ -1,0 +1,2 @@
+Folha do personagem parado, vista SW. Cada celula 48x64, espacamento 4px, fundo cinza. Da esquerda para a direita: composto (so referencia, nao e usado), contorno, pele, cabelo, camiseta, calca, sapato.
+Para separar de volta: node monta_folha_parado.mjs --separa <folha editada>.png
