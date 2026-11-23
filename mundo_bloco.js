@@ -5,7 +5,7 @@ const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_v2';
 const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6' };
 const ITENS = {
   chave: { nome: 'Chave de roda', vida: 0, texto: 'Pesada e engraxada. Boa de segurar quando a conversa azeda.', g: ['.kkkk.......', 'ksSSsk......', 'kSkkSkkkkkk.', 'ksSSsSssSSsk', '.kkkkkkkkkk.'] },
-  caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa do Seu Valdir. É para o Tadeu.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
+  caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa lacrada do Tadeu. É para o Seu Valdir.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
   curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
 const ICONE = {};

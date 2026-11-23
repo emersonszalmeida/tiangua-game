@@ -358,7 +358,7 @@ const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_v2';
 const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6' };
 const ITENS = {
   chave: { nome: 'Chave de roda', vida: 0, texto: 'Pesada e engraxada. Boa de segurar quando a conversa azeda.', g: ['.kkkk.......', 'ksSSsk......', 'kSkkSkkkkkk.', 'ksSSsSssSSsk', '.kkkkkkkkkk.'] },
-  caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa do Seu Valdir. É para o Tadeu.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
+  caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa lacrada do Tadeu. É para o Seu Valdir.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
   curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
 const ICONE = {};
@@ -489,7 +489,7 @@ const bateMovel = (x, y) => MOVEIS.some(m => m.bloq && (!m.ativo || m.ativo()) &
 // ---- personagens (o mesmo boneco do jogador, com a camiseta pintada de outra cor) ----
 const NPCCV = document.createElement('canvas'); NPCCV.width = 200; NPCCV.height = 200; const NPCG = NPCCV.getContext('2d', { willReadFrequently: true });
 const CAMISA = [hexRgb('#9c9873'), hexRgb('#4b4936'), hexRgb('#8c7d67')];   // camiseta do boneco (miolo, contorno, sombra): trocadas por outra cor em cada personagem
-const NPCP = { tadeu: PERS.create('SW'), g1: PERS.create('SE'), g2: PERS.create('S') };
+const NPCP = { valdir: PERS.create('SW'), tadeu: PERS.create('SW'), g1: PERS.create('SE'), g2: PERS.create('S') };
 function desenhaNpc(id, x, y, cor, now) {
   NPCG.clearRect(0, 0, 200, 200); NPCG.save(); NPCG.translate(100, 170); PERS.step(NPCP[id], 0, 0, false, now); PERS.draw(NPCG, NPCP[id], 0, 0); NPCG.restore();
   const im = NPCG.getImageData(0, 0, 200, 200), p = im.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; for (let k = 0; k < 3; k++) { const o = CAMISA[k]; if (Math.abs(p[i] - o[0]) < 3 && Math.abs(p[i + 1] - o[1]) < 3 && Math.abs(p[i + 2] - o[2]) < 3) { p[i] = cor[k][0]; p[i + 1] = cor[k][1]; p[i + 2] = cor[k][2]; break; } } }
@@ -512,7 +512,7 @@ function tiraItem(t) { const i = J.inv.findIndex(q => q.t === t); if (i < 0) ret
 function interPerto() { let b = null, bd = 1e9; for (const a of INTER) { if (a.ativo && !a.ativo()) continue; const d = Math.hypot(hx - a.x, hy - a.y); if (d < a.r && d < bd) { bd = d; b = a; } } return b; }
 function interagir() { if (D.ativo) { avanca(); return; } if (J.morto) return; if (itemPerto()) { pegar(); return; } const a = interPerto(); if (a) a.f(); }
 const texto = (...linhas) => () => dlgSeq(linhas.map(t => ['', t]));
-function objetivo() { const f = J.f; if (J.q === 'fim') return 'Fim da Cena 01'; if (J.q === 'caixa') return 'Levar a caixa de peças ao Tadeu, na oficina'; if (J.q === 'corre') return 'Buscar a caixa de peças no ponto do Seu Valdir (rua lateral, ao norte)'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
+function objetivo() { const f = J.f; if (J.q === 'fim') return 'Fim da Cena 01'; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir (rua lateral, ao norte)'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
 // ---- bancada do quarto ----
 function bancadaQuarto() {
   const f = J.f, ops = [], resta = [];
@@ -526,43 +526,41 @@ function bancadaQuarto() {
 // ---- Tadeu e o primeiro corre ----
 function falaTadeu() {
   const f = J.f; f.tadeu = 1;
-  if (J.q === 'fim') return dlgSeq([['Tadeu', 'Valeu pela ajuda, de verdade. Passa aqui amanhã cedo. Sempre aparece alguma coisa.']]);
-  if (J.q === 'caixa') return entrega();
-  if (J.q === 'corre') return dlgSeq([['Tadeu', 'Ainda sem a caixa do Valdir? É na rua lateral, lá em cima. Vai antes de a rua encher.']]);
+  if (J.q === 'fim') return dlgSeq([['Tadeu', 'O Valdir já me avisou que a caixa chegou. Valeu de verdade. Passa aqui amanhã cedo, sempre aparece alguma coisa.']]);
+    if (J.q === 'corre') return dlgSeq([['Tadeu', 'Ainda com a caixa na mão? O Valdir espera na rua lateral, lá em cima. Vai antes de a rua encher.']]);
   if (f.corre === 'recusou') return dlg('Tadeu', 'Mudou de ideia?', [{ t: 'Aceito o corre. R$ 40 no fim.', f: () => aceita('direto', 40, 'Tá. Então vai. Mas agora é R$ 40, o resto já distribuí.') }, { t: 'Ainda não.', f: () => { } }]);
-  dlg('Tadeu', 'Ô, acordou cedo. Ou nem dormiu... (limpa a graxa das mãos) O dono do galpão cobrou de novo, e sexta é o prazo. A sua parte ainda tá em aberto, tá? Por isso preciso de um favor rápido antes de a rua encher. Tem uma caixa de peças no ponto do Seu Valdir, na rua lateral, ali em cima. Traz pra cá e eu te dou R$ 50. Só que o pessoal da Guilda do Cano anda rondando por lá.', [
+  dlg('Tadeu', 'Ô, acordou cedo. Ou nem dormiu... (limpa a graxa das mãos) O dono do galpão cobrou de novo, e sexta é o prazo. A sua parte ainda tá em aberto, tá? Por isso preciso de um favor rápido antes de a rua encher. Essa caixa de peças tem que chegar no Seu Valdir, na rua lateral, ali em cima. Ele paga R$ 50 na entrega. Só que o pessoal da Guilda do Cano anda rondando por lá.', [
     { t: 'Topo. Já saio.', f: () => aceita('direto', 50, 'Boa. Vai com cuidado, e volta inteiro. A peça é cara.') },
     { t: 'R$ 50 é pouco pro risco. Me adianta uma parte e me diz o que tem lá fora.', f: negocia },
     { t: 'Hoje não, Tadeu. Eu me viro.', f: recusa }]);
 }
-function aceita(tipo, paga, fala) { J.f.corre = tipo; J.f.paga = paga; J.q = 'corre'; dlgSeq([['Tadeu', fala]]); }
+function aceita(tipo, paga, fala) { J.f.corre = tipo; J.f.paga = paga; J.q = 'corre'; dlgSeq([['Tadeu', fala], ['', 'O Tadeu entrega uma caixa pesada, lacrada com fita amarela.']], () => { if (!temItem('caixa')) daItem('caixa'); aviso('Pegou: Caixa de peças'); desenhaHud(true); }); }
 function negocia() {
-  dlg('Tadeu', '(suspira) Rapaz... Tá bom. Toma R$ 20 agora e R$ 30 quando voltar. E olha: os caras da guilda saem pro café lá pelas sete. Se você demorar um pouco, passa limpo.', [
+  dlg('Tadeu', '(suspira) Rapaz... Tá bom. Toma R$ 20 agora e os R$ 30 o Valdir paga na entrega. E olha: os caras da guilda saem pro café lá pelas sete. Se você demorar um pouco, passa limpo.', [
     { t: 'Fechado. Espero eles saírem.', f: () => { J.grana += 20; aviso('+ R$ 20'); aceita('negociou', 30, 'Combinado. Sem pressa, mas sem enrolar também.'); } },
     { t: 'Quero R$ 30 agora, não R$ 20.', f: () => dlg('Tadeu', 'Tá achando que eu sou banco? Ou vai por R$ 40 no fim, sem adiantamento, ou não vai.', [{ t: 'Tá bom. Vou assim mesmo.', f: () => { J.f.conf = -1; aceita('azedou', 40, 'Então vai. E não demora.'); } }, { t: 'Então deixa pra lá.', f: recusa }]) }]);
 }
 function recusa() { J.f.corre = 'recusou'; dlgSeq([['Tadeu', 'Cada um sabe de si. A porta fica aberta se você mudar de ideia.']]); }
 function entrega() {
-  if (!temItem('caixa')) return;
-  const pg = J.f.paga, linhas = [['Tadeu', 'Isso! Inteira. Já ajuda com o aluguel. Falta bastante pra sexta, mas é um começo.'], ['', 'Tadeu confere a caixa e entrega R$ ' + pg + '.']];
-  if (J.f.marcado) linhas.push(['Tadeu', 'Ouvi que a guilda ficou olhando torto pra você. Anda de cabeça erguida, mas de olho aberto.']);
+  if (!temItem('caixa')) return dlgSeq([['Seu Valdir', 'Cadê a caixa? Sem a caixa não tem conversa.']]);
+  const pg = J.f.paga, linhas = [['Seu Valdir', 'Até que enfim. Deixa eu ver... (confere a caixa) Tá inteira. Fala pro Tadeu que a conta fecha.'], ['', 'Seu Valdir conta as notas e entrega R$ ' + pg + '.']];
+  if (J.f.marcado) linhas.push(['Seu Valdir', 'Ouvi dizer que a guilda ficou de olho em você. Cuida desse pedaço pra não trazer problema pra cá.']);
   tiraItem('caixa'); J.grana += pg; J.q = 'fim'; desenhaHud(true);
   dlgSeq(linhas, () => dlgSeq([['', 'Primeiro corre cumprido. Mas o aviso ainda cobra R$ 480 pela oficina e pelo quarto, e a sexta não espera.'], ['', 'FIM DA CENA 01 — a rotina da cidade baixa continua.']]));
 }
 // ---- ponto do Seu Valdir e a guilda ----
 const guardado = () => J.q === 'corre' && J.f.corre !== 'negociou' && !J.f.liberado;
-const pegaCaixa = () => { if (daItem('caixa')) { J.q = 'caixa'; aviso('Pegou: Caixa de peças'); desenhaHud(true); } };
 function encontro() {
   dlg('Capanga da Guilda', 'E aí, parceiro. Esse trecho é da Guilda do Cano. Taxa de circulação: R$ 20. Ou a caixa fica aqui.', [
-    { t: 'Pagar R$ 20', off: J.grana < 20, f: () => { J.grana -= 20; J.f.liberado = 1; desenhaHud(true); dlgSeq([['Capanga da Guilda', 'Tá certo. Pode levar.']], pegaCaixa); } },
-    { t: 'Mostrar a chave de roda', off: !temItem('chave'), f: () => { J.f.liberado = 1; J.f.marcado = 1; dlgSeq([['', 'Os dois olham a ferramenta na sua mão. Trocam um olhar.'], ['Capanga da Guilda', 'Não vale a confusão. Leva. Mas a gente sabe a sua cara.']], pegaCaixa); } },
+    { t: 'Pagar R$ 20', off: J.grana < 20, f: () => { J.grana -= 20; J.f.liberado = 1; desenhaHud(true); dlgSeq([['Capanga da Guilda', 'Tá certo. Pode levar.']]); } },
+    { t: 'Mostrar a chave de roda', off: !temItem('chave'), f: () => { J.f.liberado = 1; J.f.marcado = 1; dlgSeq([['', 'Os dois olham a ferramenta na sua mão. Trocam um olhar.'], ['Capanga da Guilda', 'Não vale a confusão. Leva. Mas a gente sabe a sua cara.']]); } },
     { t: 'Voltar depois', f: () => { } }]);
 }
-function pontoValdir() {
-  if (J.q === 'caixa' || J.q === 'fim') return dlgSeq([['', 'A mesa do Seu Valdir. O que era seu já está na mochila.']]);
-  if (J.q !== 'corre') return dlgSeq([['', 'Uma mesa de peças sob uma lona. Nada aqui é seu.']]);
+function falaValdir() {
+  if (J.q === 'fim') return dlgSeq([['Seu Valdir', 'Tá acertado. Se aparecer outra caixa, eu mando chamar.']]);
+  if (J.q !== 'corre') return dlgSeq([['Seu Valdir', 'Se não é entrega, não tenho tempo. Volta quando tiver alguma coisa.']]);
   if (guardado()) return encontro();
-  dlgSeq([['', 'A caixa do Seu Valdir está onde o Tadeu disse. Ninguém por perto.']], pegaCaixa);
+  entrega();
 }
 // ---- montagem do cenário ----
 const COR = { madeira: ['#8a6a46', '#6f5337', '#58402a'], ferro: ['#7b7f86', '#5f636a', '#4a4d53'], pano: ['#b9b3a4', '#948f82', '#7a766b'], caixa: ['#a98150', '#8a6840', '#6e5232'], branco: ['#cdd0c8', '#aeb1a9', '#8f928b'], carro: ['#8c5b41', '#6e4733', '#56382a'], vidro: ['#7a9aab', '#617d8b', '#4d6470'], preto: ['#2b2b30', '#202024', '#18181b'], balde: ['#6d7e8c', '#586774', '#46525c'] };
@@ -596,11 +594,11 @@ function montaMoveis() {
   // rua: ponto do Seu Valdir, guilda e mural
   const mesa = movel({ x: 20.2, y: 3.8, w: 1.2, d: .75, partes: [{ w: 1.2, d: .75, h: 28, cores: COR.madeira }, { dx: .35, dy: .15, w: .5, d: .4, h: 16, z0: 28, cores: COR.caixa, det: (g, pr, o) => { lin(g, '#e0c35a', pr(.1, .2, o.zt), pr(.4, .2, o.zt)); } }] });
   mesa.ativo = () => true;
-  liga(mesa, 20.8, 4.6, 1.8, 'Olhar a mesa do Seu Valdir', pontoValdir);
-  const gx = () => J.f.liberado || J.f.corre === 'negociou';
-  for (const [id, x0, y0, x1, y1, cor, nome] of [['g1', 19.2, 6.0, 21.9, 5.2, [hexRgb('#9a2f2f'), hexRgb('#4a1717'), hexRgb('#762424')], 'g1'], ['g2', 18.1, 5.5, 17.2, 5.9, [hexRgb('#4c5262'), hexRgb('#262a34'), hexRgb('#3a3f4d')], 'g2']]) {
+  const vald = { x: 20.55, y: 3.05, w: .5, d: .5, bloq: true, npc: true, desenha: now => desenhaNpc('valdir', 20.8, 3.3, [hexRgb('#4f8a84'), hexRgb('#24433f'), hexRgb('#3a6661')], now) }; MOVEIS.push(vald);
+  liga(mesa, 20.8, 4.5, 2.0, 'Falar com o Seu Valdir', falaValdir);
+    for (const [id, x0, y0, x1, y1, cor, nome] of [['g1', 19.2, 6.0, 21.9, 5.2, [hexRgb('#9a2f2f'), hexRgb('#4a1717'), hexRgb('#762424')], 'g1'], ['g2', 18.1, 5.5, 17.2, 5.9, [hexRgb('#4c5262'), hexRgb('#262a34'), hexRgb('#3a3f4d')], 'g2']]) {
     const px = () => J.q === 'corre' && !J.f.liberado && J.f.corre !== 'negociou' ? x0 : x1, py = () => J.q === 'corre' && !J.f.liberado && J.f.corre !== 'negociou' ? y0 : y1;
-    const m = { get x() { return px() - .25; }, get y() { return py() - .25; }, w: .5, d: .5, bloq: true, npc: true, ativo: () => !(J.f.corre === 'negociou' && J.q === 'corre') && J.q !== 'fim' && J.q !== 'caixa', desenha: now => desenhaNpc(id, px(), py(), cor, now) }; MOVEIS.push(m);
+    const m = { get x() { return px() - .25; }, get y() { return py() - .25; }, w: .5, d: .5, bloq: true, npc: true, ativo: () => !(J.f.corre === 'negociou' && J.q === 'corre') && J.q !== 'fim', desenha: now => desenhaNpc(id, px(), py(), cor, now) }; MOVEIS.push(m);
   }
   const mural = movel({ x: 17.15, y: 17.3, w: .1, d: .9, partes: [{ dx: 0, dy: .4, w: .1, d: .1, h: 70, cores: COR.madeira }, { w: .1, d: .9, h: 36, z0: 40, cores: ['#d6cdb0', '#b9b094', '#9c9479'], det: (g, pr, o) => { for (let k = 0; k < 5; k++) lin(g, '#55504a', pr(.1, .15, o.zt - 4 - k * 5), pr(.1, .75, o.zt - 4 - k * 5)); } }] }); mural.bloq = false;
   liga(mural, 17.2, 17.75, 1.6, 'Ler o mural de bicos', () => dlgSeq([['', 'MURAL DE BICOS. "Precisa-se ajudante de feira. Falar com Dona Neide no mercadinho. R$ 25 por dia."'], ['', 'O papel está meio rasgado. Alguém já tentou a vaga.']], () => { J.f.mural = 1; }));
