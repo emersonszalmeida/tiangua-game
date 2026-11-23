@@ -180,3 +180,12 @@ O dono desistiu das toras desenhadas e NÃO quer textura de madeira: as peças d
 - Mapa 32x32 gerado por código (`geraBairro`, semente fixa): 2 ruas de terra em cruz, 8 casas, árvores, enfeites, 42 itens. Casa do jogador = casa de teste do dono (4x5 + quartinho) em (9,18).
 - Vida/fome/sede (caem com o tempo; sede cai mais correndo; zerar fome ou sede tira vida), mochila de 8 espaços (pilha de 5), E pega, 1-8 ou clique usa, R recomeça ao morrer, "Novo jogo" apaga o save. Save no navegador (`mundo_v1`). `?rapido` = necessidades 8x mais rápidas (teste), `?novo` não carrega o save.
 - Ícones dos itens (água, lata, maçã, pão, curativo) são grades de texto em `mundo_bloco.js` (ITENS); o dono refina depois.
+
+## MUNDO — Cena 01 (2026-11-23): "O quarto nos fundos da oficina" (RPG urbano, estilo GTA)
+Direção nova do dono: sem fome/sede; história = cidade baixa, protagonista endividado (aviso R$ 480), Tadeu oferece um corre com 3 abordagens. `mundo.html` agora = `chao.html` + `mundo_bloco.js` (HUD, mochila, save `mundo_v2`) + `mundo_cena.js` (a cena). Regerar: `node faz_mundo.mjs`. O bairro antigo (8 casas) ainda sai com `mundo.html?bairro`.
+- Mapa 32x32: quarto 3x3 (x5..7,y10..12) + oficina 8x6 (x8..15,y10..15) + portão leste (x=16,y13) + rua lateral de terra (x18..19) + casas de fundo vazias.
+- Móveis e NPCs são caixas isométricas pintadas por código (`caixaCanvas`, pixel a pixel, com contorno e grão) — ARTE PROVISÓRIA. Tadeu e capangas = boneco do jogador com a camiseta recolorida (`CAMISA`).
+- Diálogo: `dlg(quem, texto, opções, fim)` / `dlgSeq(linhas, fim)`; E/Espaço/Enter avança, 1-9 escolhe. Interação: E perto de um objeto (`INTER`).
+- Fluxo: bancada (chave de roda, curativo, R$ 37, caderno) → aviso → Tadeu → 3 caminhos (aceitar R$ 50 / negociar R$ 20 adiantado + R$ 30 / azedar R$ 40 / recusar → pode voltar e aceitar por R$ 40) → ponto do Seu Valdir (capangas da guilda cobram R$ 20, ou blefa com a chave de roda, ou nenhum se negociou) → entregar a caixa ao Tadeu → "Fim da Cena 01".
+- Luz: multiplicação azulada de madrugada + lâmpada do quarto com mau contato; clareia ao passar do portão.
+- Pendentes/ideias: sons (goteira, geladeira, rádio), janela com grade, mercadinho da Dona Neide (o mural já aponta), combate com a chave de roda.
