@@ -7,6 +7,7 @@ const ITENS = {
   chave: { nome: 'Chave de roda', vida: 0, texto: 'Pesada e engraxada. Boa de segurar quando a conversa azeda.', g: ['.kkkk.......', 'ksSSsk......', 'kSkkSkkkkkk.', 'ksSSsSssSSsk', '.kkkkkkkkkk.'] },
   caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa lacrada do Tadeu. É para o Seu Valdir.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
   analgesico: { nome: 'Analgésico', vida: 15, g: ['.kkkkkkkk.', 'kwwwwwwwwk', 'kwppwwppwk', 'kwppwwppwk', 'kwwwwwwwwk', 'kwppwwppwk', 'kwppwwppwk', 'kwwwwwwwwk', '.kkkkkkkk.'] },
+  bateria: { nome: 'Bateria usada', vida: 0, texto: 'Pesada, suja de graxa, ainda com um pouco de carga. É para o Tadeu recondicionar.', g: ['..kk..kk..', '..kRk.kSk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSkkSSkkSk', 'kSSSSSSSSk', 'kkkkkkkkkk'] },
   curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
 const ICONE = {};

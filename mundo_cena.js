@@ -28,7 +28,7 @@ const bateMovel = (x, y) => MOVEIS.some(m => m.bloq && (!m.ativo || m.ativo()) &
 // ---- personagens (o mesmo boneco do jogador, com a camiseta pintada de outra cor) ----
 const NPCCV = document.createElement('canvas'); NPCCV.width = 200; NPCCV.height = 200; const NPCG = NPCCV.getContext('2d', { willReadFrequently: true });
 const CAMISA = [hexRgb('#9c9873'), hexRgb('#4b4936'), hexRgb('#8c7d67')];   // camiseta do boneco (miolo, contorno, sombra): trocadas por outra cor em cada personagem
-const NPCP = { neide: PERS.create('SW'), osmar: PERS.create('SE'), valdir: PERS.create('SW'), tadeu: PERS.create('SW'), g1: PERS.create('SE'), g2: PERS.create('S') };
+const NPCP = { zeca: PERS.create('SE'), neide: PERS.create('SW'), osmar: PERS.create('SE'), valdir: PERS.create('SW'), tadeu: PERS.create('SW'), g1: PERS.create('SE'), g2: PERS.create('S') };
 function desenhaNpc(id, x, y, cor, now) {
   NPCG.clearRect(0, 0, 200, 200); NPCG.save(); NPCG.translate(100, 170); PERS.step(NPCP[id], 0, 0, false, now); PERS.draw(NPCG, NPCP[id], 0, 0); NPCG.restore();
   const im = NPCG.getImageData(0, 0, 200, 200), p = im.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; for (let k = 0; k < 3; k++) { const o = CAMISA[k]; if (Math.abs(p[i] - o[0]) < 3 && Math.abs(p[i + 1] - o[1]) < 3 && Math.abs(p[i + 2] - o[2]) < 3) { p[i] = cor[k][0]; p[i + 1] = cor[k][1]; p[i + 2] = cor[k][2]; break; } } }
@@ -47,6 +47,7 @@ function mostraDlg() {
 // ---- relógio: 1 min de jogo = 6 s reais (1 dia de jogo = 2h24 reais); prazo = sexta, 18h ----
 const PRAZO = 3 * 1440 + 18 * 60, MULT = +(new URLSearchParams(location.search).get('tempo') || 1), DIAS = ['Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom', 'Seg'];
 function horaTxt() { const m = Math.floor(J.t), h = Math.floor(m / 60) % 24; return DIAS[Math.floor(m / 1440) % 7] + ' ' + String(h).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function horaDe(t) { const m = Math.floor(t); return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
 function luzDoDia() { const h = (J.t / 60) % 24; return h < 5 || h >= 20 ? 0 : h < 7 ? (h - 5) / 2 : h < 17 ? 1 : (20 - h) / 3; }
 function dorme() {
   const h = (J.t / 60) % 24;
@@ -60,7 +61,7 @@ function tiraItem(t) { const i = J.inv.findIndex(q => q.t === t); if (i < 0) ret
 function interPerto() { let b = null, bd = 1e9; for (const a of INTER) { if (a.ativo && !a.ativo()) continue; const d = Math.hypot(hx - a.x, hy - a.y); if (d < a.r && d < bd) { bd = d; b = a; } } return b; }
 function interagir() { if (D.ativo) { avanca(); return; } if (J.morto) return; if (itemPerto()) { pegar(); return; } const a = interPerto(); if (a) a.f(); }
 const texto = (...linhas) => () => dlgSeq(linhas.map(t => ['', t]));
-function objetivo() { const f = J.f; if (J.q === 'fim') return 'Fim da Cena 01'; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir (rua lateral, ao norte)'; if (f.n === 'cobrar') return 'Cobrar o fiado de R$ 60 do Seu Osmar (casa ao sul da rua)'; if (f.n === 'volta') return 'Voltar ao mercadinho e acertar com a Dona Neide'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
+function objetivo() { const f = J.f; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir (rua lateral, ao norte)'; if (f.b === 'buscar') return 'Buscar uma bateria usada com o Seu Zeca (ferro-velho, do outro lado da rua lateral)'; if (f.b === 'volta') return 'Levar a bateria ao Tadeu: R$ 55 até ' + horaDe(f.bIni + 60) + ', R$ 45 até ' + horaDe(f.bIni + 120); if (f.n === 'cobrar') return 'Cobrar o fiado de R$ 60 do Seu Osmar (casa ao sul da rua)'; if (f.n === 'volta') return 'Voltar ao mercadinho e acertar com a Dona Neide'; if (J.q === 'fim') return J.divida > 0 ? 'Juntar o dinheiro do aluguel: serviços do Tadeu e da Dona Neide' : 'Aluguel em dia'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
 // ---- bancada do quarto ----
 function bancadaQuarto() {
   const f = J.f, ops = [], resta = [];
@@ -79,8 +80,35 @@ function menuTadeu() {
     { t: 'Repassar R$ 50', off: !pode || J.grana < 50 || d < 50, f: () => repasse(50) },
     { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
     { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
+    J.f.b === 'volta' && { t: 'Entregar a bateria', f: entregaBateria },
+    { t: 'Pedir um serviço', f: pedirServico },
     { t: 'Conversar sobre o corre', f: conversaTadeu },
-    { t: 'Deixar pra lá', f: () => { } }]);
+    { t: 'Deixar pra lá', f: () => { } }].filter(Boolean));
+}
+function pedirServico() {
+  const f = J.f, h = (J.t / 60) % 24, dia = Math.floor(J.t / 1440);
+  if (J.q === 'corre') return dlgSeq([['Tadeu', 'Termina a entrega do Valdir primeiro. Uma coisa de cada vez.']]);
+  if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
+  if (f.bDia === dia) return dlgSeq([['Tadeu', 'Por hoje já deu serviço, não aparece mais nada. Amanhã cedo, de novo.']]);
+  if (h < 5 || h >= 20) return dlgSeq([['Tadeu', 'A rua tá morta a essa hora. Volta amanhã cedo, que aparece serviço.']]);
+  dlg('Tadeu', (f.seco ? 'Tenho um serviço. Faz direito dessa vez. ' : 'Tenho um serviço sim. ') + 'Preciso recondicionar a bateria de um cliente, e o Seu Zeca, do ferro-velho do outro lado da rua lateral, tem uma usada. Traz pra cá antes que o movimento aumente: se voltar em até uma hora eu pago R$ 55, em até duas R$ 45, depois disso R$ 35. A bateria é por sua conta, o Zeca costuma pedir uns R$ 25.', [
+    { t: 'Fechado. Vou lá.', f: () => { f.b = 'buscar'; f.bIni = J.t; f.bCusto = null; dlgSeq([['Tadeu', 'A rua ainda tá acordando, vai de olho. E negocia com o Zeca, ele gosta de um papo.']]); } },
+    { t: 'Deixa pra lá.', f: () => { } }]);
+}
+function entregaBateria() {
+  const f = J.f, gasto = J.t - f.bIni, base = gasto <= 60 ? 55 : gasto <= 120 ? 45 : 35, pg = Math.max(10, base - (f.seco ? 10 : 0));
+  tiraItem('bateria'); J.grana += pg; f.b = 'feito'; f.bDia = Math.floor(J.t / 1440); desenhaHud(true);
+  dlgSeq([['Tadeu', gasto <= 60 ? 'Rapidinho! Era isso.' : gasto <= 120 ? 'Demorou um pouco, mas serve.' : 'Demorou demais. O cliente já tava reclamando.'], ['', 'O Tadeu confere a bateria e entrega R$ ' + pg + '.'], ...(f.zecaAmigo ? [['Tadeu', 'Soube que você deu uma mão pro Zeca. Ele fala bem de você, e isso vale mais que o dinheiro.']] : []), ...(f.seco ? [['Tadeu', 'Descontei do que você me deve. Continua assim.']] : [])]);
+}
+function falaZeca() {
+  const f = J.f;
+  if (f.b !== 'buscar') return dlgSeq([['Seu Zeca', f.b === 'volta' ? 'Já levou a bateria? Então vai, o Tadeu não gosta de esperar.' : 'Sucata, ferro-velho, peça usada. Se o Tadeu mandar, eu tenho.']]);
+  const leva = custo => { f.bCusto = custo; f.b = 'volta'; J.grana -= custo; daItem('bateria'); aviso('Pegou: Bateria usada'); desenhaHud(true); };
+  dlg('Seu Zeca', 'Ô, o menino do Tadeu. A bateria tá ali, usada mas ainda dá carga. Vinte e cinco e é tua.', [
+    { t: 'Pagar R$ 25', off: J.grana < 25, f: () => { leva(25); dlgSeq([['Seu Zeca', 'Negócio fechado. Leva com cuidado, que é pesada.']]); } },
+    { t: 'Barganhar o preço', f: () => dlg('Seu Zeca', 'Barganhar? (ri) Tá bom, tá bom. Quinze e não se fala mais nisso.', [{ t: 'Pagar R$ 15', off: J.grana < 15, f: () => { leva(15); dlgSeq([['Seu Zeca', 'Assim que eu gosto, freguês que sabe conversar.']]); } }, { t: 'Deixa, eu volto depois', f: () => { } }]) },
+    { t: 'Soltar a peça emperrada com a chave de roda, em troca da bateria', off: !temItem('chave'), f: () => { f.zecaAmigo = 1; leva(0); dlgSeq([['', 'Você encaixa a chave de roda no parafuso enferrujado e faz força até ele ceder. O Seu Zeca assiste de braços cruzados.'], ['Seu Zeca', 'Anos que essa peça tava presa! Leva a bateria, é tua. E volta sempre.']]); } },
+    { t: 'Voltar depois', f: () => { } }]);
 }
 function falaTadeu() {
   if (J.f.corre) return menuTadeu();
@@ -210,6 +238,13 @@ function montaMoveis() {
   // Seu Osmar, na frente da casa ao sul
   const osmar = { x: 21.15, y: 24.15, w: .5, d: .5, bloq: true, npc: true, desenha: now => desenhaNpc('osmar', 21.4, 24.4, [hexRgb('#a3763a'), hexRgb('#4f3818'), hexRgb('#7d5a2a')], now) }; MOVEIS.push(osmar);
   liga(osmar, 21.4, 24.4, 1.8, 'Falar com o Seu Osmar', falaOsmar);
+  // ferro-velho do Seu Zeca (terreno a leste da rua lateral): carcaça, pilha de sucata e o dono
+  const carc = movel({ x: 20.3, y: 10.4, w: 1.6, d: 1.1, partes: [{ w: 1.6, d: 1.1, h: 24, z0: 4, cores: ['#8a5a40', '#6d4733', '#563826'], det: (g, pr, o) => { ret(g, '#3a3a40', ...pr(.3, .3, o.zt), 18, 6); lin(g, '#b07a50', pr(.1, .8, o.zt - 8), pr(1.4, .8, o.zt - 8)); } }, { dx: .1, dy: .1, w: .25, d: .25, h: 6, cores: COR.preto }] });
+  liga(carc, 21.1, 11.1, 1.5, 'Olhar a carcaça', texto('Uma carcaça de carro sem rodas, mais ferrugem que lata. Um parafuso no capô está tão enferrujado que parece soldado.'));
+  const pil = movel({ x: 22.5, y: 11.2, w: .9, d: .9, partes: [{ w: .9, d: .9, h: 22, cores: COR.ferro }, { dx: .1, dy: .1, w: .7, d: .6, h: 14, z0: 22, cores: ['#4a4f47', '#383c36', '#2b2e2a'], det: (g, pr, o) => { ret(g, '#c8473a', ...pr(.12, .1, o.zt), 3, 2); ret(g, '#9a9aa2', ...pr(.5, .1, o.zt), 3, 2); } }] });
+  liga(pil, 22.9, 11.8, 1.4, 'Olhar a pilha de sucata', texto('Pilha de baterias velhas, pedaços de motor e fios enrolados. O Zeca sabe o preço de cada parafuso.'));
+  const zeca = { x: 21.35, y: 12.05, w: .5, d: .5, bloq: true, npc: true, desenha: now => desenhaNpc('zeca', 21.6, 12.3, [hexRgb('#7a4a8a'), hexRgb('#3e2347'), hexRgb('#5c3668')], now) }; MOVEIS.push(zeca);
+  liga(zeca, 21.6, 12.3, 1.8, 'Falar com o Seu Zeca', falaZeca);
 }
 function itensCena(now) {
   const out = [];
