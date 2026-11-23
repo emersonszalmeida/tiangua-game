@@ -12,7 +12,7 @@ troca('</style>', `
 .barra{display:grid;grid-template-columns:44px 1fr 28px;align-items:center;gap:6px;margin:4px 0;font-size:12px}
 .barra .tr{height:10px;background:#000a;border-radius:2px;overflow:hidden;border:1px solid #0008}
 .barra i{display:block;height:100%}
-#r_vida i{background:#d9483a}#r_fome i{background:#e0963a}#r_sede i{background:#4aa3e0}
+#r_vida i{background:#d9483a}
 .barra.baixo .tr{animation:pisca .8s infinite}
 @keyframes pisca{50%{box-shadow:0 0 0 2px #ff3b3b}}
 .barra span.v{text-align:right;color:#ddd}
@@ -31,8 +31,6 @@ troca('</style>', `
 troca('<div id="ui"></div>', `<div id="ui"></div>
 <div id="hud">
 <div class="barra" id="r_vida"><b>Vida</b><div class="tr"><i id="b_vida"></i></div><span class="v" id="t_vida"></span></div>
-<div class="barra" id="r_fome"><b>Fome</b><div class="tr"><i id="b_fome"></i></div><span class="v" id="t_fome"></span></div>
-<div class="barra" id="r_sede"><b>Sede</b><div class="tr"><i id="b_sede"></i></div><span class="v" id="t_sede"></span></div>
 <button id="novo">Novo jogo</button>
 </div>
 <div id="inv"></div><div id="dica" style="display:none"></div><div id="aviso"></div>

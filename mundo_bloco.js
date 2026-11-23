@@ -1,15 +1,10 @@
 // ---------- MUNDO: sobrevivência (fase 1) ----------
 // Bloco inserido em mundo.html por faz_mundo.mjs. Tudo daqui é novo; o resto do arquivo é o motor da cabana (chao.html).
 const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_v1';
-const rapido = new URLSearchParams(location.search).has('rapido') ? 8 : 1;   // ?rapido: as necessidades caem 8x mais depressa (teste)
 // ---- itens (ícones desenhados por código; o dono refina depois no editor) ----
 const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6' };
 const ITENS = {
-  agua: { nome: 'Garrafa d\'água', fome: 0, sede: 35, vida: 0, g: ['...kkkk...', '...kcck...', '...kkkk...', '..kwwwwk..', '.kwbbbbwk.', '.kwbbBbwk.', '.kwbbbbwk.', '.kwbBbbwk.', '.kwbbbbwk.', '.kwbbBbwk.', '.kwbbbbwk.', '.kBBBBBBk.', '..kkkkkk..'] },
-  lata: { nome: 'Lata de feijão', fome: 30, sede: 0, vida: 0, g: ['.kkkkkkkk.', 'kssssssssk', 'kkkkkkkkkk', 'kRRRRRRRRk', 'kRwwwwwwRk', 'kRwYYYYwRk', 'kRwwwwwwRk', 'kRRRRRRRRk', 'kkkkkkkkkk', 'kssssssssk', '.kkkkkkkk.'] },
-  maca: { nome: 'Maçã', fome: 12, sede: 6, vida: 0, g: ['....n....', '...nng...', '.kkkkkkk.', 'krrrrrrrk', 'krhrrrrrk', 'krhrrrrrk', 'krrrrrrrk', '.krrrrrk.', '..kk.kk..'] },
-  pao: { nome: 'Pão', fome: 22, sede: 0, vida: 0, g: ['...kkkkk...', '.kkoooOook.', 'kooOoooOook', 'koooooooook', 'kOooooooOok', '.kOOOOOOOk.', '..kkkkkkk..'] },
-  curativo: { nome: 'Kit de curativo', fome: 0, sede: 0, vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
+  curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
 const ICONE = {};
 function icone(t) {
@@ -18,7 +13,7 @@ function icone(t) {
   c.url = c.toDataURL(); return ICONE[t] = c;
 }
 // ---- estado do jogador ----
-const J = { vida: 100, fome: 100, sede: 100, inv: [], pegos: {}, morto: false };
+const J = { vida: 100, inv: [], pegos: {}, morto: false };
 let SPAWN = { x: 11.5, y: 21.5 }, ITENS_MUNDO = [];
 // ---- bairro gerado por código ----
 function rng(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -57,20 +52,20 @@ function geraBairro() {
   for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { if (!livre[y][x] || arvOcup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; if (rnd() < .22 && enf.length) objetos.push({ x: Math.round((x + .15 + rnd() * .7) * 100) / 100, y: Math.round((y + .15 + rnd() * .7) * 100) / 100, id: enf[Math.floor(rnd() * enf.length)], f: 1 }); }
   // itens: dentro das casas (mais comida/água) e espalhados pela grama (mais maçã)
   let nid = 0; const poe = (t, x, y) => ITENS_MUNDO.push({ id: nid++, t, x, y });
-  poe('agua', 12.5, 20.5); poe('lata', 9.5, 18.5);   // kit de começo na casa do jogador
-  const dentro = ['agua', 'agua', 'lata', 'lata', 'lata', 'pao', 'pao', 'curativo', 'curativo', 'maca'];
+  poe('curativo', 12.5, 20.5);   // um curativo na casa do jogador
+  const dentro = ['curativo'];
   const porCasa = {}; for (const c of pegaCel) (porCasa[c[2]] = porCasa[c[2]] || []).push(c);
-  for (const [k, cs] of Object.entries(porCasa)) { const n = k === '9_18' ? 2 : 3 + Math.floor(rnd() * 2), usados = new Set(); for (let i = 0; i < n; i++) { const c = cs[Math.floor(rnd() * cs.length)]; if (usados.has(c[0] + ',' + c[1])) continue; usados.add(c[0] + ',' + c[1]); poe(dentro[Math.floor(rnd() * dentro.length)], c[0] + .3 + rnd() * .4, c[1] + .3 + rnd() * .4); } }
-  const fora = ['maca', 'maca', 'maca', 'agua', 'pao']; let t = 0;
-  while (t < 14) { const x = Math.floor(rnd() * M), y = Math.floor(rnd() * M); if (!livre[y][x] || arvOcup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; poe(fora[Math.floor(rnd() * fora.length)], x + .3 + rnd() * .4, y + .3 + rnd() * .4); t++; }
+  for (const [k, cs] of Object.entries(porCasa)) { const n = k === '9_18' ? 0 : 1, usados = new Set(); for (let i = 0; i < n; i++) { const c = cs[Math.floor(rnd() * cs.length)]; if (usados.has(c[0] + ',' + c[1])) continue; usados.add(c[0] + ',' + c[1]); poe(dentro[Math.floor(rnd() * dentro.length)], c[0] + .3 + rnd() * .4, c[1] + .3 + rnd() * .4); } }
+  const fora = ['curativo']; let t = 0;
+  while (t < 4) { const x = Math.floor(rnd() * M), y = Math.floor(rnd() * M); if (!livre[y][x] || arvOcup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; poe(fora[Math.floor(rnd() * fora.length)], x + .3 + rnd() * .4, y + .3 + rnd() * .4); t++; }
   TERR.render();
 }
 // ---- jogo ----
 const el = id => document.getElementById(id);
 function aviso(t) { const a = el('aviso'); a.textContent = t; a.style.opacity = 1; clearTimeout(aviso.t); aviso.t = setTimeout(() => a.style.opacity = 0, 2200); }
-function salva() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ vida: J.vida, fome: J.fome, sede: J.sede, inv: J.inv, pegos: J.pegos, hx, hy, morto: J.morto })); } catch (e) { } }
-function carrega() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!s) return; Object.assign(J, { vida: s.vida, fome: s.fome, sede: s.sede, inv: s.inv || [], pegos: s.pegos || {}, morto: !!s.morto }); if (typeof s.hx === 'number') { hx = s.hx; hy = s.hy; } } catch (e) { } }
-function novoJogo() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } Object.assign(J, { vida: 100, fome: 100, sede: 100, inv: [], pegos: {}, morto: false }); hx = SPAWN.x; hy = SPAWN.y; salva(); desenhaHud(true); }
+function salva() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ vida: J.vida, inv: J.inv, pegos: J.pegos, hx, hy, morto: J.morto })); } catch (e) { } }
+function carrega() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!s) return; Object.assign(J, { vida: s.vida, inv: s.inv || [], pegos: s.pegos || {}, morto: !!s.morto }); if (typeof s.hx === 'number') { hx = s.hx; hy = s.hy; } } catch (e) { } }
+function novoJogo() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } Object.assign(J, { vida: 100, inv: [], pegos: {}, morto: false }); hx = SPAWN.x; hy = SPAWN.y; salva(); desenhaHud(true); }
 function itemPerto() { let b = null, bd = .9; for (const it of ITENS_MUNDO) { if (J.pegos[it.id]) continue; const d = Math.hypot(hx - it.x, hy - it.y); if (d < bd) { bd = d; b = it; } } return b; }
 function pegar() {
   if (J.morto) return; const it = itemPerto(); if (!it) return;
@@ -79,25 +74,23 @@ function pegar() {
 }
 function usa(i) {
   if (J.morto) return; const s = J.inv[i]; if (!s) return; const d = ITENS[s.t];
-  if (d.vida && J.vida >= 100 && !d.fome && !d.sede) { aviso('Você já está com a vida cheia'); return; }
-  J.fome = Math.min(100, J.fome + d.fome); J.sede = Math.min(100, J.sede + d.sede); J.vida = Math.min(100, J.vida + d.vida);
+  if (d.vida && J.vida >= 100) { aviso('Você já está com a vida cheia'); return; }
+  J.vida = Math.min(100, J.vida + d.vida);
   if (--s.n <= 0) J.inv.splice(i, 1); aviso('Usou: ' + d.nome); salva(); desenhaHud(true);
 }
 let hudSig = '';
 function desenhaHud(forca) {
-  const f = Math.round, sig = [f(J.vida), f(J.fome), f(J.sede), J.morto, JSON.stringify(J.inv), itemPerto() ? itemPerto().id : -1].join('|'); if (!forca && sig === hudSig) return; hudSig = sig;
-  for (const [id, v] of [['vida', J.vida], ['fome', J.fome], ['sede', J.sede]]) { el('b_' + id).style.width = Math.max(0, v) + '%'; el('t_' + id).textContent = f(v); el('r_' + id).className = 'barra' + (v < 25 ? ' baixo' : ''); }
+  const f = Math.round, sig = [f(J.vida), J.morto, JSON.stringify(J.inv), itemPerto() ? itemPerto().id : -1].join('|'); if (!forca && sig === hudSig) return; hudSig = sig;
+  for (const [id, v] of [['vida', J.vida]]) { el('b_' + id).style.width = Math.max(0, v) + '%'; el('t_' + id).textContent = f(v); el('r_' + id).className = 'barra' + (v < 25 ? ' baixo' : ''); }
   el('inv').innerHTML = Array.from({ length: SLOTS }, (_, i) => { const s = J.inv[i]; return '<div class="slot' + (s ? ' cheio' : '') + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' + (s ? '<img src="' + icone(s.t).url + '" style="width:' + icone(s.t).width * 3 + 'px"><span class="q">' + (s.n > 1 ? s.n : '') + '</span>' : '') + '</div>'; }).join('');
   el('inv').querySelectorAll('.slot').forEach(e => e.onclick = () => usa(+e.dataset.i));
   const p = itemPerto(); el('dica').style.display = p && !J.morto ? '' : 'none'; if (p) el('dica').textContent = 'E · Pegar ' + ITENS[p.t].nome;
   el('morte').style.display = J.morto ? '' : 'none';
 }
-let tSave = 0, ultX = 0, ultY = 0;
+let tSave = 0;
 function jogoTick(dt) {
   if (J.morto) { for (const k of ['KeyD', 'KeyA', 'KeyW', 'KeyS', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) keys[k] = false; desenhaHud(); return; }
-  const anda = Math.hypot(hx - ultX, hy - ultY) > 1e-4, corre = anda && (keys.ShiftLeft || keys.ShiftRight); ultX = hx; ultY = hy;
-  J.fome = Math.max(0, J.fome - dt * .17 * rapido); J.sede = Math.max(0, J.sede - dt * .28 * (corre ? 1.7 : 1) * rapido);
-  if (J.fome <= 0 || J.sede <= 0) J.vida -= dt * 2 * rapido; else if (J.fome > 40 && J.sede > 40) J.vida = Math.min(100, J.vida + dt * .6);
+    if (J.vida < 100) J.vida = Math.min(100, J.vida + dt * .3);
   if (J.vida <= 0) { J.vida = 0; J.morto = true; salva(); }
   desenhaHud(); tSave += dt; if (tSave > 2) { tSave = 0; salva(); }
 }
