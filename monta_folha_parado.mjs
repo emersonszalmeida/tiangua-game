@@ -1,8 +1,8 @@
 // Junta as camadas do SW parado numa folha para editar (e separa de volta com --separa).
-// Uso: node monta_folha_parado.mjs  |  node monta_folha_parado.mjs --separa folha_editada.png
+// Uso: node monta_folha_parado.mjs [VISTA]  |  node monta_folha_parado.mjs [VISTA] --separa folha_editada.png   (VISTA = SW por padrão; S, W, NW, N)
 import fs from 'node:fs'; import { encodePNG } from './pngenc.mjs'; import { decodePNG } from './pngdec.mjs';
-const PARTES = ['contorno', 'pele', 'cabelo', 'camiseta', 'calca', 'sapato'], G = 4, dir = 'parado_sw_editar', V = process.argv.includes('--separa');
-const P = PARTES.map(p => decodePNG(`personagem_camadas/${p}/parado/SW.png`)), W0 = P[0].w, H0 = P[0].h;
+const PARTES = ['contorno', 'pele', 'cabelo', 'camiseta', 'calca', 'sapato'], G = 4, VISTA = process.argv.slice(2).find(a => ['S','SW','W','NW','N'].includes(a)) || 'SW', dir = 'parado_' + VISTA.toLowerCase() + '_editar', V = process.argv.includes('--separa');
+const P = PARTES.map(p => decodePNG(`personagem_camadas/${p}/parado/${VISTA}.png`)), W0 = P[0].w, H0 = P[0].h;
 const n = PARTES.length + 1, W = n * (W0 + G) + G, H = H0 + 2 * G; // 1ª célula = composto (referência), depois cada parte
 if (V) {
   const S = decodePNG(process.argv[process.argv.indexOf('--separa') + 1]);
@@ -15,6 +15,6 @@ const poe = (I, c) => { for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++
 // composto: sapato, calça, camiseta, pele, cabelo, contorno por cima (ordem aproximada)
 for (const p of ['sapato', 'calca', 'camiseta', 'pele', 'cabelo', 'contorno']) poe(P[PARTES.indexOf(p)], 0);
 PARTES.forEach((p, i) => poe(P[i], i + 1));
-fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(dir + '/folha_parado_SW.png', encodePNG(W, H, b));
-fs.writeFileSync(dir + '/LEIA-ME.txt', `Folha do personagem parado, vista SW. Cada celula ${W0}x${H0}, espacamento ${G}px, fundo cinza. Da esquerda para a direita: composto (so referencia, nao e usado), ${PARTES.join(', ')}.\r\nPara separar de volta: node monta_folha_parado.mjs --separa <folha editada>.png\r\n`);
+fs.mkdirSync(dir, { recursive: true }); fs.writeFileSync(dir + '/folha_parado_' + VISTA + '.png', encodePNG(W, H, b));
+fs.writeFileSync(dir + '/LEIA-ME.txt', `Folha do personagem parado, vista ${VISTA}. Cada celula ${W0}x${H0}, espacamento ${G}px, fundo cinza. Da esquerda para a direita: composto (so referencia, nao e usado), ${PARTES.join(', ')}.\r\nPara separar de volta: node monta_folha_parado.mjs --separa <folha editada>.png (com a vista no comando se não for SW)\r\n`);
 console.log(W + 'x' + H, 'celula', W0 + 'x' + H0);

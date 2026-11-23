@@ -22,3 +22,4 @@ node_modules/
 !manequim/**/*.png
 !manequim/*.png
 !parado_sw_editar/*.png
+!parado_*_editar/*.png
