@@ -530,7 +530,7 @@ function falaTadeu() {
   if (J.q === 'caixa') return entrega();
   if (J.q === 'corre') return dlgSeq([['Tadeu', 'Ainda sem a caixa do Valdir? É na rua lateral, lá em cima. Vai antes de a rua encher.']]);
   if (f.corre === 'recusou') return dlg('Tadeu', 'Mudou de ideia?', [{ t: 'Aceito o corre. R$ 40 no fim.', f: () => aceita('direto', 40, 'Tá. Então vai. Mas agora é R$ 40, o resto já distribuí.') }, { t: 'Ainda não.', f: () => { } }]);
-  dlg('Tadeu', 'Ô, acordou cedo. Ou nem dormiu... (limpa a graxa das mãos) Preciso de um favor rápido antes de a rua encher. Tem uma caixa de peças no ponto do Seu Valdir, na rua lateral, ali em cima. Traz pra cá e eu te dou R$ 50. Só que o pessoal da Guilda do Cano anda rondando por lá.', [
+  dlg('Tadeu', 'Ô, acordou cedo. Ou nem dormiu... (limpa a graxa das mãos) O dono do galpão cobrou de novo, e sexta é o prazo. A sua parte ainda tá em aberto, tá? Por isso preciso de um favor rápido antes de a rua encher. Tem uma caixa de peças no ponto do Seu Valdir, na rua lateral, ali em cima. Traz pra cá e eu te dou R$ 50. Só que o pessoal da Guilda do Cano anda rondando por lá.', [
     { t: 'Topo. Já saio.', f: () => aceita('direto', 50, 'Boa. Vai com cuidado, e volta inteiro. A peça é cara.') },
     { t: 'R$ 50 é pouco pro risco. Me adianta uma parte e me diz o que tem lá fora.', f: negocia },
     { t: 'Hoje não, Tadeu. Eu me viro.', f: recusa }]);
@@ -544,10 +544,10 @@ function negocia() {
 function recusa() { J.f.corre = 'recusou'; dlgSeq([['Tadeu', 'Cada um sabe de si. A porta fica aberta se você mudar de ideia.']]); }
 function entrega() {
   if (!temItem('caixa')) return;
-  const pg = J.f.paga, linhas = [['Tadeu', 'Isso! Inteira. Sabia que dava.'], ['', 'Tadeu confere a caixa e entrega R$ ' + pg + '.']];
+  const pg = J.f.paga, linhas = [['Tadeu', 'Isso! Inteira. Já ajuda com o aluguel. Falta bastante pra sexta, mas é um começo.'], ['', 'Tadeu confere a caixa e entrega R$ ' + pg + '.']];
   if (J.f.marcado) linhas.push(['Tadeu', 'Ouvi que a guilda ficou olhando torto pra você. Anda de cabeça erguida, mas de olho aberto.']);
   tiraItem('caixa'); J.grana += pg; J.q = 'fim'; desenhaHud(true);
-  dlgSeq(linhas, () => dlgSeq([['', 'Primeiro corre cumprido. Mas o aviso na porta do quarto ainda cobra R$ 480, e a sexta não espera.'], ['', 'FIM DA CENA 01 — a rotina da cidade baixa continua.']]));
+  dlgSeq(linhas, () => dlgSeq([['', 'Primeiro corre cumprido. Mas o aviso ainda cobra R$ 480 pela oficina e pelo quarto, e a sexta não espera.'], ['', 'FIM DA CENA 01 — a rotina da cidade baixa continua.']]));
 }
 // ---- ponto do Seu Valdir e a guilda ----
 const guardado = () => J.q === 'corre' && J.f.corre !== 'negociou' && !J.f.liberado;
@@ -575,7 +575,7 @@ function montaMoveis() {
   const banc = movel({ x: 6.15, y: 10.15, w: 1.7, d: .7, partes: [{ w: 1.7, d: .7, h: 30, cores: COR.madeira, det: (g, pr, o) => { lin(g, '#aeb2b8', pr(.15, .35, o.zt), pr(.7, .3, o.zt)); lin(g, '#d9d9de', pr(.18, .33, o.zt), pr(.5, .3, o.zt)); ret(g, '#e8c14a', ...pr(1.0, .4, o.zt), 2, 1); ret(g, '#e8c14a', ...pr(1.08, .45, o.zt), 2, 1); ret(g, '#cfc8a8', ...pr(1.1, .3, o.zt), 3, 1); lin(g, '#e7e3d8', pr(1.35, .15, o.zt), pr(1.55, .2, o.zt)); lin(g, '#1c1c20', pr(.1, .55, o.zt), pr(.9, .6, o.zt)); } }] });
   liga(banc, 7.0, 10.9, 1.5, 'Mexer na bancada', bancadaQuarto);
   const aviso1 = movel({ x: 5.3, y: 10.1, w: .6, d: .05, bloq: false, partes: [{ w: .6, d: .05, h: 20, z0: 38, cores: ['#e6e0cc', '#d4cdb4', '#bdb69d'], det: (g, pr, o) => { for (let k = 0; k < 4; k++) lin(g, '#55504a', pr(.06, .05, o.zt - 4 - k * 3), pr(.5, .05, o.zt - 4 - k * 3)); lin(g, '#c8332b', pr(.06, .05, o.zt - 16), pr(.5, .05, o.zt - 16)); } }] });
-  liga(aviso1, 5.6, 10.7, 1.4, 'Ler o aviso na parede', () => dlgSeq([['', 'AVISO DE COBRANÇA. Quarto dos fundos: 3 meses em atraso. Total devido: R$ 480. Prazo: sexta-feira.'], ['', 'O valor está sublinhado em vermelho. Duas vezes.']], () => { J.f.aviso = 1; desenhaHud(true); }));
+  liga(aviso1, 5.6, 10.7, 1.4, 'Ler o aviso na parede', () => dlgSeq([['', 'AVISO DE COBRANÇA. Oficina e quarto dos fundos: 3 meses em atraso. Total devido: R$ 480. Prazo: sexta-feira.'], ['', 'O nome do Tadeu está no papel. O valor está sublinhado em vermelho, duas vezes.'], ['', 'O proprietário nunca consertou a goteira, mas cobra o aluguel inteiro. Se a sua parte não vier, a conta cai toda nas costas do Tadeu.']], () => { J.f.aviso = 1; desenhaHud(true); }));
   const balde = movel({ x: 7.35, y: 11.0, w: .4, d: .4, partes: [{ w: .4, d: .4, h: 16, cores: COR.balde, det: (g, pr, o) => { ret(g, '#2a3b4a', ...pr(.08, .08, o.zt), 18, 8); ret(g, '#6fa3c4', ...pr(.12, .2, o.zt), 6, 1); } }] });
   liga(balde, 7.55, 11.2, 1.3, 'Olhar o balde', texto('O balde já está quase cheio. A goteira começou no mês passado e o dono do imóvel nunca apareceu.'));
   LUZES.push({ x: 6.8, y: 11.7, z: 90, r: 230, pisca: true });
