@@ -1,0 +1,36 @@
+<!doctype html><meta charset="utf-8"><title>Teste da morte</title>
+<style>
+body{margin:0;background:#2a2622;color:#ddd;font:14px system-ui;display:flex;flex-direction:column;align-items:center;gap:14px;padding:18px}
+#palco{background:#b4ada2;border:2px solid #5a4630;border-radius:6px;display:flex;align-items:flex-end;justify-content:center}
+canvas{image-rendering:pixelated}
+.l{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+button,select{background:#3a3028;color:#eee;border:1px solid #5a4630;border-radius:5px;padding:6px 12px;font:14px system-ui;cursor:pointer}
+button:hover{background:#5a4630}
+#tira{display:flex;gap:4px;flex-wrap:wrap;justify-content:center}#tira canvas{border:2px solid transparent;background:#b4ada2;cursor:pointer}#tira canvas.at{border-color:#ffd76a}
+</style>
+<div id="palco"><canvas id="c"></canvas></div>
+<div class="l"><button id="tocar">▶ Tocar de novo</button><button id="ant">◀ quadro</button><button id="prox">quadro ▶</button>
+<label>velocidade <input type="range" id="fps" min="2" max="16" value="8"> <span id="fv">8</span> quadros/s</label>
+<label>zoom <select id="z"><option>3</option><option selected>5</option><option>7</option></select></label>
+<label><input type="checkbox" id="lp" checked> repetir (com pausa no fim)</label>
+<select id="v"><option value="manequim/morte_cores_do_jogo.png">Cores do jogo</option><option value="manequim/morte_manequim.png">Manequim colorido</option></select></div>
+<div id="tira"></div><div id="info"></div>
+<script>
+const N = 8, c = document.getElementById('c'), x = c.getContext('2d'), $ = id => document.getElementById(id);
+let img = new Image(), q = 0, t0 = 0, tocando = true, fim = 0, FW = 0, FH = 0;
+function carrega() { img = new Image(); img.onload = () => { FW = img.width / N; FH = img.height; monta(); tocar(); }; img.src = $('v').value; }
+function monta() {
+  const z = +$('z').value; c.width = FW * z; c.height = FH * z; c.style.width = c.width + 'px'; c.style.height = c.height + 'px'; $('palco').style.height = (FH * z + 20) + 'px';
+  $('tira').innerHTML = ''; for (let i = 0; i < N; i++) { const k = document.createElement('canvas'); k.width = FW; k.height = FH; k.style.width = FW * 1 + 'px'; k.style.height = FH * 1 + 'px'; k.getContext('2d').drawImage(img, i * FW, 0, FW, FH, 0, 0, FW, FH); k.onclick = () => { tocando = false; q = i; mostra(); }; $('tira').appendChild(k); }
+  mostra();
+}
+function mostra() { x.imageSmoothingEnabled = false; x.clearRect(0, 0, c.width, c.height); x.drawImage(img, q * FW, 0, FW, FH, 0, 0, c.width, c.height); [...$('tira').children].forEach((k, i) => k.className = i === q ? 'at' : ''); $('info').textContent = 'quadro ' + (q + 1) + ' de ' + N; }
+function tocar() { q = 0; tocando = true; t0 = performance.now(); fim = 0; mostra(); }
+function loop(now) {
+  if (tocando) { const dur = 1000 / +$('fps').value; if (fim) { if (now - fim > 1200 && $('lp').checked) tocar(); } else if (now - t0 >= dur) { t0 = now; if (q < N - 1) { q++; mostra(); } if (q === N - 1) fim = now; } }
+  requestAnimationFrame(loop);
+}
+$('tocar').onclick = tocar; $('ant').onclick = () => { tocando = false; q = (q + N - 1) % N; mostra(); }; $('prox').onclick = () => { tocando = false; q = (q + 1) % N; mostra(); };
+$('fps').oninput = () => $('fv').textContent = $('fps').value; $('z').onchange = monta; $('v').onchange = carrega;
+carrega(); requestAnimationFrame(loop);
+</script>
