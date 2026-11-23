@@ -96,7 +96,7 @@ function pedirServico() {
   const f = J.f, h = (J.t / 60) % 24, dia = Math.floor(J.t / 1440);
   if (J.q === 'corre') return dlgSeq([['Tadeu', 'Termina a entrega do Valdir primeiro. Uma coisa de cada vez.']]);
   if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
-  if (f.bDia === dia) return dlgSeq([['Tadeu', 'Por hoje já deu serviço, não aparece mais nada. Amanhã cedo, de novo.']]);
+  if (f.b === 'feito') return dlgSeq([['Tadeu', 'Por ora não tem mais serviço de bancada. Se aparecer algo, eu falo.']]);
   if (h < 5 || h >= 20) return dlgSeq([['Tadeu', 'A rua tá morta a essa hora. Volta amanhã cedo, que aparece serviço.']]);
   dlg('Tadeu', (f.seco ? 'Tenho um serviço. Faz direito dessa vez. ' : 'Tenho um serviço sim. ') + 'Preciso recondicionar a bateria de um cliente, e o Seu Zeca, do ferro-velho do outro lado da rua lateral, tem uma usada. Traz pra cá antes que o movimento aumente: se voltar em até uma hora eu pago R$ 55, em até duas R$ 45, depois disso R$ 35. A bateria é por sua conta, o Zeca costuma pedir uns R$ 25.', [
     { t: 'Fechado. Vou lá.', f: () => { f.b = 'buscar'; f.bIni = J.t; f.bCusto = null; dlgSeq([['Tadeu', 'A rua ainda tá acordando, vai de olho. E negocia com o Zeca, ele gosta de um papo.']]); } },
@@ -201,7 +201,7 @@ function falaNeide() {
 function servicoNeide() {
   const f = J.f;
   if (f.n === 'cobrar') return dlgSeq([['Dona Neide', 'Já te falei: o fiado do Seu Osmar, ali ao sul. Sem o dinheiro, nem volta.']]);
-  if (f.neideDia === diaAtual()) return dlgSeq([['Dona Neide', 'Por hoje já deu, né? Amanhã eu vejo se aparece alguma coisa.']]);
+  if (f.n === 'feito') return dlgSeq([['Dona Neide', 'Por enquanto não tenho mais nada pra você, meu filho. O fiado do Osmar já foi resolvido. Se aparecer coisa, eu aviso.']]);
   dlg('Dona Neide', 'Tem sim. O Seu Osmar, da casa ao sul da rua, me deve R$ 60 de fiado faz um mês. Fala que não tem, mas eu vejo ele comprando cigarro. Cobra pra mim que eu te dou uma parte, conforme o que você trouxer.', [
     { t: 'Fechado. Eu cobro.', f: () => { f.n = 'cobrar'; f.coleta = 0; dlgSeq([['Dona Neide', 'Boa. Ele é arredio, vai fazer cara de coitado. Não cai.']]); } },
     { t: 'Agora não.', f: () => { } }]);
