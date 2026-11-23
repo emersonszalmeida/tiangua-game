@@ -2,7 +2,7 @@
 // Depois de mexer em chao.html (paredes/portas), rode de novo para o mundo receber a correção.
 import fs from 'node:fs';
 let s = fs.readFileSync('chao.html', 'utf8').replace(/\r\n/g, '\n');
-const bloco = ['mundo_bloco.js', 'mundo_cena.js'].map(a => fs.readFileSync(a, 'utf8').replace(/\r\n/g, '\n')).join('\n');
+const bloco = ['mundo_bloco.js', 'mundo_patio.js', 'mundo_cena.js'].map(a => fs.readFileSync(a, 'utf8').replace(/\r\n/g, '\n')).join('\n');
 let falhou = 0;
 const troca = (de, para, tudo) => { if (!s.includes(de)) { console.log('NÃO ACHOU:', de.slice(0, 70)); falhou++; return; } s = tudo ? s.split(de).join(para) : s.replace(de, () => para); };
 troca('<title>Editor da cabana</title>', '<title>Mundo</title>');

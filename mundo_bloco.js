@@ -10,6 +10,8 @@ const ITENS = {
   bateria: { nome: 'Bateria usada', vida: 0, texto: 'Pesada, suja de graxa, ainda com um pouco de carga. É para o Tadeu recondicionar.', g: ['..kk..kk..', '..kRk.kSk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSkkSSkkSk', 'kSSSSSSSSk', 'kkkkkkkkkk'] },
   curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
 };
+ITENS.modulo = { nome: 'Módulo fora de linha', vida: 0, texto: 'Uma placa eletrônica embrulhada em plástico bolha. É para o contato do Tadeu.', g: ['kkkkkkkkkk', 'kggggggggk', 'kgYggssggk', 'kggggggggk', 'kgssgYgggk', 'kggggggggk', 'kkkkkkkkkk'] };
+ITENS.envelope = { nome: 'Envelope do Tadeu', vida: 0, texto: 'O orçamento do freezer da Dona Neide, lacrado. Não é pra abrir.', g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwkwwwwkwk', 'kwwkwwkwwk', 'kwwwkkwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] };
 // peças da carcaça do Zeca (a versão danificada é a mesma, enferrujada)
 const PECAS_G = {
   alt: ['..kkkkkk..', '.kSSSSSSk.', 'kSSkkkkSSk', 'kSkRRRRkSk', 'kSkRSSRkSk', 'kSkRRRRkSk', 'kSSkkkkSSk', '.kSSSSSSk.', '..kkkkkk..'],
