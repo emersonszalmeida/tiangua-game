@@ -1,11 +1,11 @@
 // Manequim do personagem: o mesmo corpo/quadros do personagem, sem cor de roupa nem cabelo (só tons de cinza por parte).
-// Gera Downloads/manequim/: folhas por animação (linhas = vistas, colunas = quadros) + quadros soltos 48×64.
+// Gera manequim/ (na pasta do jogo): folhas por animação (linhas = vistas, colunas = quadros) + quadros soltos 48×64.
 import fs from 'node:fs'; import path from 'node:path'; import os from 'node:os';
 import { encodePNG } from './pngenc.mjs';
 const SPR7 = new Function(fs.readFileSync('sprites7.js', 'utf8') + '; return SPR7;')();
 const IDLES = new Function(fs.readFileSync('idles.js', 'utf8') + '; return IDLES;')();
 const { camadaDe } = new Function(fs.readFileSync('camadas.js', 'utf8') + '; return { camadaDe };')();
-const CW = 48, CH = 64, VIEWS = ['S', 'SW', 'W', 'NW', 'N'], out = path.join(os.homedir(), 'Downloads', 'manequim');
+const CW = 48, CH = 64, VIEWS = ['S', 'SW', 'W', 'NW', 'N'], out = 'manequim';
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), pal = Object.fromEntries(Object.entries(SPR7.pal).map(([k, v]) => [k, hex(v)]));
 const CINZA = { pele: '#d6d6d6', cabelo: '#b9b9b9', camiseta: '#a3a3a3', calca: '#8a8a8a', sapato: '#6c6c6c' };
 fs.rmSync(out, { recursive: true, force: true }); fs.mkdirSync(out, { recursive: true });

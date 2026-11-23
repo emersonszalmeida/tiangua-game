@@ -19,3 +19,5 @@ node_modules/
 
 # chave da API do PixelLab (nunca vai para o GitHub)
 .pixellab_secret
+!manequim/**/*.png
+!manequim/*.png
