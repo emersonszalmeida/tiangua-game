@@ -53,7 +53,7 @@ troca('const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && 
 troca('ctx.restore(); requestAnimationFrame(frame);', 'ctx.restore(); ambiente(now); requestAnimationFrame(frame);');
 troca('const dt = Math.min(.05, (now - last) / 1000); last = now;', 'const dt = Math.min(.05, (now - last) / 1000); last = now; jogoTick(dt);');
 troca("const casa = itensCasa(); lista.push({ d: hx + hy, jog: true,", "const casa = itensCasa(); for (const it of ITENS_MUNDO) if (!J.pegos[it.id]) lista.push({ d: it.x + it.y, f: () => desenhaItem(it, now) }); lista.push(...itensCena(now)); lista.push({ d: hx + hy, jog: true,");
-troca('run = keys.ShiftLeft || keys.ShiftRight;', 'run = CORRE_ON;');
+troca('run = keys.ShiftLeft || keys.ShiftRight;', 'run = (dx || dy) ? (CORRE_MOVEU = true, CORRE_ON) : (CORRE_MOVEU && (CORRE_ON = false, CORRE_MOVEU = false), false);');
 if (falhou) { console.log(falhou + ' trocas falharam; mundo.html NÃO escrito'); process.exit(1); }
 fs.writeFileSync('mundo.html', s.replace(/\n/g, '\r\n'));
 console.log('mundo.html escrito', s.length, 'bytes');
