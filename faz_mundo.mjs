@@ -36,7 +36,7 @@ troca('</style>', `
 troca('<div id="ui"></div>', `<div id="ui"></div>
 <div id="hud">
 <div class="barra" id="r_vida"><b>Vida</b><div class="tr"><i id="b_vida"></i></div><span class="v" id="t_vida"></span></div>
-<div id="grana"></div><div id="obj"></div>
+<div id="hora" style="margin-top:6px;font-size:13px;color:#ddd"></div><div id="grana"></div><div id="obj"></div>
 <button id="novo">Novo jogo</button>
 </div>
 <div id="dlg" style="display:none"><div id="dq"></div><div id="dt"></div><div id="dops"></div><div id="dc">E · continuar</div></div>

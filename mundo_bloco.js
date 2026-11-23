@@ -15,7 +15,8 @@ function icone(t) {
   c.url = c.toDataURL(); return ICONE[t] = c;
 }
 // ---- estado do jogador ----
-const J = { vida: 100, grana: 0, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} };
+const T_INICIO = 4 * 60 + 30;   // terça-feira, 04h30 (minutos desde terça 00h)
+const J = { vida: 100, grana: 0, divida: 480, t: T_INICIO, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} };
 let SPAWN = { x: 11.5, y: 21.5 }, ITENS_MUNDO = [];
 // ---- bairro gerado por código ----
 function rng(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
@@ -65,9 +66,9 @@ function geraBairro() {
 // ---- jogo ----
 const el = id => document.getElementById(id);
 function aviso(t) { const a = el('aviso'); a.textContent = t; a.style.opacity = 1; clearTimeout(aviso.t); aviso.t = setTimeout(() => a.style.opacity = 0, 2200); }
-function salva() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ vida: J.vida, grana: J.grana, inv: J.inv, pegos: J.pegos, q: J.q, f: J.f, hx, hy, morto: J.morto })); } catch (e) { } }
-function carrega() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!s) return; Object.assign(J, { vida: s.vida, grana: s.grana || 0, inv: s.inv || [], pegos: s.pegos || {}, q: s.q || 'inicio', f: s.f || {}, morto: !!s.morto }); if (typeof s.hx === 'number') { hx = s.hx; hy = s.hy; } } catch (e) { } }
-function novoJogo() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } Object.assign(J, { vida: 100, grana: 0, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} }); hx = SPAWN.x; hy = SPAWN.y; salva(); desenhaHud(true); iniciaCena(); }
+function salva() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ vida: J.vida, grana: J.grana, divida: J.divida, t: J.t, inv: J.inv, pegos: J.pegos, q: J.q, f: J.f, hx, hy, morto: J.morto })); } catch (e) { } }
+function carrega() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!s) return; Object.assign(J, { vida: s.vida, grana: s.grana || 0, divida: typeof s.divida === 'number' ? s.divida : 480, t: typeof s.t === 'number' ? s.t : T_INICIO, inv: s.inv || [], pegos: s.pegos || {}, q: s.q || 'inicio', f: s.f || {}, morto: !!s.morto }); if (typeof s.hx === 'number') { hx = s.hx; hy = s.hy; } } catch (e) { } }
+function novoJogo() { try { localStorage.removeItem(SAVE_KEY); } catch (e) { } Object.assign(J, { vida: 100, grana: 0, divida: 480, t: T_INICIO, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} }); hx = SPAWN.x; hy = SPAWN.y; salva(); desenhaHud(true); iniciaCena(); }
 function itemPerto() { let b = null, bd = .9; for (const it of ITENS_MUNDO) { if (J.pegos[it.id]) continue; const d = Math.hypot(hx - it.x, hy - it.y); if (d < bd) { bd = d; b = it; } } return b; }
 function pegar() {
   if (J.morto) return; const it = itemPerto(); if (!it) return;
@@ -83,9 +84,9 @@ function usa(i) {
 let hudSig = '';
 function desenhaHud(forca) {
   const f = Math.round, p = itemPerto(), ia = !p && typeof interPerto === 'function' ? interPerto() : null, rot = p ? 'Pegar ' + ITENS[p.t].nome : ia ? ia.rot : '', obj = typeof objetivo === 'function' ? objetivo() : '';
-  const sig = [f(J.vida), J.grana, J.morto, JSON.stringify(J.inv), rot, obj, !!J.f.aviso, typeof D !== 'undefined' && D.ativo].join('|'); if (!forca && sig === hudSig) return; hudSig = sig;
+  const hrs = typeof horaTxt === 'function' ? horaTxt() : '', sig = [f(J.vida), J.grana, J.divida, hrs, J.morto, JSON.stringify(J.inv), rot, obj, !!J.f.aviso, typeof D !== 'undefined' && D.ativo].join('|'); if (!forca && sig === hudSig) return; hudSig = sig;
   el('b_vida').style.width = Math.max(0, J.vida) + '%'; el('t_vida').textContent = f(J.vida); el('r_vida').className = 'barra' + (J.vida < 25 ? ' baixo' : '');
-  el('grana').textContent = 'R$ ' + J.grana + (J.f.aviso ? '  ·  dívida R$ 480' : ''); el('obj').textContent = obj;
+  el('grana').textContent = 'R$ ' + J.grana + (J.f.aviso ? '  ·  dívida R$ ' + J.divida : ''); el('hora').textContent = hrs; el('obj').textContent = obj;
   el('inv').innerHTML = Array.from({ length: SLOTS }, (_, i) => { const s = J.inv[i]; return '<div class="slot' + (s ? ' cheio' : '') + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' + (s ? '<img src="' + icone(s.t).url + '" style="width:' + icone(s.t).width * 3 + 'px"><span class="q">' + (s.n > 1 ? s.n : '') + '</span>' : '') + '</div>'; }).join('');
   el('inv').querySelectorAll('.slot').forEach(e => e.onclick = () => usa(+e.dataset.i));
   const dlgAberto = typeof D !== 'undefined' && D.ativo; el('dica').style.display = rot && !J.morto && !dlgAberto ? '' : 'none'; el('dica').textContent = 'E · ' + rot;

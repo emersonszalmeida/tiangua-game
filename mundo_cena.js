@@ -44,6 +44,15 @@ function mostraDlg() {
   el('dt').textContent = D.txt.slice(0, Math.floor(D.n)); if (D.n < D.txt.length) return;
   if (D.ops) { el('dops').innerHTML = D.ops.map((o, i) => '<button data-i="' + i + '"' + (o.off ? ' disabled' : '') + '>' + (i + 1) + ' · ' + o.t + '</button>').join(''); el('dops').querySelectorAll('button').forEach(b => b.onclick = () => escolhe(+b.dataset.i)); el('dc').style.display = 'none'; } else { el('dc').style.display = ''; el('dc').onclick = avanca; }
 }
+// ---- relógio: 1 min de jogo = 6 s reais (1 dia de jogo = 2h24 reais); prazo = sexta, 18h ----
+const PRAZO = 3 * 1440 + 18 * 60, MULT = +(new URLSearchParams(location.search).get('tempo') || 1), DIAS = ['Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom', 'Seg'];
+function horaTxt() { const m = Math.floor(J.t), h = Math.floor(m / 60) % 24; return DIAS[Math.floor(m / 1440) % 7] + ' ' + String(h).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function luzDoDia() { const h = (J.t / 60) % 24; return h < 5 || h >= 20 ? 0 : h < 7 ? (h - 5) / 2 : h < 17 ? 1 : (20 - h) / 3; }
+function dorme() {
+  const h = (J.t / 60) % 24;
+  if (h >= 6 && h < 20) return dlgSeq([['', 'Ainda é dia. Dormir agora só faz o prazo andar sem o dinheiro entrar.']]);
+  dlg('', 'Dormir até as 6h da manhã? O relógio avança e o prazo de sexta chega mais perto.', [{ t: 'Dormir', f: () => { const dia = Math.floor(J.t / 1440); J.t = (h < 6 ? dia : dia + 1) * 1440 + 6 * 60; J.vida = 100; fecha(); dlgSeq([['', 'Você apaga no colchão fino. Quando abre os olhos, já é manhã, ' + horaTxt() + '.']]); } }, { t: 'Ainda não', f: () => { } }]);
+}
 // ---- itens e interação ----
 const temItem = t => J.inv.some(q => q.t === t);
 function daItem(t) { let s = J.inv.find(q => q.t === t && q.n < PILHA); if (!s) { if (J.inv.length >= SLOTS) { aviso('Mochila cheia'); return false; } s = { t, n: 0 }; J.inv.push(s); } s.n++; desenhaHud(true); salva(); return true; }
@@ -63,7 +72,21 @@ function bancadaQuarto() {
   dlg('', 'Na bancada: ' + (resta.length ? resta.join(', ') + ', ' : '') + 'o caderno de anotações e o carregador do comunicador, com o fio descascado.' + (f.din ? '' : ' Dá uns R$ 37, contando tudo.'), ops);
 }
 // ---- Tadeu e o primeiro corre ----
+function repasse(v) { J.grana -= v; J.divida = Math.max(0, J.divida - v); desenhaHud(true); salva(); if (J.divida <= 0) { J.f.quitou = 1; dlgSeq([['Tadeu', J.f.seco ? 'Tá. Agora sim, a gente tá quite. Mas eu não esqueci.' : 'Fechou. O dono do galpão não enche mais o saco. Valeu, de verdade.']]); } else dlgSeq([['Tadeu', 'Anotado. Ainda faltam R$ ' + J.divida + '.' + (J.f.seco ? ' Continua mostrando serviço.' : '')]]); }
+function menuTadeu() {
+  const f = J.f, d = J.divida, pode = d > 0 && J.grana > 0, t = d <= 0 ? 'O aluguel tá em dia.' : (J.t >= PRAZO ? 'Você me deve R$ ' + d + '.' : 'Ainda faltam R$ ' + d + ' do aluguel. O prazo é sexta, 18h.');
+  dlg('Tadeu', f.seco ? 'Fala. ' + t : 'E aí. ' + t, [
+    { t: 'Repassar R$ 50', off: !pode || J.grana < 50 || d < 50, f: () => repasse(50) },
+    { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
+    { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
+    { t: 'Conversar sobre o corre', f: conversaTadeu },
+    { t: 'Deixar pra lá', f: () => { } }]);
+}
 function falaTadeu() {
+  if (J.f.corre) return menuTadeu();
+  conversaTadeu();
+}
+function conversaTadeu() {
   const f = J.f; f.tadeu = 1;
   if (J.q === 'fim') return dlgSeq([['Tadeu', 'O Valdir já me avisou que a caixa chegou. Valeu de verdade. Passa aqui amanhã cedo, sempre aparece alguma coisa.']]);
     if (J.q === 'corre') return dlgSeq([['Tadeu', 'Ainda com a caixa na mão? O Valdir espera na rua lateral, lá em cima. Vai antes de a rua encher.']]);
@@ -108,7 +131,7 @@ function montaMoveis() {
   const liga = (m, x, y, r, rot, f, ativo) => INTER.push({ x, y, r, rot, f, ativo });
   // quarto
   const colchao = movel({ x: 5.25, y: 11.0, w: .95, d: 1.85, partes: [{ w: .95, d: 1.85, h: 8, cores: ['#a8a59e', '#898680', '#6e6c67'], det: (g, pr, o) => { ret(g, '#cfc8b8', ...pr(.12, .12, o.zt), 1, 1); for (let b = .1; b < .5; b += .05) lin(g, '#d9d3c4', pr(.15, b, o.zt), pr(.8, b, o.zt)); lin(g, '#7e7a70', pr(.1, 1.0, o.zt), pr(.7, 1.15, o.zt)); lin(g, '#7e7a70', pr(.2, 1.4, o.zt), pr(.85, 1.35, o.zt)); } }] });
-  liga(colchao, 5.75, 11.9, 1.5, 'Olhar o colchão', texto('Um colchão fino no chão. O lençol ainda guarda a forma de quem dormiu mal.'));
+  liga(colchao, 5.75, 11.9, 1.5, 'Descansar no colchão', () => dlg('', 'Um colchão fino no chão. O lençol ainda guarda a forma de quem dormiu mal.', [{ t: 'Dormir (pula a noite até as 6h)', f: dorme }, { t: 'Deixar pra lá', f: () => { } }]));
   const banc = movel({ x: 6.15, y: 10.15, w: 1.7, d: .7, partes: [{ w: 1.7, d: .7, h: 30, cores: COR.madeira, det: (g, pr, o) => { lin(g, '#aeb2b8', pr(.15, .35, o.zt), pr(.7, .3, o.zt)); lin(g, '#d9d9de', pr(.18, .33, o.zt), pr(.5, .3, o.zt)); ret(g, '#e8c14a', ...pr(1.0, .4, o.zt), 2, 1); ret(g, '#e8c14a', ...pr(1.08, .45, o.zt), 2, 1); ret(g, '#cfc8a8', ...pr(1.1, .3, o.zt), 3, 1); lin(g, '#e7e3d8', pr(1.35, .15, o.zt), pr(1.55, .2, o.zt)); lin(g, '#1c1c20', pr(.1, .55, o.zt), pr(.9, .6, o.zt)); } }] });
   liga(banc, 7.0, 10.9, 1.5, 'Mexer na bancada', bancadaQuarto);
   const aviso1 = movel({ x: 5.3, y: 10.1, w: .6, d: .05, bloq: false, partes: [{ w: .6, d: .05, h: 20, z0: 38, cores: ['#e6e0cc', '#d4cdb4', '#bdb69d'], det: (g, pr, o) => { for (let k = 0; k < 4; k++) lin(g, '#55504a', pr(.06, .05, o.zt - 4 - k * 3), pr(.5, .05, o.zt - 4 - k * 3)); lin(g, '#c8332b', pr(.06, .05, o.zt - 16), pr(.5, .05, o.zt - 16)); } }] });
@@ -152,8 +175,8 @@ function itensCena(now) {
 let dia = 0;
 const luzPisca = now => { const a = Math.sin(now / 130) + Math.sin(now / 53 + 1.7) + Math.sin(now / 310); return a > 2.1 ? .25 : a > 1.6 ? .7 : 1; };
 function ambiente(now) {
-  dia += ((hx > 16.4 ? 1 : 0) - dia) * .02; const W = cv.width, H = cv.height, t = (a, b) => Math.round(a + (b - a) * dia);
-  ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(' + t(100, 190) + ',' + t(108, 198) + ',' + t(140, 220) + ')'; ctx.fillRect(0, 0, W, H);
+  dia += (luzDoDia() * (hx > 16.4 ? 1 : .55) - dia) * .03; const W = cv.width, H = cv.height, t = (a, b) => Math.round(a + (b - a) * dia);
+  ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(' + t(95, 225) + ',' + t(102, 225) + ',' + t(135, 232) + ')'; ctx.fillRect(0, 0, W, H);
   ctx.globalCompositeOperation = 'lighter';
   for (const L of LUZES) { const px = W / 2 + (sxm(L.x, L.y) - hsx) * K, py = H / 2 + (sym(L.x, L.y) - L.z - hsy) * K, r = L.r * K, f = L.pisca ? luzPisca(now) : 1, g = ctx.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,170,80,' + (.3 * f * (1 - dia * .7)) + ')'); g.addColorStop(1, 'rgba(255,170,80,0)'); ctx.fillStyle = g; ctx.fillRect(px - r, py - r, 2 * r, 2 * r); }
   ctx.restore();
@@ -205,12 +228,19 @@ const tadeuPerto = () => Math.hypot(hx - 15.6, hy - 14.7) < 2.4;
 // ---- ritmo da cena ----
 let encDentro = false;
 function cenaTick(dt) {
+  if (!D.ativo && !J.morto) J.t += dt / 6 * MULT;
   if (D.ativo && D.n < D.txt.length) { D.n = Math.min(D.txt.length, D.n + dt * 70); mostraDlg(); }
   if (D.ativo) return;
+  if (J.t >= PRAZO && !J.f.prazo) { J.f.prazo = 1; prazoFinal(); return; }
   if (!J.f.viuTadeu && Math.hypot(hx - 15.6, hy - 14.7) < 2.8) { J.f.viuTadeu = 1; dlgSeq([['', 'Tadeu está encostado na bancada perto do portão, limpando a graxa das mãos enquanto o dia começa a clarear.']], falaTadeu); return; }
   if (!J.f.rua && hx > 16.6) { J.f.rua = 1; dlgSeq([['', 'Você cruza o portão lateral e pisa na rua úmida da cidade baixa. O movimento da manhã começa a ganhar forma, os cabos cruzam o alto e, ao longe, os prédios corporativos observam.']]); return; }
   const dv = Math.hypot(hx - 20.8, hy - 4.6); if (dv > 4.4) encDentro = false;
   if (guardado() && !encDentro && dv < 3.3) { encDentro = true; encontro(); }
+}
+function prazoFinal() {
+  if (J.divida <= 0) return dlgSeq([['', 'Sexta, 18h. O dono do galpão passa, pega o dinheiro e vai embora sem dizer uma palavra. Dessa vez o Tadeu não precisa cobrir nada.']]);
+  const falta = J.divida; J.divida = Math.ceil(falta * 1.1 / 5) * 5; J.f.seco = 1; desenhaHud(true);
+  dlgSeq([['', 'Sexta, 18h. O dono do galpão aparece pra cobrar. Faltaram R$ ' + falta + ', e o Tadeu cobriu a diferença tirando do dinheiro das peças.'], ['Tadeu', 'Eu segurei a barra por você. O que faltou agora é dívida sua comigo, com acréscimo: R$ ' + J.divida + '. E os adiantamentos acabaram até você mostrar serviço.']]);
 }
 function iniciaCena() { if (!J.f.intro) { J.f.intro = 1; dlgSeq([['', 'Cidade baixa. Madrugada.'], ['', 'O último trabalho não pagou. O bolso está vazio e o seu nome anda apertado na vizinhança.'], ['', 'Antes de sair, vale olhar o quarto.']]); } }
 if (new URLSearchParams(location.search).has('bairro')) { SPAWN = { x: 11.5, y: 21.5 }; geraBairro(); } else geraCena01();
