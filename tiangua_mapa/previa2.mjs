@@ -1,0 +1,10 @@
+// prévia das ruas já adaptadas (ruas_jogo.js): node previa2.mjs saida.png [largura]
+import fs from 'node:fs'; import zlib from 'node:zlib'; import vm from 'node:vm';
+const sb = {}; vm.runInNewContext(fs.readFileSync('ruas_jogo.js', 'utf8').replace(/^const /gm, 'var '), sb); const RUAS = sb.RUAS, L = sb.RUAS_LIM, W = +(process.argv[3] || 1300), esc = W / (L.x1 - L.x0), H = Math.ceil((L.z1 - L.z0) * esc), img = Buffer.alloc(W * H * 4, 0); for (let i = 3; i < img.length; i += 4) img[i] = 255;
+const pt = (x, y, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { if (dx * dx + dy * dy > r * r + .5) continue; const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const i = (Y * W + X) * 4; img[i] = img[i + 1] = img[i + 2] = 255; } };
+for (const r of RUAS) { const rr = r.w >= 11 ? 2 : r.w >= 8 ? 1 : 0; for (let k = 2; k < r.p.length; k += 2) { const x0 = (r.p[k - 2] - L.x0) * esc, y0 = (r.p[k - 1] - L.z0) * esc, x1 = (r.p[k] - L.x0) * esc, y1 = (r.p[k + 1] - L.z0) * esc, n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0))); for (let s = 0; s <= n; s++) pt(x0 + (x1 - x0) * s / n, y0 + (y1 - y0) * s / n, rr); } }
+const raw = Buffer.alloc((W * 4 + 1) * H); for (let y = 0; y < H; y++) { raw[y * (W * 4 + 1)] = 0; img.copy(raw, y * (W * 4 + 1) + 1, y * W * 4, (y + 1) * W * 4); }
+const crc = b => { let c, t = crc.t || (crc.t = Array.from({ length: 256 }, (_, n) => { c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; })); let r = 0xffffffff; for (const v of b) r = t[(r ^ v) & 255] ^ (r >>> 8); return (r ^ 0xffffffff) >>> 0; };
+const ch = (t, d) => { const l = Buffer.alloc(4); l.writeUInt32BE(d.length); const td = Buffer.concat([Buffer.from(t), d]), c = Buffer.alloc(4); c.writeUInt32BE(crc(td)); return Buffer.concat([l, td, c]); };
+const ih = Buffer.alloc(13); ih.writeUInt32BE(W, 0); ih.writeUInt32BE(H, 4); ih[8] = 8; ih[9] = 6;
+fs.writeFileSync(process.argv[2], Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), ch('IHDR', ih), ch('IDAT', zlib.deflateSync(raw)), ch('IEND', Buffer.alloc(0))]));

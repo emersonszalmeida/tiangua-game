@@ -1,0 +1,254 @@
+<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Editor do mapa</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+html,body{margin:0;height:100%;background:#1d2420;overflow:hidden;font:14px system-ui;color:#eee;user-select:none}
+canvas{display:block;width:100vw;height:100vh}
+#painel{position:fixed;left:10px;top:10px;width:228px;background:rgba(20,16,12,.88);border:1px solid #5a4630;border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:6px;max-height:calc(100vh - 60px);overflow:auto}
+#painel h3{margin:4px 0 0;font-size:12px;color:#c9b48f;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.fer{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+button,select{font:13px system-ui;background:#3a3028;color:#eee;border:1px solid #5a4630;border-radius:5px;padding:6px 8px;cursor:pointer;text-align:left}
+button:hover:not(:disabled){background:#5a4630}button:disabled{opacity:.4;cursor:default}
+button.on{background:#8a5a1c;border-color:#ffd76a}
+button kbd{float:right;color:#b9a98f;font:11px system-ui}
+#status{position:fixed;left:10px;bottom:10px;background:rgba(20,16,12,.88);border:1px solid #5a4630;border-radius:6px;padding:6px 10px;font-size:12.5px;line-height:1.5;max-width:calc(100vw - 40px)}
+#aviso{position:fixed;left:50%;top:14px;transform:translateX(-50%);background:rgba(20,16,12,.92);border:1px solid #ffd76a;color:#ffd76a;padding:6px 14px;border-radius:6px;opacity:0;transition:opacity .25s;pointer-events:none}
+.dica{font-size:12px;color:#b9a98f;line-height:1.45}
+</style></head><body>
+<canvas id="c"></canvas>
+<div id="painel">
+  <h3>Ferramenta</h3>
+  <div class="fer">
+    <button id="f_v" class="on">Selecionar <kbd>V</kbd></button>
+    <button id="f_d">Desenhar <kbd>D</kbd></button>
+    <button id="f_a">Apagar área <kbd>A</kbd></button>
+    <button id="f_c">Cortar trecho <kbd>C</kbd></button>
+  </div>
+  <h3>Tipo da rua</h3>
+  <select id="tipo">
+    <option value="bairro">Rua de bairro (6,5 m)</option>
+    <option value="media">Rua média (8 m)</option>
+    <option value="avenida">Avenida (9 m)</option>
+    <option value="principal">Via principal (11 m)</option>
+    <option value="br">BR — 4 pistas (14 m)</option>
+  </select>
+  <div class="dica" id="dicaTipo">Vale para o que você desenhar. Com uma rua selecionada, troca o tipo dela.</div>
+  <h3>Ações</h3>
+  <div class="fer">
+    <button id="b_des">Desfazer <kbd>Ctrl+Z</kbd></button>
+    <button id="b_ref">Refazer <kbd>Ctrl+Y</kbd></button>
+    <button id="b_del">Apagar rua <kbd>Del</kbd></button>
+    <button id="b_fit">Ver tudo <kbd>Home</kbd></button>
+    <button id="b_limpa">Limpar pontos <kbd>S</kbd></button>
+  </div>
+  <h3>Mapa</h3>
+  <div class="fer">
+    <button id="b_grade" class="on">Grade <kbd>G</kbd></button>
+    <button id="b_exp">Exportar</button>
+  </div>
+  <button id="b_orig">Voltar ao mapa original</button>
+  <div class="dica" id="ajuda"></div>
+</div>
+<div id="status"></div><div id="aviso"></div>
+<script src="ruas_jogo_br.js"></script>
+<script>
+// Editor do mapa de ruas (vista de cima, sem carro). As mudanças ficam guardadas neste navegador; "Exportar" baixa o arquivo ruas_jogo_br_editado.js.
+const cv = document.getElementById('c'), ctx = cv.getContext('2d'), stEl = document.getElementById('status'), avEl = document.getElementById('aviso'), LIM0 = RUAS_LIM, CHAVE = 'editor_mapa_ruas_v1';
+const TIPOS = { bairro: { c: 'residential', w: 6.5 }, media: { c: 'tertiary', w: 8 }, avenida: { c: 'secondary', w: 9 }, principal: { c: 'primary', w: 11 }, br: { c: 'trunk', w: 14, br: 1 } };
+const COR = { trunk: ['#55555c', '#d8c24a'], primary: ['#b9b196', '#a8902c'], secondary: ['#c8c1a8', '#8a846c'], tertiary: ['#d2ccb8', null], unclassified: ['#d6d1c0', null], residential: ['#dcd8c8', null], living_street: ['#dcd8c8', null], service: ['#c9c4b2', null] };
+const GRADE = 10 / 3, ORIG = JSON.parse(JSON.stringify(RUAS));
+let ruas = ORIG.map(r => ({ ...r, p: r.p.slice() }));
+try { const s = localStorage.getItem(CHAVE); if (s) { const j = JSON.parse(s); if (Array.isArray(j) && j.length) ruas = j; } } catch (e) { }
+let cam = { x: 0, z: 0, k: .5 }, ferr = 'v', sel = -1, hover = -1, desenho = null, area = null, arr = null, pan = null, mouse = { x: 0, z: 0, sx: 0, sy: 0 }, grade = true, sujo = true, espaco = false;
+const undo = [], refaz = [];
+function aviso(t) { avEl.textContent = t; avEl.style.opacity = 1; clearTimeout(aviso.t); aviso.t = setTimeout(() => avEl.style.opacity = 0, 2200); }
+// ---------- dados ----------
+const copia = () => JSON.stringify(ruas);
+function snap() { undo.push(copia()); if (undo.length > 120) undo.shift(); refaz.length = 0; }
+function salva() { try { localStorage.setItem(CHAVE, copia()); } catch (e) { } }
+function restaura(js) { ruas = JSON.parse(js); sel = -1; hover = -1; reconstroi(); salva(); }
+function desfaz() { if (desenho) { cancelaDesenho(); return; } if (!undo.length) return aviso('Nada para desfazer'); refaz.push(copia()); restaura(undo.pop()); }
+function refazer() { if (!refaz.length) return aviso('Nada para refazer'); undo.push(copia()); restaura(refaz.pop()); }
+let paths = [];
+function reconstroi() { paths = ruas.map(r => { const p = new Path2D(); let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9; for (let i = 0; i < r.p.length; i += 2) { const x = r.p[i], z = r.p[i + 1]; i ? p.lineTo(x, z) : p.moveTo(x, z); x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z); } return { p, x0, x1, z0, z1 }; }); hover = -1; if (sel >= ruas.length) sel = -1; sujo = true; }
+// ---------- geometria ----------
+const dist = (ax, az, bx, bz) => Math.hypot(ax - bx, az - bz);
+function dSeg(x, z, ax, az, bx, bz) { const dx = bx - ax, dz = bz - az, t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz || 1))); return { d: Math.hypot(x - ax - dx * t, z - az - dz * t), t, x: ax + dx * t, z: az + dz * t }; }
+const U = k => [Math.sin(k * Math.PI / 4), Math.cos(k * Math.PI / 4)];
+function octi(a, b) {   // caminho só nas 8 direções de a até b
+  const dx = b[0] - a[0], dz = b[1] - a[1], L = Math.hypot(dx, dz); if (L < .01) return [];
+  const k0 = Math.round(Math.atan2(dx, dz) / (Math.PI / 4)), cand = [];
+  for (const k1 of [k0, k0 + 1, k0 - 1]) for (const k2 of [k0, k0 + 1, k0 - 1]) { if (k1 === k2) continue; const [u1x, u1z] = U(k1), [u2x, u2z] = U(k2), det = u1x * u2z - u1z * u2x; if (Math.abs(det) < 1e-6) continue; const s = (dx * u2z - dz * u2x) / det, t = (u1x * dz - u1z * dx) / det; if (s >= -1e-6 && t >= -1e-6) cand.push({ k1, k2, s, t }); }
+  if (Math.abs(Math.atan2(dx, dz) - k0 * Math.PI / 4) < .02 || !cand.length) return [b];
+  const c = cand.filter(q => q.k1 === k0).sort((p, q) => (p.s + p.t) - (q.s + q.t))[0] || cand[0], [u1x, u1z] = U(c.k1), [u2x, u2z] = U(c.k2), h = c.s / 2;
+  if (c.t < .3) return [b]; const p1 = [a[0] + u1x * h, a[1] + u1z * h]; return [p1, [p1[0] + u2x * c.t, p1[1] + u2z * c.t], b];
+}
+const gs = v => Math.round(v / GRADE) * GRADE;
+const eh8 = (a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1]; if (Math.hypot(dx, dz) < .05) return true; const t = Math.atan2(dx, dz); return Math.abs(t - Math.round(t / (Math.PI / 4)) * Math.PI / 4) < .02; };
+function normalizaP(p) {   // todo trecho que ficou fora das 8 direções vira um caminho nas 8 direções (com curva em 45°)
+  const o = [p[0], p[1]]; for (let k = 2; k < p.length; k += 2) { const a = [o[o.length - 2], o[o.length - 1]], b = [p[k], p[k + 1]]; if (dist(a[0], a[1], b[0], b[1]) < .05) continue; if (eh8(a, b)) o.push(b[0], b[1]); else for (const q of octi(a, b)) o.push(+q[0].toFixed(2), +q[1].toFixed(2)); } return o; }
+const chave = (x, z) => Math.round(x * 10) + ',' + Math.round(z * 10);
+function protegidos(ri) { const S = new Set(); ruas.forEach((r, i) => { if (i === ri) return; for (let k = 0; k < r.p.length; k += 2) S.add(chave(r.p[k], r.p[k + 1])); }); return S; }   // pontos onde outras ruas se ligam: não somem na limpeza
+function simplificaP(p, tol, prot) {   // tira pontos que sobram (alinhados, repetidos, voltinhas): troca um grupo de pontos por um caminho nas 8 direções, se sobrar menos pontos e a forma quase não mudar
+  let pts = []; for (let k = 0; k < p.length; k += 2) pts.push([p[k], p[k + 1]]);
+  const colin = a => { const o = [a[0]]; for (let i = 1; i < a.length; i++) { const l = o[o.length - 1]; if (dist(l[0], l[1], a[i][0], a[i][1]) < .05) continue; o.push(a[i]); } for (let i = o.length - 2; i > 0; i--) { const u = [o[i][0] - o[i - 1][0], o[i][1] - o[i - 1][1]], v = [o[i + 1][0] - o[i][0], o[i + 1][1] - o[i][1]], cs = (u[0] * v[0] + u[1] * v[1]) / (Math.hypot(...u) * Math.hypot(...v)); if (cs > .9999 && !prot.has(chave(o[i][0], o[i][1]))) o.splice(i, 1); } return o; };
+  pts = colin(pts); let mudou = true, guarda = 0;
+  while (mudou && guarda++ < 300) { mudou = false;
+    for (let i = 1; i < pts.length - 1 && !mudou; i++) for (let kk = 1; kk <= 8 && i + kk < pts.length && !mudou; kk++) {
+      let ok = true; for (let j = i; j < i + kk; j++) if (prot.has(chave(pts[j][0], pts[j][1]))) ok = false; if (!ok) break;
+      const a = pts[i - 1], b = pts[i + kk], meio = octi(a, b).slice(0, -1), novo = [...pts.slice(0, i), ...meio, ...pts.slice(i + kk)];
+      if (novo.length >= pts.length) continue; const cam = [a, ...meio, b]; let dm = 0; for (let j = i; j < i + kk; j++) { let d = 1e9; for (let q = 1; q < cam.length; q++) d = Math.min(d, dSeg(pts[j][0], pts[j][1], cam[q - 1][0], cam[q - 1][1], cam[q][0], cam[q][1]).d); dm = Math.max(dm, d); }
+      if (dm <= tol) { pts = colin(novo.map(q => [+q[0].toFixed(2), +q[1].toFixed(2)])); mudou = true; } } }
+  return pts.flat(); }
+function limpaRua(ri, tol) { const r = ruas[ri], antes = r.p.length / 2; r.p = normalizaP(simplificaP(r.p, tol || 4, protegidos(ri))); return antes - r.p.length / 2; }
+function contaFora() { let n = 0; for (const r of ruas) for (let k = 2; k < r.p.length; k += 2) if (!eh8([r.p[k - 2], r.p[k - 1]], [r.p[k], r.p[k + 1]])) n++; return n; }
+// ---------- tela <-> mundo ----------
+const W = () => cv.width, H = () => cv.height;
+const mx = sx => (sx - W() / 2) / cam.k + cam.x, mz = sy => (sy - H() / 2) / cam.k + cam.z;
+const tx = x => (x - cam.x) * cam.k + W() / 2, tz = z => (z - cam.z) * cam.k + H() / 2;
+function resize() { const d = devicePixelRatio || 1; cv.width = Math.round(innerWidth * d); cv.height = Math.round(innerHeight * d); sujo = true; } addEventListener('resize', resize); resize();
+function fit() { const w = LIM0.x1 - LIM0.x0, h = LIM0.z1 - LIM0.z0; cam.k = Math.min(W() / w, H() / h) * .92; cam.x = (LIM0.x0 + LIM0.x1) / 2; cam.z = (LIM0.z0 + LIM0.z1) / 2; sujo = true; }
+// ---------- busca ----------
+const tolPx = () => 9 * (devicePixelRatio || 1);
+function acha(x, z) { let best = -1, bd = 1e9; const lim = tolPx() / cam.k; for (let i = 0; i < ruas.length; i++) { const b = paths[i], r = ruas[i], m = Math.max(lim, r.w / 2); if (x < b.x0 - m || x > b.x1 + m || z < b.z0 - m || z > b.z1 + m) continue; for (let k = 2; k < r.p.length; k += 2) { const s = dSeg(x, z, r.p[k - 2], r.p[k - 1], r.p[k], r.p[k + 1]); if (s.d <= Math.max(lim, r.w / 2) && s.d < bd) { bd = s.d; best = i; } } } return best; }
+function achaSeg(x, z, so) { let best = null; const lim = tolPx() / cam.k; for (let i = 0; i < ruas.length; i++) { if (so != null && i !== so) continue; const b = paths[i], r = ruas[i]; if (x < b.x0 - lim || x > b.x1 + lim || z < b.z0 - lim || z > b.z1 + lim) continue; for (let k = 2; k < r.p.length; k += 2) { const s = dSeg(x, z, r.p[k - 2], r.p[k - 1], r.p[k], r.p[k + 1]); if (s.d <= lim && (!best || s.d < best.d)) best = { ...s, road: i, seg: k / 2 - 1 }; } } return best; }
+function achaVert(x, z, so) { let best = null; const lim = tolPx() / cam.k; for (let i = 0; i < ruas.length; i++) { if (so != null && i !== so) continue; const b = paths[i]; if (x < b.x0 - lim || x > b.x1 + lim || z < b.z0 - lim || z > b.z1 + lim) continue; const p = ruas[i].p; for (let k = 0; k < p.length; k += 2) { const d = dist(x, z, p[k], p[k + 1]); if (d <= lim && (!best || d < best.d)) best = { d, road: i, v: k / 2, x: p[k], z: p[k + 1] }; } } return best; }
+function alvo(x, z, evitaRoad) {   // ponto de encaixe: ponta de outra rua > meio de outra rua > grade
+  const v = achaVert(x, z); if (v) return { x: v.x, z: v.z, tipo: 'v', road: v.road };
+  const s = achaSeg(x, z); if (s) return { x: s.x, z: s.z, tipo: 's', road: s.road, seg: s.seg };
+  return { x: gs(x), z: gs(z), tipo: 'g' };
+}
+function moveVert(a, x, z) { const nx = +x.toFixed(2), nz = +z.toFixed(2); for (const [ri, o] of a.orig) { const p = o.slice(); for (const [r2, k] of a.ref) if (r2 === ri) { p[k] = nx; p[k + 1] = nz; } ruas[ri].p = normalizaP(p); } a.x = nx; a.z = nz; reconstroi(); }
+function juntaVert(x, z) { const o = []; ruas.forEach((r, i) => { for (let k = 0; k < r.p.length; k += 2) if (Math.abs(r.p[k] - x) < .05 && Math.abs(r.p[k + 1] - z) < .05) o.push([i, k]); }); return o; }
+function insereEm(t) {   // coloca um ponto no meio de uma rua existente (para a rua nova ficar ligada)
+  if (t.tipo !== 's') return; const r = ruas[t.road], s = achaSeg(t.x, t.z, t.road); if (!s) return; r.p.splice((s.seg + 1) * 2, 0, +t.x.toFixed(2), +t.z.toFixed(2));
+}
+// ---------- desenho de rua ----------
+function cancelaDesenho() { if (!desenho) return; desenho = null; if (undo.length) { restaura(undo.pop()); } aviso('Desenho cancelado'); }
+function clicaDesenho(t) {
+  if (!desenho) { snap(); desenho = { pts: [] }; }
+  const pts = desenho.pts; insereEm(t); reconstroi();
+  if (!pts.length) pts.push([+t.x.toFixed(2), +t.z.toFixed(2)]);
+  else { const a = pts[pts.length - 1]; for (const q of octi(a, [t.x, t.z])) pts.push([+q[0].toFixed(2), +q[1].toFixed(2)]); }
+}
+function terminaDesenho() {
+  if (!desenho) return; const pts = desenho.pts; desenho = null;
+  const u = pts.filter((q, i) => !i || dist(q[0], q[1], pts[i - 1][0], pts[i - 1][1]) > .05);
+  if (u.length < 2) { if (undo.length) restaura(undo.pop()); return aviso('Rua com menos de 2 pontos: descartada'); }
+  const T = TIPOS[document.getElementById('tipo').value]; ruas.push({ c: T.c, w: T.w, ...(T.br ? { br: 1 } : {}), p: u.flat() }); sel = ruas.length - 1; reconstroi(); salva(); aviso('Rua criada');
+}
+// ---------- apagar ----------
+function recorta(seg, r) { // parte do segmento (ax,az,bx,bz) que fica FORA do retângulo r: lista de [t0,t1]
+  const [ax, az, bx, bz] = seg, dx = bx - ax, dz = bz - az; let t0 = 0, t1 = 1; const P = [-dx, dx, -dz, dz], Q = [ax - r.x0, r.x1 - ax, az - r.z0, r.z1 - az];
+  for (let i = 0; i < 4; i++) { if (Math.abs(P[i]) < 1e-9) { if (Q[i] < 0) return [[0, 1]]; } else { const t = Q[i] / P[i]; if (P[i] < 0) { if (t > t1) return [[0, 1]]; if (t > t0) t0 = t; } else { if (t < t0) return [[0, 1]]; if (t < t1) t1 = t; } } }
+  const o = []; if (t0 > 1e-6) o.push([0, t0]); if (t1 < 1 - 1e-6) o.push([t1, 1]); return o;
+}
+function apagaArea(r) {
+  snap(); const novas = []; let tirou = 0;
+  for (const rd of ruas) { let run = null; const fecha = () => { if (run && run.length >= 4) novas.push({ ...rd, p: run }); run = null; };
+    for (let k = 2; k < rd.p.length; k += 2) { const a = [rd.p[k - 2], rd.p[k - 1], rd.p[k], rd.p[k + 1]], fora = recorta(a, r); if (fora.length === 1 && fora[0][0] === 0 && fora[0][1] === 1) { if (!run) run = [a[0], a[1]]; run.push(a[2], a[3]); continue; }
+      tirou++; for (const [t0, t1] of fora) { const p0 = [a[0] + (a[2] - a[0]) * t0, a[1] + (a[3] - a[1]) * t0], p1 = [a[0] + (a[2] - a[0]) * t1, a[1] + (a[3] - a[1]) * t1]; if (t0 > 0) fecha(); if (!run) run = [+p0[0].toFixed(2), +p0[1].toFixed(2)]; run.push(+p1[0].toFixed(2), +p1[1].toFixed(2)); if (t1 < 1) fecha(); } if (!fora.length) fecha(); }
+    fecha(); }
+  if (!tirou) { undo.pop(); return aviso('Nenhuma rua nessa área'); } ruas = novas; sel = -1; reconstroi(); salva(); aviso('Área apagada');
+}
+function apagaPontos(r) {
+  if (sel < 0) return; const p = ruas[sel].p, n = p.length / 2; const dentro = k => p[k] >= r.x0 && p[k] <= r.x1 && p[k + 1] >= r.z0 && p[k + 1] <= r.z1; let q = []; for (let k = 0; k < p.length; k += 2) if (!dentro(k)) q.push(p[k], p[k + 1]);
+  if (q.length === p.length) return aviso('Nenhum ponto dentro do retângulo'); if (q.length < 4) return aviso('A rua precisa de pelo menos 2 pontos');
+  snap(); ruas[sel].p = q; ruas[sel].p = normalizaP(ruas[sel].p); limpaRua(sel, 3); reconstroi(); salva(); aviso((n - ruas[sel].p.length / 2) + ' ponto(s) a menos');
+}
+function cortaTrecho(x, z) { const s = achaSeg(x, z); if (!s) return aviso('Clique em cima de uma rua'); snap(); const r = ruas[s.road], p = r.p, k = (s.seg + 1) * 2, a = p.slice(0, k), b = p.slice(k); ruas.splice(s.road, 1); if (a.length >= 4) ruas.push({ ...r, p: a }); if (b.length >= 4) ruas.push({ ...r, p: b }); sel = -1; reconstroi(); salva(); aviso('Trecho cortado'); }
+function apagaRua() { if (sel < 0) return aviso('Selecione uma rua primeiro'); snap(); ruas.splice(sel, 1); sel = -1; reconstroi(); salva(); aviso('Rua apagada'); }
+// ---------- exportar ----------
+function exporta() {
+  let x0 = LIM0.x0, x1 = LIM0.x1, z0 = LIM0.z0, z1 = LIM0.z1; for (const r of ruas) for (let k = 0; k < r.p.length; k += 2) { x0 = Math.min(x0, r.p[k]); x1 = Math.max(x1, r.p[k]); z0 = Math.min(z0, r.p[k + 1]); z1 = Math.max(z1, r.p[k + 1]); }
+  if (contaFora()) { for (const r of ruas) r.p = normalizaP(r.p); reconstroi(); } const txt = '// GERADO pelo editor_mapa.html: mapa de ruas editado à mão. Escala 1/3, 8 direções.\nconst RUAS = ' + JSON.stringify(ruas) + ';\nconst RUAS_LIM = ' + JSON.stringify({ x0, x1, z0, z1 }) + ';\n';
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/javascript' })); a.download = 'ruas_jogo_br_editado.js'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); aviso('Arquivo baixado: ruas_jogo_br_editado.js');
+}
+// ---------- desenho na tela ----------
+function deslocada(p, d) { const n = p.length / 2, q = []; for (let i = 0; i < n; i++) { const a = i ? i - 1 : 0, b = i < n - 1 ? i + 1 : n - 1; let tx_ = p[2 * b] - p[2 * a], tz_ = p[2 * b + 1] - p[2 * a + 1]; const L = Math.hypot(tx_, tz_) || 1; tx_ /= L; tz_ /= L; let k = 1; if (i && i < n - 1) { const ux = p[2 * i] - p[2 * i - 2], uz = p[2 * i + 1] - p[2 * i - 1], vx = p[2 * i + 2] - p[2 * i], vz = p[2 * i + 3] - p[2 * i + 1], lu = Math.hypot(ux, uz) || 1, lv = Math.hypot(vx, vz) || 1, cs = (ux * vx + uz * vz) / (lu * lv); k = 1 / Math.max(.5, Math.sqrt((1 + cs) / 2)); } q.push(p[2 * i] - tz_ * d * k, p[2 * i + 1] + tx_ * d * k); } return q; }
+const camPath = pts => { const p = new Path2D(); for (let i = 0; i < pts.length; i += 2) i ? p.lineTo(pts[i], pts[i + 1]) : p.moveTo(pts[i], pts[i + 1]); return p; };
+function desenha() {
+  const w = W(), h = H(), k = cam.k, dpr = devicePixelRatio || 1; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#2f4a2a'; ctx.fillRect(0, 0, w, h);
+  const vx0 = mx(0) - 30, vx1 = mx(w) + 30, vz0 = mz(0) - 30, vz1 = mz(h) + 30;
+  ctx.setTransform(k, 0, 0, k, w / 2 - cam.x * k, h / 2 - cam.z * k);
+  if (grade) { ctx.lineWidth = 1 / k; ctx.strokeStyle = 'rgba(190,210,235,.22)'; for (let x = -900; x <= 1000; x += 100) { ctx.beginPath(); ctx.moveTo(x, LIM0.z0); ctx.lineTo(x, LIM0.z1); ctx.stroke(); } for (let z = -800; z <= 800; z += 100) { ctx.beginPath(); ctx.moveTo(LIM0.x0, z); ctx.lineTo(LIM0.x1, z); ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(159,180,204,.5)'; ctx.lineWidth = 2 / k; ctx.strokeRect(LIM0.x0, LIM0.z0, LIM0.x1 - LIM0.x0, LIM0.z1 - LIM0.z0); }
+  const minW = 1.6 * dpr / k, vis = []; for (let i = 0; i < ruas.length; i++) { const b = paths[i]; if (b.x1 >= vx0 && b.x0 <= vx1 && b.z1 >= vz0 && b.z0 <= vz1) vis.push(i); }
+  ctx.lineCap = ctx.lineJoin = 'round';
+  for (const i of vis) { ctx.strokeStyle = '#1b1b1e'; ctx.lineWidth = Math.max(ruas[i].w + 1, minW + 1 * dpr / k); ctx.stroke(paths[i].p); }
+  for (const i of vis) { ctx.strokeStyle = (COR[ruas[i].c] || COR.residential)[0]; ctx.lineWidth = Math.max(ruas[i].w, minW); ctx.stroke(paths[i].p); }
+  if (k > .9) { ctx.lineCap = 'butt'; ctx.setLineDash([2.5, 3.5]); for (const i of vis) { const r = ruas[i]; if (r.br) continue; const cl = (COR[r.c] || [])[1]; if (!cl) continue; ctx.strokeStyle = cl; ctx.lineWidth = .25; ctx.stroke(paths[i].p); }
+    ctx.setLineDash([]); ctx.lineCap = 'round'; for (const i of vis) if (ruas[i].br) { ctx.strokeStyle = COR.trunk[0]; ctx.lineWidth = ruas[i].w; ctx.stroke(paths[i].p); } ctx.lineCap = 'butt';
+    for (const i of vis) { const r = ruas[i]; if (!r.br) continue; const f = d => camPath(deslocada(r.p, d)), wd = r.w; ctx.lineWidth = .22; ctx.strokeStyle = '#e8e8e8'; ctx.stroke(f(-(wd / 2 - .45))); ctx.stroke(f(wd / 2 - .45)); ctx.strokeStyle = '#e0bf32'; ctx.stroke(f(-.22)); ctx.stroke(f(.22)); ctx.setLineDash([2.5, 3.5]); ctx.strokeStyle = '#e8e8e8'; ctx.stroke(f(-wd / 4)); ctx.stroke(f(wd / 4)); ctx.setLineDash([]); } }
+  ctx.lineCap = ctx.lineJoin = 'round';
+  if (hover >= 0 && ruas[hover] && hover !== sel && ferr !== 'd' && ferr !== 'a') { ctx.strokeStyle = 'rgba(255,170,60,.85)'; ctx.lineWidth = Math.max(ruas[hover].w * .5, 2.2 * dpr / k); ctx.stroke(paths[hover].p); }
+  if (sel >= 0 && ruas[sel]) { ctx.strokeStyle = 'rgba(70,200,255,.9)'; ctx.lineWidth = Math.max(ruas[sel].w * .5, 2.2 * dpr / k); ctx.stroke(paths[sel].p); }
+  // rótulos da grade
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  if (grade) { ctx.font = Math.round(12 * dpr) + 'px system-ui'; ctx.fillStyle = 'rgba(200,220,245,.85)'; ctx.textAlign = 'center'; for (let i = 0; i < 19; i++) { const x = tx(-900 + 100 * i); if (x > 0 && x < w) ctx.fillText(String.fromCharCode(65 + i), x, Math.max(14 * dpr, tz(LIM0.z0) - 6 * dpr)); } ctx.textAlign = 'right'; for (let j = 0; j < 16; j++) { const y = tz(-800 + 100 * j); if (y > 0 && y < h) ctx.fillText(String(j + 1), Math.max(24 * dpr, tx(LIM0.x0) - 6 * dpr), y + 4 * dpr); } }
+  // vértices da rua selecionada
+  if (sel >= 0 && ruas[sel] && ferr === 'v') { const p = ruas[sel].p; for (let i = 0; i < p.length; i += 2) { const x = tx(p[i]), y = tz(p[i + 1]); ctx.fillStyle = '#fff'; ctx.strokeStyle = '#0a6a8a'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.rect(x - 4 * dpr, y - 4 * dpr, 8 * dpr, 8 * dpr); ctx.fill(); ctx.stroke(); } }
+  // pré-visualização do desenho
+  if (desenho) { const pts = desenho.pts; ctx.strokeStyle = '#ffd76a'; ctx.lineWidth = 3 * dpr; ctx.setLineDash([8 * dpr, 5 * dpr]); ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(tx(q[0]), tz(q[1])) : ctx.moveTo(tx(q[0]), tz(q[1]))); const t = alvo(mouse.x, mouse.z); if (pts.length) for (const q of octi(pts[pts.length - 1], [t.x, t.z])) ctx.lineTo(tx(q[0]), tz(q[1])); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = '#ffd76a'; for (const q of pts) { ctx.beginPath(); ctx.arc(tx(q[0]), tz(q[1]), 4 * dpr, 0, 7); ctx.fill(); } }
+  if (ferr === 'd' || (ferr === 'v' && arr)) { const t = arr ? { x: arr.x, z: arr.z, tipo: 'x' } : alvo(mouse.x, mouse.z); ctx.strokeStyle = t.tipo === 'v' ? '#6cf08a' : t.tipo === 's' ? '#6cb8ff' : '#ffd76a'; ctx.lineWidth = 2 * dpr; ctx.beginPath(); ctx.arc(tx(t.x), tz(t.z), 7 * dpr, 0, 7); ctx.stroke(); }
+  if (area) { const x0 = tx(Math.min(area.x0, area.x1)), x1 = tx(Math.max(area.x0, area.x1)), y0 = tz(Math.min(area.z0, area.z1)), y1 = tz(Math.max(area.z0, area.z1)); ctx.fillStyle = area.v ? 'rgba(60,160,255,.22)' : 'rgba(255,60,60,.22)'; ctx.strokeStyle = area.v ? '#4aa8ff' : '#ff6060'; ctx.lineWidth = 2 * dpr; ctx.setLineDash([6 * dpr, 4 * dpr]); ctx.fillRect(x0, y0, x1 - x0, y1 - y0); ctx.strokeRect(x0, y0, x1 - x0, y1 - y0); ctx.setLineDash([]); }
+}
+function atualizaUi() {
+  for (const f of ['v', 'd', 'a', 'c']) document.getElementById('f_' + f).classList.toggle('on', ferr === f);
+  document.getElementById('b_grade').classList.toggle('on', grade); document.getElementById('b_des').disabled = !undo.length && !desenho; document.getElementById('b_ref').disabled = !refaz.length; document.getElementById('b_del').disabled = sel < 0; document.getElementById('b_limpa').disabled = sel < 0;
+  const aj = { v: 'Clique numa rua para selecionar. Arraste um quadradinho branco para mexer no ponto (os pontos de rua ligados vão juntos). Arraste no vazio para andar pelo mapa. <b>Duplo clique num ponto apaga o ponto. Shift + arrastar apaga todos os pontos da rua dentro do retângulo.</b> <b>S</b> limpa os pontos que sobram. Duplo clique num trecho (longe de um ponto) cria um ponto.', d: 'Clique para colocar pontos: o traço sempre fica nas 8 direções. Clique numa rua que já existe para ligar nela (anel verde = ponta, azul = meio). Enter, duplo clique ou botão direito terminam. Esc cancela.', a: 'Arraste um retângulo: tudo que estiver dentro dele é apagado (as ruas são cortadas na borda).', c: 'Clique num trecho de rua (entre dois pontos): só esse pedaço some.' };
+  document.getElementById('ajuda').innerHTML = aj[ferr] + '<br><br><b>Andar no mapa:</b> segure a rodinha do mouse (clicar nela) e arraste. Também dá com Espaço + arrastar ou setas (Shift = mais rápido).<br><b>Zoom:</b> gire a rodinha (aproxima onde está o mouse) ou use + / −.';
+  if (sel >= 0 && ruas[sel]) { const r = ruas[sel], t = Object.keys(TIPOS).find(n => TIPOS[n].c === r.c && TIPOS[n].w === r.w && !!TIPOS[n].br === !!r.br); if (t && ferr === 'v') document.getElementById('tipo').value = t; }
+}
+function status() { const c = Math.round((mouse.x + 900) / 100), r = Math.round((mouse.z + 800) / 100) + 1, col = c >= 0 && c < 19 ? String.fromCharCode(65 + c) : '–'; stEl.innerHTML = 'perto de <b>' + col + (r >= 1 && r <= 16 ? r : '–') + '</b> · x ' + mouse.x.toFixed(0) + ' m, z ' + mouse.z.toFixed(0) + ' m · zoom ' + (cam.k * 3.3).toFixed(1) + '× · ' + ruas.length + ' ruas' + (contaFora() ? ' · <span style="color:#ffb060">' + contaFora() + ' trechos fora das 8 direções</span>' : '') + (sel >= 0 ? ' · selecionada: ' + ruas[sel].c + ' (' + ruas[sel].w + ' m)' : '') + (undo.length ? ' · ' + undo.length + ' alterações' : ''); }
+function laco() { requestAnimationFrame(laco); try { if (sujo) { sujo = false; desenha(); atualizaUi(); } status(); } catch (e) { hover = -1; if (sel >= ruas.length) sel = -1; sujo = true; if (!laco.avisou) { laco.avisou = 1; console.error(e); aviso('Erro ao desenhar (corrigido): ' + e.message); } } }
+// ---------- mouse / teclado ----------
+const pos = e => { const r = cv.getBoundingClientRect(), d = devicePixelRatio || 1; return [(e.clientX - r.left) * d, (e.clientY - r.top) * d]; };
+cv.addEventListener('auxclick', e => e.preventDefault()); cv.addEventListener('contextmenu', e => { e.preventDefault(); if (desenho) terminaDesenho(); });
+cv.addEventListener('wheel', e => { e.preventDefault(); const [sx, sy] = pos(e), x = mx(sx), z = mz(sy), f = Math.exp(-e.deltaY * .0015); cam.k = Math.max(.08, Math.min(40, cam.k * f)); cam.x = x - (sx - W() / 2) / cam.k; cam.z = z - (sy - H() / 2) / cam.k; sujo = true; }, { passive: false });
+cv.addEventListener('mousedown', e => {
+  const [sx, sy] = pos(e), x = mx(sx), z = mz(sy); mouse = { x, z, sx, sy };
+  if (e.button === 1 || (e.button === 0 && espaco)) { pan = { sx, sy, cx: cam.x, cz: cam.z }; cv.style.cursor = 'grabbing'; e.preventDefault(); return; }
+  if (e.button !== 0) return;
+  if (ferr === 'd') { clicaDesenho(alvo(x, z)); if (e.detail >= 2) terminaDesenho(); sujo = true; return; }
+  if (ferr === 'a') { area = { x0: x, z0: z, x1: x, z1: z }; return; }
+  if (ferr === 'c') { cortaTrecho(x, z); return; }
+  // selecionar
+  if (sel >= 0 && e.shiftKey) { area = { x0: x, z0: z, x1: x, z1: z, v: true }; return; }
+  if (sel >= 0) { const v = achaVert(x, z, sel); if (v) { if (e.altKey || e.detail >= 2) { if (ruas[sel].p.length > 4) { snap(); ruas[sel].p.splice(v.v * 2, 2); ruas[sel].p = normalizaP(ruas[sel].p); limpaRua(sel, 3); reconstroi(); salva(); } else aviso('A rua precisa de pelo menos 2 pontos'); arr = null; return; } snap(); const ref = juntaVert(v.x, v.z), orig = new Map(); for (const [ri] of ref) if (!orig.has(ri)) orig.set(ri, ruas[ri].p.slice()); arr = { ref, orig, x: v.x, z: v.z, x0: v.x, z0: v.z }; return; }
+    if (e.detail >= 2) { const s = achaSeg(x, z, sel); if (s) { snap(); ruas[sel].p.splice((s.seg + 1) * 2, 0, +s.x.toFixed(2), +s.z.toFixed(2)); reconstroi(); salva(); return; } } }
+  const i = acha(x, z); if (i >= 0) { sel = i; sujo = true; } else { sel = -1; pan = { sx, sy, cx: cam.x, cz: cam.z }; sujo = true; }
+});
+addEventListener('mousemove', e => {
+  const [sx, sy] = pos(e), x = mx(sx), z = mz(sy); mouse = { x, z, sx, sy };
+  if (pan) { cam.x = pan.cx - (sx - pan.sx) / cam.k; cam.z = pan.cz - (sy - pan.sy) / cam.k; sujo = true; return; }
+  if (arr) { const t = alvo(x, z); moveVert(arr, t.x, t.z); return; }
+  if (area) { area.x1 = x; area.z1 = z; sujo = true; return; }
+  const h = (ferr === 'v' || ferr === 'c') ? acha(x, z) : -1; if (h !== hover) { hover = h; sujo = true; } if (ferr === 'd' || desenho) sujo = true;
+});
+addEventListener('mouseup', e => {
+  if (pan) { pan = null; cv.style.cursor = ''; return; }
+  if (arr) { if (arr.x === arr.x0 && arr.z === arr.z0) undo.pop(); else salva(); arr = null; sujo = true; return; }
+  if (area) { const ehPontos = !!area.v; const r = { x0: Math.min(area.x0, area.x1), x1: Math.max(area.x0, area.x1), z0: Math.min(area.z0, area.z1), z1: Math.max(area.z0, area.z1) }; area = null; if (ehPontos) apagaPontos(r); else if (r.x1 - r.x0 > .8 && r.z1 - r.z0 > .8) apagaArea(r); sujo = true; }
+});
+function ferramenta(f) { if (desenho && f !== 'd') terminaDesenho(); ferr = f; area = null; sujo = true; }
+for (const f of ['v', 'd', 'a', 'c']) document.getElementById('f_' + f).onclick = () => ferramenta(f);
+document.getElementById('b_des').onclick = desfaz; document.getElementById('b_ref').onclick = refazer; document.getElementById('b_del').onclick = apagaRua; document.getElementById('b_fit').onclick = fit; document.getElementById('b_limpa').onclick = limpaSel;
+function limpaSel() { if (sel < 0) return aviso('Selecione uma rua primeiro'); snap(); const n = limpaRua(sel, 4); if (n <= 0) { undo.pop(); return aviso('Já está limpa'); } reconstroi(); salva(); aviso(n + ' ponto(s) a menos'); }
+document.getElementById('b_grade').onclick = () => { grade = !grade; sujo = true; }; document.getElementById('b_exp').onclick = exporta;
+document.getElementById('b_orig').onclick = () => { if (!confirm('Voltar ao mapa original? As edições feitas aqui serão apagadas.')) return; snap(); ruas = ORIG.map(r => ({ ...r, p: r.p.slice() })); sel = -1; reconstroi(); salva(); aviso('Mapa original restaurado (dá para desfazer)'); };
+document.getElementById('tipo').onchange = () => { if (sel >= 0 && ferr === 'v') { const T = TIPOS[document.getElementById('tipo').value]; snap(); const r = ruas[sel]; r.c = T.c; r.w = T.w; if (T.br) r.br = 1; else delete r.br; reconstroi(); salva(); } document.getElementById('tipo').blur(); };
+const tecla = {};
+addEventListener('keydown', e => {
+  if (e.target.tagName === 'SELECT') return; const k = e.key.toLowerCase();
+  if (e.code === 'Space') { espaco = true; e.preventDefault(); return; }
+  if ((e.ctrlKey || e.metaKey) && k === 'z') { e.preventDefault(); desfaz(); return; } if ((e.ctrlKey || e.metaKey) && (k === 'y' || (e.shiftKey && k === 'z'))) { e.preventDefault(); refazer(); return; }
+  if (k === 'v') ferramenta('v'); else if (k === 'd') ferramenta('d'); else if (k === 'a' && !e.ctrlKey) { if (!e.shiftKey) ferramenta('a'); } else if (k === 'c') ferramenta('c'); else if (k === 'g') { grade = !grade; sujo = true; } else if (k === 's' && !e.ctrlKey) limpaSel();
+  else if (k === 'delete' || k === 'backspace') { e.preventDefault(); apagaRua(); } else if (k === 'escape') { if (desenho) cancelaDesenho(); else { sel = -1; area = null; sujo = true; } } else if (k === 'enter') terminaDesenho(); else if (k === 'home') fit();
+  else if (k === '+' || k === '=') { cam.k = Math.min(40, cam.k * 1.25); sujo = true; } else if (k === '-') { cam.k = Math.max(.08, cam.k / 1.25); sujo = true; }
+  else tecla[e.code] = true;
+});
+addEventListener('keyup', e => { if (e.code === 'Space') espaco = false; delete tecla[e.code]; });
+setInterval(() => { const v = 14 / cam.k * (tecla.ShiftLeft ? 2.5 : 1); let dx = 0, dz = 0; if (tecla.ArrowLeft) dx -= 1; if (tecla.ArrowRight) dx += 1; if (tecla.ArrowUp) dz -= 1; if (tecla.ArrowDown) dz += 1; if (dx || dz) { cam.x += dx * v; cam.z += dz * v; sujo = true; } }, 16);
+if (contaFora()) { for (const r of ruas) r.p = normalizaP(r.p); salva(); } reconstroi(); fit(); requestAnimationFrame(laco);
+window.__ed = { reconstroi, limpaRua, apagaPontos, moveVert, juntaVert, normalizaP, contaFora, get ruas() { return ruas; }, cam, clicaDesenho, terminaDesenho, apagaArea, desfaz, alvo, ferramenta, fit, sel: i => { sel = i; sujo = true; }, set tipo(v) { document.getElementById('tipo').value = v; } };
+</script></body></html>

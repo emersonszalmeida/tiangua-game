@@ -1,0 +1,29 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#fff}canvas{display:block}</style></head><body><canvas id="c"></canvas>
+<script>
+const FOTO='__FOTO__';
+const esc=1.786831150110245,ox=2510.7418481904406,oy=2003.26400322078,f=62,S=1.82;
+const PX=i=>(-900+100*i)*esc+ox, PZ=j=>(-800+100*j)*esc+oy; // i: coluna A=0, j: linha 1=0
+const tp=[[270,415],[360,418],[448,422],[537,426],[626,430],[714,434],[802,440],[889,446],[978,452],[1066,458],[1152,463],[1238,468],[1325,474],[1410,478],[1495,482],[1580,487]];
+const bot=[[210,1873],[297,1873],[385,1875],[472,1876],[560,1877],[647,1880],[731,1881],[817,1882],[902,1881],[986,1882],[1070,1883],[1155,1883],[1240,1882],[1323,1881],[1407,1877],[1490,1873],[1572,1873]];
+const esq=[[190,520],[187,610],[183,697],[178,785],[174,873],[169,962],[165,1050],[161,1140],[157,1228],[147,1317],[140,1405],[135,1493],[135,1580],[134,1665],[132,1750],[130,1830]];
+const pares=[]; // [fotoX,fotoY,printX,printY]
+tp.forEach((p,i)=>pares.push([p[0]*S,p[1]*S,PX(i),402.6-f*.5-f*.35]));
+bot.forEach((p,i)=>pares.push([p[0]*S,p[1]*S,PX(i),3280.5+f*1.2-f*.35]));
+esq.forEach((p,j)=>pares.push([p[0]*S,p[1]*S,(j<9?753:736),PZ(j)]));
+function resolve(A,b){const n=b.length;for(let i=0;i<n;i++){let m=i;for(let r=i+1;r<n;r++)if(Math.abs(A[r][i])>Math.abs(A[m][i]))m=r;[A[i],A[m]]=[A[m],A[i]];[b[i],b[m]]=[b[m],b[i]];for(let r=i+1;r<n;r++){const k=A[r][i]/A[i][i];for(let c=i;c<n;c++)A[r][c]-=k*A[i][c];b[r]-=k*b[i];}}const x=Array(n).fill(0);for(let i=n-1;i>=0;i--){let s=b[i];for(let c=i+1;c<n;c++)s-=A[i][c]*x[c];x[i]=s/A[i][i];}return x;}
+// homografia print->foto por minimos quadrados: x=(h0X+h1Y+h2)/(h6X+h7Y+1)...
+function homog(ps){const A=Array.from({length:8},()=>Array(8).fill(0)),b=Array(8).fill(0);for(const [x,y,X,Y] of ps){const r1=[X,Y,1,0,0,0,-x*X,-x*Y],r2=[0,0,0,X,Y,1,-y*X,-y*Y];for(let i=0;i<8;i++){for(let j=0;j<8;j++){A[i][j]+=r1[i]*r1[j]+r2[i]*r2[j];}b[i]+=r1[i]*x+r2[i]*y;}}return resolve(A,b);}
+const img=new Image();img.onload=()=>{
+ const h=homog(pares);window.H=h;
+ const map=(X,Y)=>{const d=h[6]*X+h[7]*Y+1;return [(h[0]*X+h[1]*Y+h[2])/d,(h[3]*X+h[4]*Y+h[5])/d];};
+ const res=pares.map(p=>{const q=map(p[2],p[3]);return Math.hypot(q[0]-p[0],q[1]-p[1])});window.RES=Math.max(...res);window.RMS=Math.sqrt(res.reduce((a,b)=>a+b*b,0)/res.length);
+ const sc=window.SC=.5, OW=Math.round(4961*sc), OH=Math.round(3508*sc);
+ const src=document.createElement('canvas');src.width=img.naturalWidth;src.height=img.naturalHeight;const sx=src.getContext('2d');sx.drawImage(img,0,0);const sd=sx.getImageData(0,0,src.width,src.height).data,sw=src.width,sh=src.height;
+ const cv=document.getElementById('c');cv.width=OW;cv.height=OH;const g=cv.getContext('2d'),out=g.createImageData(OW,OH),od=out.data;
+ for(let y=0;y<OH;y++)for(let x=0;x<OW;x++){const [u,v]=map(x/sc,y/sc),o=(y*OW+x)*4;if(u<0||v<0||u>=sw-1||v>=sh-1){od[o]=od[o+1]=od[o+2]=255;od[o+3]=255;continue;}const x0=u|0,y0=v|0,fx=u-x0,fy=v-y0;for(let c=0;c<3;c++){const a=sd[(y0*sw+x0)*4+c],b=sd[(y0*sw+x0+1)*4+c],d=sd[((y0+1)*sw+x0)*4+c],e=sd[((y0+1)*sw+x0+1)*4+c];od[o+c]=a*(1-fx)*(1-fy)+b*fx*(1-fy)+d*(1-fx)*fy+e*fx*fy;}od[o+3]=255;}
+ window.RET=out;g.putImageData(out,0,0);
+ // grade prevista por cima (vermelho) para conferir
+ g.strokeStyle='rgba(255,0,0,.6)';g.lineWidth=1;for(let i=0;i<19;i++){g.beginPath();g.moveTo(PX(i)*sc,402.6*sc);g.lineTo(PX(i)*sc,3280.5*sc);g.stroke();}for(let j=0;j<16;j++){g.beginPath();g.moveTo(795*sc,PZ(j)*sc);g.lineTo(4166*sc,PZ(j)*sc);g.stroke();}
+ window.PRONTO=1;};
+img.src=FOTO;
+</script></body></html>

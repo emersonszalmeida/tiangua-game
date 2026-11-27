@@ -42,7 +42,7 @@ troca('<div id="ui"></div>', `<div id="ui"></div>
 <div id="dlg" style="display:none"><div id="dq"></div><div id="dt"></div><div id="dops"></div><div id="dc">E · continuar</div></div>
 <div id="inv"></div><div id="dica" style="display:none"></div><div id="aviso"></div>
 <div id="morte" style="display:none">Você morreu<small>aperte R para recomeçar</small></div>`);
-troca('const M = 24, NOMES', 'const M = 32, NOMES');
+troca('const M = 24, NOMES', 'const M = 64, NOMES');
 troca("function autosave() { try { localStorage.setItem('cabana_mapa_v2', JSON.stringify(paraJson())); } catch (e) { } }", 'function autosave() { }');
 s = s.replace(/^if \(!new URLSearchParams\(location\.search\)\.has\('novo'\)\) try \{ const salvo = localStorage\.getItem\('cabana_mapa_v2'\);.*$/m, '');
 troca('editar = true, hsx', 'editar = false, hsx');
@@ -55,5 +55,6 @@ troca('const dt = Math.min(.05, (now - last) / 1000); last = now;', 'const dt = 
 troca("const casa = itensCasa(); lista.push({ d: hx + hy, jog: true,", "const casa = itensCasa(); for (const it of ITENS_MUNDO) if (!J.pegos[it.id]) lista.push({ d: it.x + it.y, f: () => desenhaItem(it, now) }); lista.push(...itensCena(now)); lista.push({ d: hx + hy, jog: true,");
 troca('run = keys.ShiftLeft || keys.ShiftRight;', 'run = (dx || dy) ? (CORRE_MOVEU = true, CORRE_ON) : (CORRE_MOVEU && (CORRE_ON = false, CORRE_MOVEU = false), false);');
 if (falhou) { console.log(falhou + ' trocas falharam; mundo.html NÃO escrito'); process.exit(1); }
-fs.writeFileSync('mundo.html', s.replace(/\n/g, '\r\n'));
-console.log('mundo.html escrito', s.length, 'bytes');
+fs.writeFileSync('mundo_base.html', s.replace(/\n/g, '\r\n'));
+console.log('mundo_base.html escrito', s.length, 'bytes');
+await import('./faz_mundo_sprites.mjs');   // mundo_base.html -> mundo.html (o jogo, com personagem em sprites 3D, luta e carro)

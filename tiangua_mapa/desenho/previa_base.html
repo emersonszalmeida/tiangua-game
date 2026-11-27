@@ -1,0 +1,28 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Mapa para imprimir</title><style>html,body{margin:0;background:#fff}canvas{display:block}</style></head><body><canvas id="c"></canvas>
+<script src="ruas_base.js"></script><script>
+// Mapa base para imprimir e desenhar por cima. ?modo=asfalto (ruas em cinza claro, padrão) ou ?modo=linhas (só o eixo das ruas, traço fino).
+const Q = new URLSearchParams(location.search), MODO = Q.get('modo') || 'asfalto', cv = document.getElementById('c'), W = innerWidth, H = innerHeight; cv.width = W; cv.height = H; const g = cv.getContext('2d');
+const L = RUAS_LIM, M = Math.round(W * .035), topo = Math.round(H * .095), base = Math.round(H * .035), esc = Math.min((W - 2 * M) / (L.x1 - L.x0), (H - topo - base - M) / (L.z1 - L.z0)), ox = (W - (L.x1 - L.x0) * esc) / 2 - L.x0 * esc, oy = topo + M * .4 - L.z0 * esc, px = x => x * esc + ox, pz = z => z * esc + oy;
+g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
+// grade de referência a cada 100 m (do jogo)
+const f = Math.round(Math.max(40, W / 80)); g.font = f + 'px system-ui'; g.fillStyle = '#7a9bbf'; g.strokeStyle = '#bcd0e6'; g.lineWidth = Math.max(1, esc * .25);
+const gx0 = Math.ceil(L.x0 / 100) * 100, gz0 = Math.ceil(L.z0 / 100) * 100;
+for (let x = gx0; x <= L.x1; x += 100) { g.beginPath(); g.moveTo(px(x), pz(L.z0)); g.lineTo(px(x), pz(L.z1)); g.stroke(); g.textAlign = 'center'; g.fillText(String.fromCharCode(65 + (x - gx0) / 100), px(x), pz(L.z0) - f * .5); g.fillText(String.fromCharCode(65 + (x - gx0) / 100), px(x), pz(L.z1) + f * 1.2); }
+for (let z = gz0; z <= L.z1; z += 100) { g.beginPath(); g.moveTo(px(L.x0), pz(z)); g.lineTo(px(L.x1), pz(z)); g.stroke(); g.textAlign = 'right'; g.fillText(String(1 + (z - gz0) / 100), px(L.x0) - f * .4, pz(z) + f * .35); g.textAlign = 'left'; g.fillText(String(1 + (z - gz0) / 100), px(L.x1) + f * .4, pz(z) + f * .35); }
+g.strokeStyle = '#9fb4cc'; g.lineWidth = Math.max(2, esc * .4); g.strokeRect(px(L.x0), pz(L.z0), (L.x1 - L.x0) * esc, (L.z1 - L.z0) * esc);
+// ruas (cortadas na moldura)
+g.save(); g.beginPath(); g.rect(px(L.x0), pz(L.z0), (L.x1 - L.x0) * esc, (L.z1 - L.z0) * esc); g.clip();
+g.lineCap = g.lineJoin = 'round';
+const trilha = r => { g.beginPath(); for (let i = 0; i < r.p.length; i += 2) i ? g.lineTo(px(r.p[i]), pz(r.p[i + 1])) : g.moveTo(px(r.p[i]), pz(r.p[i + 1])); };
+if (MODO === 'asfalto') {
+  for (const r of RUAS) { trilha(r); g.strokeStyle = '#666'; g.lineWidth = r.w * esc * .4 + Math.max(2, esc * .7); g.stroke(); }
+  for (const r of RUAS) { trilha(r); g.strokeStyle = '#e6e6e6'; g.lineWidth = r.w * esc * .4; g.stroke(); }
+} else {
+  for (const r of RUAS) { trilha(r); g.strokeStyle = '#222'; g.lineWidth = Math.max(2, r.w >= 11 ? esc * 1.6 : r.w >= 8 ? esc * 1.0 : esc * .6); g.stroke(); }
+}
+g.restore();
+// título, escala e orientação
+g.fillStyle = '#222'; g.textAlign = 'left'; g.font = 'bold ' + Math.round(f * 1.5) + 'px system-ui'; g.fillText('Mapa do jogo — ruas nas 8 direções', M, topo * .45);
+g.font = Math.round(f * 1) + 'px system-ui'; g.fillStyle = '#555'; g.fillText('quadrados de 100 m do jogo (letras e números para se localizar) · o mapa está girado cerca de 16° em relação ao norte', M, topo * .45 + f * 1.4);
+const sx = px(L.x0), sy = pz(L.z1) + base * .75; g.fillStyle = '#222'; g.fillRect(sx, sy, 200 * esc, Math.max(3, esc * .8)); g.font = Math.round(f * .9) + 'px system-ui'; g.fillText('200 m (do jogo) · cruzar de carro ≈ 2 minutos', sx + 210 * esc, sy + f * .6);
+</script></body></html>

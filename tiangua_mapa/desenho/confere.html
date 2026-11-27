@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#fff}canvas{display:block}</style></head><body><canvas id="c" width="1240" height="877"></canvas>
+<script src="ruas_desenho.js"></script><script src="desl.js"></script><script src="grafo_dados.js"></script><script>
+// zoom na area central: recorte em pixels da imagem retificada (2480x1754) ampliado 2x
+const esc=1.786831150110245,ox=2510.7418481904406,oy=2003.26400322078,g=document.getElementById('c').getContext('2d');
+const Q=new URLSearchParams(location.search),X0=+(Q.get('x')||800),Y0=+(Q.get('y')||350),Z=+(Q.get('z')||2);
+const T=(x,z)=>[((x*esc+ox)*.5+DESL[0]-X0)*Z,((z*esc+oy)*.5+DESL[1]-Y0)*Z];
+g.fillStyle='#fff';g.fillRect(0,0,1240,877);
+g.strokeStyle='#2a6fd6';g.lineWidth=2;for(const r of RUAS){g.beginPath();for(let i=0;i<r.p.length;i+=2){const [a,b]=T(r.p[i],r.p[i+1]);i?g.lineTo(a,b):g.moveTo(a,b);}g.stroke();}
+g.strokeStyle='rgba(220,0,0,.75)';g.lineWidth=1.5;for(const e of GRAFO.arestas){g.beginPath();for(let i=0;i<e.p.length;i+=2){const a=(e.p[i]-X0)*Z,b=(e.p[i+1]-Y0)*Z;i?g.lineTo(a,b):g.moveTo(a,b);}g.stroke();}
+</script></body></html>

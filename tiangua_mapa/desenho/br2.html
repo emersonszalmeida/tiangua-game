@@ -1,0 +1,7 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#111}canvas{display:block}</style></head><body><canvas id="c" width="1500" height="1500"></canvas>
+<script src="../ruas_jogo_br.js"></script><script>
+const g=document.getElementById('c').getContext('2d'),L=RUAS_LIM,Q=new URLSearchParams(location.search),X0=+(Q.get('x')||L.x0),Z0=+(Q.get('z')||L.z0),S=+(Q.get('s')||.8);
+g.fillStyle='#111';g.fillRect(0,0,1500,1500);const cores=['#ff5050','#50ff50','#5090ff','#ffff50','#ff50ff','#50ffff','#ffa040','#a0ff40','#c080ff'];let k=0;
+RUAS.forEach((r,i)=>{if(r.w<11)return;g.strokeStyle=cores[k++%cores.length];g.lineWidth=1.5;g.beginPath();for(let j=0;j<r.p.length;j+=2){const x=(r.p[j]-X0)*S,z=(r.p[j+1]-Z0)*S;j?g.lineTo(x,z):g.moveTo(x,z);}g.stroke();g.fillStyle='#fff';g.font='11px system-ui';g.fillText(i+' '+r.c+' w'+r.w,(r.p[0]-X0)*S+3,(r.p[1]-Z0)*S);});
+g.strokeStyle='#444';g.lineWidth=.5;RUAS.forEach(r=>{if(r.w>=11)return;g.beginPath();for(let j=0;j<r.p.length;j+=2){const x=(r.p[j]-X0)*S,z=(r.p[j+1]-Z0)*S;j?g.lineTo(x,z):g.moveTo(x,z);}g.stroke();});
+</script></body></html>

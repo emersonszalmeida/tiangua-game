@@ -1,0 +1,60 @@
+<!doctype html><html lang="pt-br"><head><meta charset="utf-8"><title>Mapa grande (teste do carro)</title>
+<style>html,body{margin:0;height:100%;background:#16120e;overflow:hidden;font:14px system-ui;color:#eee}canvas#g{display:block;width:100vw;height:100vh;image-rendering:pixelated}
+#hud{position:fixed;left:10px;top:8px;background:rgba(20,16,12,.78);padding:8px 12px;border-radius:6px;line-height:1.5}#mini{position:fixed;right:10px;bottom:10px;border:2px solid #5a4630;border-radius:6px;background:#000;opacity:.92}</style></head><body>
+<canvas id="g"></canvas><div id="hud"></div><canvas id="mini"></canvas>
+<script src="../sprites_jogo.js"></script><script src="ruas_mapa.js"></script><script src="asfalto_tex.js"></script><script src="mapa_chao.js"></script>
+<script>
+// Teste: Tianguá encolhida a 1/3 (≈2 min para cruzar de carro) e com as ruas ADAPTADAS ÀS 8 DIREÇÕES DO JOGO. O carro é o mesmo do jogo (16 direções, mesmas teclas e física), sem nenhuma assistência.
+const PPM = 65 / 1.76, K = 2, cv = document.getElementById('g'), ctx = cv.getContext('2d'), hud = document.getElementById('hud'), mini = document.getElementById('mini'), mx = mini.getContext('2d');
+const META = CARRO_META.dirigir, IMG = new Image(); IMG.src = CARRO_B64.dirigir;
+const COR = { motorway: ['#2a2a2e', '#d8c24a'], trunk: ['#2a2a2e', '#d8c24a'], primary: ['#303034', '#d8c24a'], secondary: ['#38383c', '#cfc9b0'], tertiary: ['#3c3c40', null], unclassified: ['#403f3c', null], residential: ['#444340', null], living_street: ['#4a4843', null], service: ['#4a4843', null] };
+const vias = MAPACHAO.vias, noAsfalto = MAPACHAO.noAsfalto;
+// ---- carro (a mesma física do jogo: carro.js) ----
+const ANG = Array.from({ length: 16 }, (_, i) => i * 22.5), NOMES = ['S', 'SE', 'E', 'NE', 'N', 'NW', 'W', 'SW'], TURNO_MS = 45, PERDA = .88, VMAX = 12, VMAX_GRAMA = 6, VRE = -4, ACEL = 6, FREIO = 14, ATRITO = 3.5, PASSO_RODA = .106;
+const c = { x: 0, z: 0, dir: 6, v: 0, re: false, dist: 0, alvo: 6, tecla: 6, tGiro: 0, lado: 1, diagEm: 0 }, keys = {};
+// nasce no meio de um trecho reto e comprido da BR, perto do centro do mapa, virado ao longo da pista
+{ const cx = (RUAS_LIM.x0 + RUAS_LIM.x1) / 2, cz = (RUAS_LIM.z0 + RUAS_LIM.z1) / 2; let m = 1e9, best = null; for (const v of vias) if (v.r.w >= 11) for (let i = 2; i < v.r.p.length; i += 2) { const ax = v.r.p[i - 2], az = v.r.p[i - 1], bx = v.r.p[i], bz = v.r.p[i + 1], L = Math.hypot(bx - ax, bz - az); if (L < 50) continue; const d = Math.hypot((ax + bx) / 2 - cx, (az + bz) / 2 - cz); if (d < m) { m = d; best = [ax, az, bx, bz]; } } if (best) { c.x = (best[0] + best[2]) / 2; c.z = (best[1] + best[3]) / 2; const a = Math.atan2(best[2] - best[0], best[3] - best[1]) * 180 / Math.PI, d = ((Math.round(a / 22.5) % 16) + 16) % 16; c.dir = c.alvo = c.tecla = d; const hx = Math.sin(d * 22.5 * Math.PI / 180), hz = Math.cos(d * 22.5 * Math.PI / 180); c.x += -hz * 5.25; c.z += hx * 5.25; } }   // pista da direita (a 5,25 m do eixo da BR)
+addEventListener('keydown', e => { keys[e.code] = true; if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault(); }); addEventListener('keyup', e => keys[e.code] = false);
+function dirige(dt, agora) {
+  const dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0);
+  let acel = false, freia = !!keys.Space; const passos = a => ((a - c.dir + 24) % 16) - 8;
+  const gira = f => { if (f !== 0 && agora - c.tGiro >= TURNO_MS) { c.tGiro = agora; c.lado = f > 0 ? 1 : -1; c.dir = (c.dir + c.lado + 16) % 16; c.v *= PERDA; } c.alvo = c.dir; };
+  if (dx || dy) {
+    const nome = dy < 0 ? (dx < 0 ? 'NW' : dx > 0 ? 'NE' : 'N') : dy > 0 ? (dx < 0 ? 'SW' : dx > 0 ? 'SE' : 'S') : dx < 0 ? 'W' : 'E', atual = NOMES[c.tecla / 2] || 'S';
+    if (nome.length === 2) c.diagEm = agora;
+    if (!(nome.length === 1 && atual.length === 2 && atual.includes(nome) && agora - c.diagEm < 150)) c.tecla = NOMES.indexOf(nome) * 2;
+    if (!c.re) { const f = passos(c.tecla); if (Math.abs(f) <= 4) { gira(f); acel = true; } else { freia = true; if (c.v <= .05) c.re = true; } }
+    else { const f = passos((c.tecla + 8) % 16); if (Math.abs(f) <= 4) { gira(f); acel = true; } else { freia = true; if (c.v >= -.05) c.re = false; } }
+  } else if (Math.abs(c.v) < .05) c.re = false;
+  const asf = noAsfalto(c.x, c.z), vmax = asf ? VMAX : VMAX_GRAMA;
+  if (acel) c.v = c.re ? Math.max(VRE, Math.min(0, c.v) - ACEL * .7 * dt) : Math.min(vmax, Math.max(0, c.v) + ACEL * dt);
+  else if (!freia) c.v = Math.sign(c.v) * Math.max(0, Math.abs(c.v) - ATRITO * dt);
+  if (freia) c.v = Math.sign(c.v) * Math.max(0, Math.abs(c.v) - FREIO * dt);
+  if (c.v > vmax) c.v = Math.max(vmax, c.v - 8 * dt);
+  const a = ANG[c.dir] * Math.PI / 180, m = c.v * dt, nx = c.x + Math.sin(a) * m, nz = c.z + Math.cos(a) * m, L = RUAS_LIM;
+  if (nx > L.x0 && nx < L.x1) c.x = nx; else c.v = 0; if (nz > L.z0 && nz < L.z1) c.z = nz; else c.v = 0;
+  c.dist += m;
+  if (!(dx || dy) && Math.abs(c.v) < .05 && c.dir % 2) { c.dir = (c.dir + (c.lado || 1) + 16) % 16; c.alvo = c.dir; }   // parado: trava nas 8 direções principais
+}
+function resize() { cv.width = innerWidth; cv.height = innerHeight; } addEventListener('resize', resize); resize();
+let ult = 0, fps = 0, dTot = 0;
+function frame(now) {
+  const dt = Math.min(.05, (now - ult) / 1000 || .016); ult = now; fps += (1 / dt - fps) * .05; const px0 = c.x, pz0 = c.z; dirige(dt, now); dTot += Math.hypot(c.x - px0, c.z - pz0);
+  const W = cv.width, H = cv.height; ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#2f4a2a'; ctx.fillRect(0, 0, W, H);
+  const ex = PPM * K, ey = PPM * K * .5, ox = W / 2 - c.x * ex, oy = H / 2 - c.z * ey;
+  ctx.setTransform(ex, 0, 0, ey, ox, oy); ctx.imageSmoothingEnabled = false;
+  const vx0 = (0 - ox) / ex - 20, vx1 = (W - ox) / ex + 20, vz0 = (0 - oy) / ey - 20, vz1 = (H - oy) / ey + 20, vis = vias.filter(v => v.x1 >= vx0 && v.x0 <= vx1 && v.z1 >= vz0 && v.z0 <= vz1);
+  MAPACHAO.desenha(ctx, vx0, vx1, vz0, vz1);
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
+  const sx = Math.round(W / 2), sy = Math.round(H / 2);
+  if (IMG.complete && IMG.naturalWidth) { const [cw, ch] = META.cell, q = c.dir === 0 ? 1 + ((Math.floor(c.dist / PASSO_RODA) % 3) + 3) % 3 : ((Math.floor(c.dist / PASSO_RODA) % 4) + 4) % 4;
+    ctx.fillStyle = 'rgba(10,10,12,.30)'; ctx.beginPath(); ctx.ellipse(sx, sy, 1.9 * 1.3 * PPM * .5 * 1.05 * K, 1.9 * 1.3 * PPM * .25 * K, 0, 0, 7); ctx.fill();
+    ctx.drawImage(IMG, q * cw, c.dir * ch, cw, ch, sx - Math.round(META.anchor[0]) * K, sy - Math.round(META.anchor[1]) * K, cw * K, ch * K); }
+  const ASP = (RUAS_LIM.z1 - RUAS_LIM.z0) / (RUAS_LIM.x1 - RUAS_LIM.x0); let MW = 320, MH = Math.round(MW * ASP); if (MH > 300) { MH = 300; MW = Math.round(MH / ASP); } if (mini.width !== MW) { mini.width = MW; mini.height = MH; mini.style.width = MW + 'px'; mini.mapa = null; }
+  if (!mini.mapa) { const o = document.createElement('canvas'); o.width = MW; o.height = MH; const g = o.getContext('2d'), e = MW / (RUAS_LIM.x1 - RUAS_LIM.x0); g.fillStyle = '#0b0d0a'; g.fillRect(0, 0, MW, MH); g.setTransform(e, 0, 0, e, -RUAS_LIM.x0 * e, -RUAS_LIM.z0 * e); g.lineCap = 'round'; g.strokeStyle = '#ddd'; for (const v of vias) { g.lineWidth = Math.max(.8 / e * (v.r.w >= 9 ? 1.6 : 1), 1); g.stroke(v.p); } mini.mapa = o; }
+  mx.drawImage(mini.mapa, 0, 0); const e = MW / (RUAS_LIM.x1 - RUAS_LIM.x0); mx.fillStyle = '#ff4030'; mx.beginPath(); mx.arc((c.x - RUAS_LIM.x0) * e, (c.z - RUAS_LIM.z0) * e, 4, 0, 7); mx.fill();
+  hud.innerHTML = 'WASD / setas: dirigir (direção na tela) · Espaço: freia · tecla do lado de trás: freia e dá ré<br>' + Math.round(Math.abs(c.v) * 3.6) + ' km/h' + (noAsfalto(c.x, c.z) ? '' : ' · <span style="color:#ffb060">no mato</span>') + ' · percorreu ' + Math.round(dTot) + ' m · ' + Math.round(fps) + ' fps';
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script></body></html>

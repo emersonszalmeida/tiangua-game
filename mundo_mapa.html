@@ -1,0 +1,1062 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mundo — mapa grande</title>
+<style>
+html,body{margin:0;height:100%;background:#1a1612;overflow:hidden;color:#eee;font:13px system-ui,sans-serif}
+canvas{position:fixed;inset:0;image-rendering:pixelated}
+#ui{position:fixed;right:10px;top:8px;background:rgba(20,16,12,.75);padding:6px 10px;border-radius:6px;line-height:1.5}
+#ui b{color:#ffd76a}
+#painel{position:fixed;right:10px;top:8px;width:230px;max-height:calc(100% - 20px);overflow:auto;background:rgba(20,16,12,.85);padding:8px;border-radius:6px}
+#painel h4{margin:8px 0 4px;font-size:12px;color:#ffd76a;font-weight:600}
+#painel .g{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+#painel button{background:#3a3028;color:#eee;border:2px solid transparent;border-radius:4px;padding:3px;cursor:pointer;font:11px system-ui;min-height:34px}
+#painel button img{display:block;margin:0 auto 2px;image-rendering:pixelated;max-width:100%;height:30px;object-fit:contain}
+#painel button.on{border-color:#ffd76a;background:#5a4630}
+#painel .acoes{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:8px}
+#msg{margin-top:6px;font-size:12px;color:#9fd}
+
+#hud{position:fixed;left:10px;top:8px;width:210px;background:rgba(20,16,12,.78);padding:8px 10px;border-radius:6px;user-select:none}
+.barra{display:grid;grid-template-columns:44px 1fr 28px;align-items:center;gap:6px;margin:4px 0;font-size:12px}
+.barra .tr{height:10px;background:#000a;border-radius:2px;overflow:hidden;border:1px solid #0008}
+.barra i{display:block;height:100%}
+#r_vida i{background:#d9483a}
+.barra.baixo .tr{animation:pisca .8s infinite}
+@keyframes pisca{50%{box-shadow:0 0 0 2px #ff3b3b}}
+.barra span.v{text-align:right;color:#ddd}
+#inv{position:fixed;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:6px;background:rgba(20,16,12,.78);padding:6px;border-radius:8px}
+.slot{width:54px;height:54px;border:2px solid #5a4630;border-radius:5px;background:#2b2118;position:relative;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.slot.cheio:hover{border-color:#ffd76a}
+.slot img{image-rendering:pixelated}
+.slot .n{position:absolute;left:3px;top:1px;font-size:10px;color:#9a8a76}
+.slot .q{position:absolute;right:3px;bottom:1px;font-size:12px;color:#fff;font-weight:700;text-shadow:0 1px 2px #000}
+#dica{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:rgba(20,16,12,.85);color:#ffd76a;padding:6px 14px;border-radius:6px;font-size:14px}
+#aviso{position:fixed;left:50%;top:70px;transform:translateX(-50%);background:rgba(20,16,12,.85);padding:6px 14px;border-radius:6px;opacity:0;transition:opacity .3s;font-size:14px}
+#morte{position:fixed;inset:0;background:rgba(40,0,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:30px;gap:12px}
+#morte small{font-size:16px;color:#ddd}
+#grana{margin-top:6px;font-size:13px;color:#ffd76a}#obj{margin-top:4px;font-size:11px;color:#bbb;line-height:1.35}
+#dlg{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);width:min(760px,94%);background:rgba(16,12,10,.93);border:2px solid #5a4630;border-radius:8px;padding:12px 16px;font-size:16px;line-height:1.5;z-index:5}
+#dq{color:#ffd76a;font-weight:700;margin-bottom:4px}#dt.narra{color:#d8d2c4;font-style:italic}
+#dops{display:flex;flex-direction:column;gap:6px;margin-top:10px}#dops button{text-align:left;background:#3a3028;color:#eee;border:1px solid #5a4630;border-radius:5px;padding:7px 10px;font:15px system-ui;cursor:pointer}#dops button:hover:not(:disabled){background:#5a4630}#dops button:disabled{opacity:.4;cursor:default}
+#dc{margin-top:8px;text-align:right;font-size:12px;color:#9a8a76;cursor:pointer}
+#novo{margin-top:6px;width:100%;background:#3a3028;color:#ccc;border:1px solid #5a4630;border-radius:4px;padding:3px;cursor:pointer;font:11px system-ui}
+</style></head>
+<body>
+<canvas id="g"></canvas>
+<div id="ui"></div>
+<div id="hud">
+<div class="barra" id="r_vida"><b>Vida</b><div class="tr"><i id="b_vida"></i></div><span class="v" id="t_vida"></span></div>
+<div id="hora" style="margin-top:6px;font-size:13px;color:#ddd"></div><div id="grana"></div><div id="obj"></div>
+<button id="novo">Novo jogo</button>
+</div>
+<div id="dlg" style="display:none"><div id="dq"></div><div id="dt"></div><div id="dops"></div><div id="dc">E · continuar</div></div>
+<div id="inv"></div><div id="dica" style="display:none"></div><div id="aviso"></div>
+<div id="morte" style="display:none">Você morreu<small>aperte R para recomeçar</small></div>
+<div id="painel"></div>
+<script src="tiangua_mapa/ruas_mapa.js"></script><script src="tiangua_mapa/asfalto_tex.js"></script><script src="tiangua_mapa/mapa_chao.js"></script><script src="mundo_mapa_terreno.js"></script><script src="mundo_mapa_carros.js"></script><script src="casa_layout.js"></script><script src="mundo_mapa_editor.js"></script>
+<script src="animacao3d/sprites_manifest.js"></script><script src="sprites_jogo.js"></script><script src="personagem_sheet.js"></script><script src="terreno_dados.js"></script><script src="decoracao_dados.js"></script><script src="arvore_dados.js"></script><script src="paredes.js?v=11"></script><script src="cantos_dados.js?v=1"></script><script src="casa_pecas_dados.js?v=40"></script>
+<script>
+const MATS = {
+  grama_baixa: { nome: 'Grama', icone: 'terreno/grama_base_128x64.png' },
+  terra_nova: { nome: 'Terra', icone: 'terreno/terra_0_0.png' },
+};
+</script>
+<script src="terreno_motor_mapa.js"></script>
+<script>
+const M = 64, NOMES = Object.keys(MATS);
+const MAP = Array.from({ length: M }, (_, cy) => Array.from({ length: M }, (_, cx) => 'grama_baixa'));
+function pinta(cx, cy, m) {
+  if (cx < 0 || cy < 0 || cx >= M || cy >= M || MAP[cy][cx] === m) return; MAP[cy][cx] = m; TERR.render();
+}
+const matDe = (cx, cy) => (cx < 0 || cy < 0 || cx >= M || cy >= M) ? null : MAP[cy][cx];
+// ---------- objetos (árvores) ----------
+const OBJS = { arvore1: { nome: 'Árvore 1', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103 }, arvore2: { nome: 'Árvore 2', src: 'arvore_pl0.png', cx: 63, by: 90 }, arvore3: { nome: 'Árvore 3', src: 'arvore_v1_sem_galho.png', cx: 63, by: 106 }, arvore4: { nome: 'Árvore 1 espelhada', src: 'arvore_v3_sem_galho.png', cx: 64, by: 103, flip: true } };
+const DECOS = [['grama_alta_1', 'Grama alta 1'], ['grama_alta_2', 'Grama alta 2'], ['grama_alta_3', 'Grama alta 3'], ['grama_alta_4', 'Grama alta 4'], ['grama_media_1', 'Grama média 1'], ['grama_media_2', 'Grama média 2'], ['grama_baixa_1', 'Grama baixa 1'], ['grama_baixa_2', 'Grama baixa 2'], ['flor_margarida', 'Margarida'], ['flor_amarela', 'Flor amarela'], ['flor_lavanda', 'Lavanda'], ['flor_papoula', 'Papoula'], ['flor_papoula_b', 'Papoula 2'], ['flor_azul', 'Flor azul'], ['flor_azul_b', 'Flor azul 2'], ['flor_mista', 'Flores mistas'], ['pedra_mini', 'Pedrinha'], ['pedra_pequena', 'Pedra pequena'], ['pedra_grande', 'Pedra grande'], ['pedra_dupla', 'Pedras juntas'], ['pedra_chata', 'Pedra chata'], ['pedra_trio', 'Três pedras'], ['cogumelo_1', 'Cogumelo marrom'], ['cogumelo_2', 'Cogumelo vermelho'], ['cogumelo_3', 'Marrons juntos'], ['cogumelo_4', 'Cogumelo bege'], ['cogumelo_5', 'Vermelhos juntos'], ['cogumelo_6', 'Marrom grande'], ['cogumelo_7', 'Vermelho grande'], ['cogumelo_8', 'Marrons grandes'], ['cogumelo_9', 'Bege grande'], ['cogumelo_10', 'Vermelhos grandes'], ['folha_1', 'Folha seca'], ['folhas_monte', 'Folhas secas'], ['galho', 'Galho'], ['trevo', 'Trevos']];
+for (const [id, a] of Object.entries(ARV_DADOS)) OBJS[(a.tipo === 'deco' ? 'd_' : 'n_') + id] = a.tipo === 'deco' ? { nome: a.nome, src: a.src, deco: true, pe: a.pe } : { nome: a.nome, src: a.src, cx: a.cx, by: a.by, esc: a.esc, raio: a.raio, ox: a.ox, oy: a.oy, pe: a.pe };   // árvores/arbustos novos (arvores_do_gemini.mjs)
+for (const [id, nome] of DECOS) OBJS['d_' + id] = { nome, src: DECO_B64[id], deco: true };
+for (const o of Object.values(OBJS)) { o.im = new Image(); o.im.src = o.src; }
+let objetos = [];   // árvores: { x, y, id } com x,y = célula inteira · decorações: { x, y, id, f: 1 } com x,y = posição livre dentro do mapa (várias por célula, não bloqueiam)
+const ESCD = 1;   // escala das decorações (as árvores e o personagem usam 2)
+const MASK = {};
+function maskDe(id) { if (MASK[id]) return MASK[id]; const im = OBJS[id].im; if (!im.complete || !im.naturalWidth) return null; const c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight; const x = c.getContext('2d'); x.drawImage(im, 0, 0); const d = x.getImageData(0, 0, c.width, c.height).data, a = new Uint8Array(c.width * c.height); for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] ? 1 : 0; return MASK[id] = { w: c.width, h: c.height, a }; }
+// o ponto do mundo (wx, wy, relativo ao mapa) cai num pixel desenhado da decoração o?
+function opaco(o, wx, wy, tol = 0) { const m = maskDe(o.id); if (!m) return false; const px = Math.floor((wx - (o.x - o.y) * 64) / ESCD + m.w / 2), py = Math.floor((wy - (o.x + o.y) * 32) / ESCD + (m.h - 1));
+  for (let j = -tol; j <= tol; j++) for (let i = -tol; i <= tol; i++) { const x = px + i, y = py + j; if (x >= 0 && y >= 0 && x < m.w && y < m.h && m.a[y * m.w + x]) return true; } return false; }
+// uma decoração nova em (fx, fy) encostaria nos pixels de alguma que já existe?
+function sobrepoe(id, fx, fy) { const m = maskDe(id); if (!m) return false; const bx = (fx - fy) * 64, by = (fx + fy) * 32, viz = objetos.filter(o => OBJS[o.id].deco && Math.abs((o.x - o.y) * 64 - bx) < 60 && Math.abs((o.x + o.y) * 32 - by) < 70);
+  if (!viz.length) return false; for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) if (m.a[j * m.w + i]) { const wx = bx + (i - m.w / 2 + .5) * ESCD, wy = by + (j - (m.h - 1) + .5) * ESCD; for (const o of viz) if (opaco(o, wx, wy)) return true; } return false; }
+const objEm = (cx, cy) => objetos.findIndex(o => !OBJS[o.id].deco && o.x === cx && o.y === cy);
+function desenhaObj(c, o, sx, sy) { const d = OBJS[o.id]; if (!d.im.complete || !d.im.naturalWidth) return; c.save(); const nw = d.im.naturalWidth, nh = d.im.naturalHeight, cx0 = d.deco ? nw / 2 : d.cx, by0 = d.deco ? nh - 1 : d.by; const ESC = d.deco ? ESCD : (d.esc || 2); c.translate(sx, sy + (d.deco ? 0 : 4) - by0 * ESC); if (d.flip) c.scale(-1, 1); c.imageSmoothingEnabled = false; c.drawImage(d.im, -cx0 * ESC, 0, nw * ESC, nh * ESC); c.restore(); }
+// ---------- casa: paredes e piso (peças vindas do casa.html, em paredes.js) ----------
+const CASA = PAREDES, PIECE = CASA.PIECE;
+let paredes = [];          // { a, c, n, k }: a='x' corre em ↘ na linha y=c, do ponto x=n ao n+1 · a='y' corre em ↙ na linha x=c, de y=n a n+1 · k = 'high' | 'mid' | 'door' | 'low'
+let pisos = new Set();     // células com piso de casa: 'cx,cy'
+let cantos = [];           // peças de canto escolhidas pelo dono: { x, y, p } = vértice (x,y) e nome da peça (ex.: 'RU_MA')
+let postes = [], rectsP = [], vertices = new Map();   // pilares (automáticos) e retângulos de colisão
+const RP = .15;            // raio do personagem para as paredes
+// letras do vértice (em ordem D L R U) → nome da peça na folha dos cantos (cantos_para_editar.mjs)
+const CFG_CANTO = { L: 'ponta_dir', U: 'ponta_esq', LU: 'canto_LU', DR: 'canto_RD', DL: 'canto_LD', RU: 'canto_RU', DLR: 't_LRD', LRU: 't_LRU', DLU: 't_UDL', DRU: 't_UDR', DLRU: 'cruz' };
+// a peça do canto na altura h (alta 92, cortada 26, baixa 12): a peça é desenhada para a parede alta; nas outras alturas corta-se o miolo (entre o topo, com a tampa, e a base)
+const cantoVar = {};
+function cantoPeca(cfg, hh) {
+  const d = CANTOS[cfg]; if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } if (!d.im.complete || !d.im.naturalWidth) return null;
+  if (hh >= CASA.HIGH) return { c: d.im, ax: d.ax, ay: d.ay };
+  const k = cfg + '@' + hh; if (cantoVar[k]) return cantoVar[k];
+  const TOP = 18, ini = d.ay + 10 - hh, alt = TOP + (d.h - ini), cv2 = document.createElement('canvas'); cv2.width = d.w; cv2.height = alt; const g = cv2.getContext('2d');
+  g.drawImage(d.im, 0, 0, d.w, TOP, 0, 0, d.w, TOP); g.drawImage(d.im, 0, ini, d.w, d.h - ini, 0, TOP, d.w, d.h - ini);
+  return (cantoVar[k] = { c: cv2, ax: d.ax, ay: TOP + (d.ay - ini) });
+}
+function recalcParedes() {
+  const T = CASA.T, v = new Map(), no = (x, y) => { const k = x + ',' + y; if (!v.has(k)) v.set(k, { x, y, L: 0, R: 0, U: 0, D: 0, alto: false }); return v.get(k); };
+  rectsP = []; vertices = v;
+  for (const p of paredes) {
+    const alto = p.k !== 'low';
+    if (p.a === 'x') { const a = no(p.n, p.c), b = no(p.n + 1, p.c); a.R = 1; b.L = 1; if (alto) a.alto = b.alto = true; if (alto) b.altoL = true; }
+    else { const a = no(p.c, p.n), b = no(p.c, p.n + 1); a.D = 1; b.U = 1; if (alto) a.alto = b.alto = true; if (alto) b.altoU = true; }
+    const add = (n0, n1) => rectsP.push(p.a === 'x' ? [n0, p.c - T, n1, p.c] : [p.c - T, n0, p.c, n1]);
+    if (p.k === 'door') { add(p.n, p.n + .25); add(p.n + .75, p.n + 1); } else add(p.n, p.n + 1);
+  }
+  postes = [];   // pilar em toda ponta e em todo encontro; só no meio de uma reta não tem
+  for (const q of v.values()) { if ((q.L && q.R && !q.U && !q.D) || (q.U && q.D && !q.L && !q.R)) continue; rectsP.push([q.x - T, q.y - T, q.x, q.y]);
+    const cfg = CFG_CANTO[['D', 'L', 'R', 'U'].filter(f => q[f]).join('')];   // situação do vértice → peça única desenhada pelo dono (cantos_dados.js); sem peça = nada além das paredes
+    if (cfg && typeof CANTOS !== 'undefined' && CANTOS[cfg]) postes.push({ x: q.x, y: q.y, cfg, alta: !!q.alto }); }
+}
+const bateParede = (x, y) => rectsP.some(([a, b, c, d]) => x + RP > a && x - RP < c && y + RP > b && y - RP < d) || bateMovel(x, y);
+// itens de desenho da casa (ordenados junto com árvores e personagem): a parede passa na frente do personagem só quando ele está atrás do plano dela
+// sala do personagem: células com piso ligadas entre si sem parede na aresta (porta também separa); null se ele não está sobre piso
+function salaDoPersonagem() {
+  const c0x = Math.floor(hx), c0y = Math.floor(hy); if (!pisos.has(c0x + ',' + c0y)) return null; const DEN = window.DENTRO && window.DENTRO.size ? window.DENTRO : null; if (DEN && !DEN.has(c0x + ',' + c0y)) return null;
+  const m = new Set(paredes.map(p => p.a + '|' + p.c + '|' + p.n)), sala = new Set([c0x + ',' + c0y]), fila = [[c0x, c0y]];
+  const passa = (cx, cy, dx, dy) => !(dx === 1 ? m.has('y|' + (cx + 1) + '|' + cy) : dx === -1 ? m.has('y|' + cx + '|' + cy) : dy === 1 ? m.has('x|' + (cy + 1) + '|' + cx) : m.has('x|' + cy + '|' + cx));
+  let aberta = false;   // alguma aresta sem parede levando a uma célula SEM piso (ou fora do mapa): não é uma sala fechada, então nada é cortado
+  while (fila.length) { const [cx, cy] = fila.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (cx + dx) + ',' + (cy + dy); if (!passa(cx, cy, dx, dy)) continue; if (!pisos.has(k) || (DEN && !DEN.has(k))) { if (!DEN) aberta = true; continue; } if (!sala.has(k)) { sala.add(k); fila.push([cx + dx, cy + dy]); } } }
+  return aberta ? null : sala;
+}
+// papel da parede (b = fundo: piso do lado +; f = frente: piso do lado −), decidido UMA vez, quando a parede é colocada, e guardado nela: pôr piso depois não mexe mais na parede.
+// Só se constrói na borda de um piso; se há piso dos dois lados, segue a parede vizinha da mesma fileira (a ordem de quem veio antes).
+function papelNovo(a, c, n) {
+  const mais = a === 'x' ? n + ',' + c : c + ',' + n, menos = a === 'x' ? n + ',' + (c - 1) : (c - 1) + ',' + n, pm = pisos.has(mais), pn = pisos.has(menos);
+  if (!pm && !pn) return null; if (pm !== pn) return pm ? 'b' : 'f';
+  for (const d of [-1, 1]) { let m = n + d, w; while ((w = paredes.find(q => q.a === a && q.c === c && q.n === m))) { if (w.r) return w.r; m += d; } }
+  return 'b';
+}
+// Porta animada (desenho19.png do dono): a porta alta tem 5 quadros (↙ = y_DA_f*, ↘ = x_DA_f*, espelho com a luz da parede ↘) (1 fechada ... 5 aberta); abre quando o personagem chega perto (~1,3 tile do centro do vão) e fecha quando se afasta
+// carrega TODAS as peças da casa já na abertura: antes a imagem de cada quadro da porta só começava a carregar quando era usada, então o 1º abrir depois do F5 piscava (peça ausente por alguns quadros)
+if (typeof PECAS !== 'undefined') for (const d of Object.values(PECAS)) if (!d.im) { d.im = new Image(); d.im.src = d.src; d.im.decode && d.im.decode().catch(() => { }); }
+const PORTA_ANIM = {};
+function quadroDaPorta(a, c, n) {   // a='y': parede na linha x=c, vão no meio da célula n (em y); a='x': linha y=c, célula n (em x)
+  const id = a + c + '|' + n, agora = performance.now(), A = PORTA_ANIM[id] || (PORTA_ANIM[id] = { f: 1, t: agora });
+  const [px, py] = a === 'y' ? [c, n + 0.5] : [n + 0.5, c], alvo = Math.hypot(hx - px, hy - py) < 1.3 ? 5 : 1; A.t = Math.min(A.t, agora);
+  while (agora - A.t >= 85 && A.f !== alvo) { A.f += A.f < alvo ? 1 : -1; A.t += 85; }
+  if (A.f === alvo) A.t = agora;
+  return A.f;
+}
+function itensCasa() {
+  const T = CASA.T, out = [], sx = (x, y) => (x - y) * 64 + M * 64, sy = (x, y) => (x + y) * 32;
+  const sala = salaDoPersonagem();   // paredes da frente dessa sala descem até a cintura (a sala "se abre"); nas outras salas a parede fica inteira
+  const naSala = (...cel) => sala && cel.some(([a, b]) => sala.has(a + ',' + b));
+  const H0 = [hsx - 16, hsy - 64, 32, 68], ov = (r, s) => r[0] < s[0] + s[2] && r[0] + r[2] > s[0] && r[1] < s[1] + s[3] && r[1] + r[3] > s[1];
+  const rectDe = (p, pc) => [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - pc.c.width, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - pc.oy + 1, pc.c.width, pc.c.height];
+  // atras: a parede está atrás do personagem. Fora da faixa de espessura dela vale o plano (como antes); DENTRO da faixa (personagem passando por uma porta), vale o lado em que ele está ao longo da parede: se ainda não chegou ao começo dela, ela está na frente (antes ele era desenhado por cima da parede vizinha da porta e parecia estar dentro dela)
+  const inf = paredes.map(p => ({ p, atras: p.a === 'x' ? (hy > p.c + T / 2 ? true : hy <= p.c - T / 2 ? false : hx >= p.n) : (hx > p.c + T / 2 ? true : hx <= p.c - T / 2 ? false : hy >= p.n), key: p.n + .5 + p.c, adj: naSala(...(p.a === 'x' ? [[p.n, p.c - 1], [p.n, p.c]] : [[p.c - 1, p.n], [p.c, p.n]])), cheia: PIECE[p.a + (p.k === 'door' ? 'Door' : 'High')] }));
+  // alvos que não podem ficar escondidos por parede alta: o personagem e as portas da sala dele
+  // frente/fundo DA SALA do personagem: a parede é a frente da sala quando o piso da sala fica do lado − dela (norte/oeste); se fica do lado +, é o fundo da sala (nunca corta, mesmo que o plano dela passe na frente do personagem). Parede com a sala dos dois lados: vale a regra do plano.
+  const frenteDe = p => { const mais = p.a === 'x' ? p.n + ',' + p.c : p.c + ',' + p.n, menos = p.a === 'x' ? p.n + ',' + (p.c - 1) : (p.c - 1) + ',' + p.n, dM = !!sala && sala.has(mais), dN = !!sala && sala.has(menos); return dN && !dM ? 1 : dM && !dN ? -1 : 0; };
+  // a porta da sala que vira MÉDIA (frente) só ocupa a altura média: as paredes na frente dela não precisam mais descer
+  const rectMedia = p => [p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n) - 68, (p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n)) - 27, 68, 60];
+  const alvos = []; if (sala) { alvos.push({ r: H0, jog: true }); for (const w of inf) if (w.p.k === 'door' && w.adj) alvos.push({ r: frenteDe(w.p) === 1 ? rectMedia(w.p) : rectDe(w.p, w.cheia), key: w.key, q: w.p, h: frenteDe(w.p) === 1 ? 27 : 93 }); }
+  // quanto do alvo (retângulo r) fica por trás do paralelogramo REAL da parede (não do retângulo que a envolve: o canto vazio do retângulo cortava paredes que nem encostavam no alvo)
+  const fracCoberta = (p, r, al) => { const Sx = p.a === 'x' ? sx(p.n, p.c) : sx(p.c, p.n), Sy = p.a === 'x' ? sy(p.n, p.c) : sy(p.c, p.n), dx = p.a === 'x' ? 64 : -64; let dentro = 0, total = 0;
+    const Qx = al && al.q ? (al.q.a === 'x' ? sx(al.q.n, al.q.c) : sx(al.q.c, al.q.n)) : 0, Qy = al && al.q ? (al.q.a === 'x' ? sy(al.q.n, al.q.c) : sy(al.q.c, al.q.n)) : 0, Qd = al && al.q ? (al.q.a === 'x' ? 64 : -64) : 1;   // porta: só conta o pedaço que a porta realmente ocupa (paralelogramo dela), não o retângulo que a envolve
+    for (let py = r[1] + 1; py < r[1] + r[3]; py += 3) for (let px = r[0] + 1; px < r[0] + r[2]; px += 3) { if (al && al.q) { const u = (px - Qx) / Qd; if (u < 0 || u > 1 || py < Qy + 32 * u - al.h || py > Qy + 32 * u + 4) continue; } total++; const t = (px - Sx) / dx; if (t >= 0 && t <= 1 && py >= Sy + 32 * t - 93 && py <= Sy + 32 * t + 4) dentro++; }
+    return total ? dentro / total : 0; };
+  const cobreAlvo = (p, key) => alvos.some(t => (t.jog || key > t.key) && ov(rectDe(p, PIECE[p.a + 'High']), t.r) && fracCoberta(p, t.r, t) >= (t.jog ? 0.04 : 0.9));   // porta da sala: a parede só desce se cobrir a porta INTEIRA (dono, 2026-11-19)   // cobre o personagem, ou fica na frente de uma porta da sala e a cobre
+  const encosta = (v, eixo) => { const q = vertices.get(v[0] + ',' + v[1]); return !!q && (eixo === 'x' ? (q.U || q.D) : (q.L || q.R)); };   // há parede perpendicular nesse vértice?
+  // ---- peças do dono (casa_pecas_dados.js): parede alta/média soltas, cantos de dois braços, perninhas e portas; o que ele não desenhou fica EM BRANCO (e é listado em FALTAM) ----
+  // no MODO COLUNA (?centro) vale a versão aparada da peça (sufixo _n, desenho20.png) quando ela existe; senão a peça normal
+  const peca = n => { const d = typeof PECAS !== 'undefined' && ((window.CENTRO && PECAS[n + '_n']) || PECAS[n]); if (!d) return null; if (!d.im) { d.im = new Image(); d.im.src = d.src; } return d.im.complete && d.im.naturalWidth ? d : null; };
+  for (const w of inf) {
+    const frente = frenteDe(w.p);
+    w.corta = w.p.k === 'mid' || (w.p.k !== 'low' && (frente === 1 || (frente === 0 && !w.atras && !!(w.adj || (sala && cobreAlvo(w.p, w.key))))));
+  }
+  window.ALT_PAREDE = new Map(inf.map(w => [w.p.a + '|' + w.p.c + '|' + w.p.n, w.p.k === 'low' ? 12 : w.corta ? 27 : 93]));   // altura de cada parede neste quadro (o brilho da luz usa)
+  const Hh = w => w.p.k === 'door' ? (w.corta ? 'DM' : 'DA') :   /* porta: sempre a peça alta dele, mesmo na parede da frente cortada (como no vídeo dele) */ w.p.k === 'low' ? null : (w.corta ? 'M' : 'A');
+  const ed = new Map(inf.map(w => [w.p.a + '|' + w.p.c + '|' + w.p.n, w])), arm = (v, A) => ed.get(A === 'L' ? 'x|' + v.y + '|' + (v.x - 1) : A === 'R' ? 'x|' + v.y + '|' + v.x : A === 'U' ? 'y|' + v.x + '|' + (v.y - 1) : 'y|' + v.x + '|' + v.y);
+  const PERNA_DE = w => { const v = w.p.a === 'x' ? [w.p.n, w.p.c] : [w.p.c, w.p.n]; return w.corta && w.p.k !== 'door' && encosta(v, w.p.a); };   // a ponta de trás (começo) da parede média encosta numa parede que a atravessa: leva a perninha alta
+  // Tileset do dono: cada parede é UMA peça, encaixada no vértice onde ela começa (a ↘ vai para a direita, a ↙ para a esquerda). Cantos, T e cruz saem de peças que se encontram no mesmo vértice.
+  // A posição não depende do piso nem do lado: o fino de 1 px fica na âncora da peça (casa_pecas_dados.js).
+  const faltam = new Set();
+  // separa a peça do canto em duas camadas, uma por braço: cada pixel pertence ao paralelogramo da parede (relativo ao vértice) em que cai; nos cantos de sobreposição vale a parede que as soltas desenham por cima (a ↘ ou ↖; no > a ↙)
+  const altBraço = w => { const h = Hh(w); return h === 'A' || h === 'DA' ? 93 : 27; };
+  const dentroBraço = (A, H, x, y) => { const base = A === 'R' || A === 'L' ? x / 2 : -x / 2; const okx = A === 'R' || A === 'U' ? x >= -6 && x <= 70 : x <= 6 && x >= -70; return okx && y >= base - H - 2 && y <= base + 6; };
+  const pecaPorBraco = (nm, nome, wa, wb, emT) => { const o = peca(nm); if (!o) return null; const Ha = altBraço(wa), Hb = altBraço(wb), porta = Hh(wa) === 'DM' ? nome[0] : Hh(wb) === 'DM' ? nome[1] : null, chave = nome + Ha + Hb + (porta || '') + (emT ? 'T' : ''); o.fat = o.fat || {}; if (o.fat[chave]) return o.fat[chave];
+    const mk = () => { const c = document.createElement('canvas'); c.width = o.w; c.height = o.h; return c; }, ca = mk(), cb = mk(), g = mk().getContext('2d'); g.drawImage(o.im, 0, 0); const src = g.getImageData(0, 0, o.w, o.h).data, ga = ca.getContext('2d'), gb = cb.getContext('2d'), da = ga.createImageData(o.w, o.h), db = gb.createImageData(o.w, o.h), cj = mk(), gj = cj.getContext('2d'), dj = gj.createImageData(o.w, o.h);
+    for (let y = 0; y < o.h; y++) for (let x = 0; x < o.w; x++) { const i = (y * o.w + x) * 4; if (!src[i + 3]) continue; const px = x - o.ax, py = y - o.ay; const ia = dentroBraço(nome[0], Ha, px, py), ib = dentroBraço(nome[1], Hb, px, py);
+      const aEx = nome[0] === 'L' || nome[0] === 'R'; const paraA = nome === 'LD' && px >= -24 ? false : ia && !ib ? true : ib && !ia ? false : ia && ib ? nome !== 'LD' : (Math.abs(py - (aEx ? px / 2 : -px / 2) + Ha / 2) <= Math.abs(py - (aEx ? -px / 2 : px / 2) + Hb / 2));
+      const emJ = porta && py >= -31 && (porta === 'L' || porta === 'D' ? px >= -26 && px <= (emT ? -1 : 4) : px >= -4 && px <= 26); const D = emJ ? dj : paraA ? da : db;   // batente da porta média: camada própria, ordenada pela profundidade real (o personagem pode estar no vão, ao lado dele)
+      D.data[i] = src[i]; D.data[i + 1] = src[i + 1]; D.data[i + 2] = src[i + 2]; D.data[i + 3] = src[i + 3]; }
+    ga.putImageData(da, 0, 0); gb.putImageData(db, 0, 0); gj.putImageData(dj, 0, 0); return (o.fat[chave] = { a: ca, b: cb, j: porta ? cj : null }); };
+  const itemPeca = (nm, X, Y, d, atras, miolo, faixa) => { const o = peca(nm); if (!o) return; if (faixa) { const [f0, f1] = faixa; out.push({ n: nm + '[' + f0 + '-' + f1 + ']', d, atras, r: [X - o.ax + f0, Y - o.ay, f1 - f0, o.h], f: () => ctx.drawImage(o.im, f0, 0, f1 - f0, o.h, X - o.ax + f0, Y - o.ay, f1 - f0, o.h) }); return; } out.push({ n: nm, d, atras, r: [X - o.ax, Y - o.ay, o.w, o.h], f: () => { if (miolo) ctx.drawImage(o.im, miolo, 0, o.w - 2 * miolo, o.h, X - o.ax + miolo, Y - o.ay, o.w - 2 * miolo, o.h); else ctx.drawImage(o.im, X - o.ax, Y - o.ay); } }); };
+  // cantos de dois braços que o dono desenhou: o V (LU: chegam uma ↘ pela esquerda e uma ↙ por cima, canto da frente) e o Λ (RD: saem uma ↘ para a direita e uma ↙ para baixo, canto do fundo),
+  // só quando o vértice tem esses dois braços e nenhum outro, e os dois têm a mesma altura (alta/alta ou média/média). T, cruz e o resto ficam com as paredes soltas.
+  // peça de encontro: a parede média que COMEÇA num vértice onde bate uma parede perpendicular ALTA mostra um pedaço dela (linha 3 do dono: x_C, y_C, cantos _CC)
+  const altaPerp = (vx, vy, braços) => { const q = vertices.get(vx + ',' + vy); return !!q && braços.some(A => { const w = q[A] && arm(q, A); return w && (Hh(w) === 'A' || Hh(w) === 'DA'); }); };   // porta alta também conta como parede alta (dono, 2026-11-19: canto ao lado de porta alta usa y_C / x_C)
+  const nBraços = (vx, vy) => { const q = vertices.get(vx + ',' + vy); return q ? ['L', 'R', 'U', 'D'].filter(A => q[A]).length : 0; };
+  const postaIni = w => { const vx = w.p.a === 'x' ? w.p.n : w.p.c, vy = w.p.a === 'x' ? w.p.c : w.p.n; return w.p.a === 'x' ? altaPerp(vx, vy, ['U', 'D']) : altaPerp(vx, vy, ['L', 'R']); };   // vale também em T (dono, 2026-11-19: x_C / y_C e a porta média com perna alta _DMT também no T)
+  const semJ1 = new Set();   // portas médias cujo batente do começo já vem dentro do canto (T): não desenhar o batente solto por cima
+  const usado = new Set();   // (vazio de propósito: as paredes soltas continuam desenhadas por baixo do canto)
+  // MODO COLUNA (?centro, desenho20.png do dono): nada de peças de canto; em TODO vértice que tem parede entra uma coluna por cima das pontas aparadas.
+  //   tipo: só braços R+U (canto <) = C_RU; só L+D (canto >) = C_LD; EMENDA de parede reta: ↙ (U+D) = C_LD, ↘ (L+R) = C_RU (correção do dono: estava invertido); ponta solta: igual à emenda da mesma parede; canto ^ (só R+D) = C_RD (pilar próprio do dono); T com ramo para baixo/direita (L+R+D ou U+D+R, como o ^ das peças antigas) = C_RD; o resto (V, outros T, cruz) = C_O (simétrica)
+  //   altura: alta (_A) se algum braço é alto ou porta alta; senão média (_M)
+  if (window.CENTRO) for (const v of vertices.values()) {
+    const bs = ['L', 'R', 'U', 'D'].filter(A => v[A]).map(A => [A, arm(v, A)]).filter(([, w]) => w && Hh(w)); if (!bs.length) continue;
+    // REGRA DO DONO (2026-11-19), sem olhar T, X, < nem >: só existem as formas ^ (braços R+D), V (braços L+U) e as paredes x (↘) e y (↙).
+    //   ^ = C_RD (vale com 2, 3 ou 4 paredes: o ângulo continua visível); V = C_O só com exatamente 2 paredes; parede ↘ que não forma ^ nem V = C_RU; parede ↙ que não forma ^ nem V = C_LD. Cada regra que vale põe a sua coluna; se várias valem no mesmo vértice, ficam empilhadas e a de cima é a última desenhada (RD > O > LD > RU).
+    const tem = bs.map(([A]) => A).join(''), has = A => tem.includes(A), ehA = has('R') && has('D'), ehV = tem.length === 2 && has('L') && has('U'), alt = bs.some(([, w]) => Hh(w) === 'A' || Hh(w) === 'DA') ? 'A' : 'M';
+    const tipos = []; if (ehA) tipos.push('RD'); else if (ehV) tipos.push('O'); else { const x = has('L') || has('R'), y = has('U') || has('D'); if (x && y) tipos.push(has('R') ? 'RU' : 'LD'); else tipos.push(x ? 'RU' : 'LD'); }   // duas paredes (x e y) sem ser ^ nem V: manda a da FRENTE (a que sai do vértice para baixo na tela: R para a ↘, D para a ↙); R presente = x na frente = C_RU, senão a y (D) = C_LD
+    for (const tipo of tipos) itemPeca('C_' + tipo + '_' + alt, sx(v.x, v.y), sy(v.x, v.y), v.x + v.y + 0.002, bs.every(([, w]) => w.atras), 0); }   // profundidade = a do PRÓPRIO vértice (x+y): a parede que sai dele para a frente (key = x+y+0,5) cobre o pilar; a que chega nele por trás (x+y-0,5) fica atrás dele
+  for (const v of vertices.values()) {
+    if (window.CENTRO) break;   // modo coluna: as colunas acima substituem os cantos
+    let nome = v.L && v.U && !v.R && !v.D ? 'LU' : v.R && v.D && !v.L && !v.U ? 'RD' : v.R && v.U && !v.L && !v.D ? 'RU' : v.L && v.D && !v.R && !v.U ? 'LD' : null;
+    // REGRA DO DONO: as peças em formato de < / > (linha 3 e as de porta) só valem quando o vértice NÃO forma um T (2 braços). Quando forma um T, entram as peças Λ de alturas misturadas (RD_AM, RD_MA, RD_ADM, RD_DMA):
+    //   T-a: a parede ↘ alta atravessa o vértice (braços L e R) e sai um ramo ↙ médio/porta média (braço D)  -> RD com R alta + D média/porta
+    //   T-b: a parede ↙ alta atravessa o vértice (braços U e D) e sai um ramo ↘ médio/porta média (braço R)  -> RD com R média/porta + D alta
+    let emT = false;
+    if (!nome && v.L && v.R && v.D && !v.U) { const hL = Hh(arm(v, 'L')), hR = Hh(arm(v, 'R')), hD = Hh(arm(v, 'D')); if (hL === 'A' && hR === 'A' && (hD === 'M' || hD === 'DM')) { nome = 'RD'; emT = true; } }
+    if (!nome && v.U && v.D && v.R && !v.L) { const hU = Hh(arm(v, 'U')), hD = Hh(arm(v, 'D')), hR = Hh(arm(v, 'R')); if (hU === 'A' && hD === 'A' && (hR === 'M' || hR === 'DM')) { nome = 'RD'; emT = true; } }
+    // REGRA DO DONO: sempre que houver um canto ^ (braços R e D, os dois altos), usa-se a peça Λ alta, mesmo num T ou numa cruz
+    if (!nome && v.R && v.D) { const hR = Hh(arm(v, 'R')), hD = Hh(arm(v, 'D')); if ((hR === 'A' || hR === 'DA') && (hD === 'A' || hD === 'DA') && !(hR === 'DA' && hD === 'DA')) nome = 'RD'; }   // inclui o ^ com uma porta alta numa das paredes (RD_ADA / RD_DAA)
+    if (!nome) continue;
+    const wa = arm(v, nome[0]), wb = arm(v, nome[1]); if (!wa || !wb) continue; const ha = Hh(wa), hb = Hh(wb); if (!ha || !hb) continue; const mista = (ha === 'A' && hb === 'DA') || (ha === 'DA' && hb === 'A') || (nome === 'LU' && ((ha === 'M' && hb === 'DM') || (ha === 'DM' && hb === 'M'))) || (nome === 'RU' && ha === 'M' && (hb === 'A' || hb === 'DA')) || (nome === 'LD' && (ha === 'A' || ha === 'DA') && hb === 'M') || (nome === 'RU' && ha === 'DM' && hb === 'A') || (nome === 'LD' && ha === 'A' && hb === 'DM') || (nome === 'RD' && ((ha === 'A' && hb === 'M') || (ha === 'M' && hb === 'A') || (ha === 'DM' && hb === 'A') || (ha === 'A' && hb === 'DM'))); if (!mista && (ha !== hb || (ha !== 'A' && ha !== 'M'))) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nome + '_' + ha + hb); continue; }   // alta+porta: só existem o < e o > com a porta na parede de trás (RU_ADA, LD_DAA)
+    let nm = nome + '_' + ha + hb;
+    if (nm === 'RU_MA') nm = 'RU_CC'; else if (nm === 'LD_AM') nm = 'LD_CC'; else if (nm === 'RU_MDA') nm = 'RU_PP'; else if (nm === 'LD_DAM') nm = 'LD_PP'; else if (nm === 'LU_MM' && postaIni(wa) && postaIni(wb)) nm = 'LU_CC';   // PP = canto com a porta no fundo;   // sala: < com a frente média e o fundo alto; > idem; V com os dois começos encostando em parede alta
+    // MODO COLUNA (?centro, protótipo 2026-11-18): canto de 2 braços, os dois da mesma altura (alta ou média), sem porta = só a COLUNA do centro (C_RD_A, C_LU_M ...) por cima das duas paredes soltas, em vez do canto inteiro
+    const nBr = (v.L ? 1 : 0) + (v.R ? 1 : 0) + (v.U ? 1 : 0) + (v.D ? 1 : 0), usaCol = !!window.CENTRO && !emT && nBr === 2 && ha === hb && (ha === 'A' || ha === 'M') && !!peca('C_' + nome + '_' + ha); if (usaCol) nm = 'C_' + nome + '_' + ha;
+    if (!peca(nm)) { (window.SEM_PECA = window.SEM_PECA || []).push(v.x + ',' + v.y + ' ' + nm); if (typeof PECAS !== 'undefined' && !PECAS[nm] && ha === 'A' && !mista) faltam.add(nm); continue; }
+    const dC = Math.max(wa.key, wb.key) + 0.002;
+    const ehDM = Hh(wa) === 'DM' || Hh(wb) === 'DM';
+    const oC = peca(nm), cX = sx(v.x, v.y) - (oC ? oC.ax : 0), cY = sy(v.x, v.y) - (oC ? oC.ay : 0), tocaJog = !!oC && cX < H0[0] + H0[2] - 10 && cX + oC.w > H0[0] + 10 && cY < H0[1] + H0[3] && cY + oC.h > H0[1];   // (H0 = [x, y, largura, altura]) só parte o canto por braço se ele realmente passa pelo corpo do personagem; senão vai a peça pronta INTEIRA
+    if (!usaCol && ((wa.atras !== wb.atras && tocaJog) || ehDM)) {   // um braço está atrás do personagem e o outro na frente: o canto é partido por braço (cada pixel vai com a parede a que pertence), senão cobriria o personagem
+      const X = sx(v.x, v.y), Y = sy(v.x, v.y), cv2 = pecaPorBraco(nm, nome, wa, wb, false); if (cv2) { const o = peca(nm), r = [X - o.ax, Y - o.ay, o.w, o.h];
+        out.push({ d: dC, atras: wa.atras, r, f: () => ctx.drawImage(cv2.a, X - o.ax, Y - o.ay) }); out.push({ d: dC, atras: wb.atras, r, f: () => ctx.drawImage(cv2.b, X - o.ax, Y - o.ay) });
+        if (cv2.j) { const A = Hh(wa) === 'DM' ? nome[0] : nome[1], jx = v.x + (A === 'R' ? .15 : A === 'L' ? -.15 : 0), jy = v.y + (A === 'D' ? .15 : A === 'U' ? -.15 : 0); out.push({ d: dC, atras: hx + hy > jx + jy, r, f: () => ctx.drawImage(cv2.j, X - o.ax, Y - o.ay) }); } }
+      if (emT) for (const q of [wa, wb]) if (Hh(q) === 'DM') semJ1.add(q);
+      continue;
+    }
+    itemPeca(nm, sx(v.x, v.y), sy(v.x, v.y), dC, wa.atras && wb.atras, 0); if (emT) for (const q of [wa, wb]) if (Hh(q) === 'DM') semJ1.add(q); }   // no T o canto fica POR BAIXO da parede alta que continua (ela cobre a sobra de 5 px do pilar)   // < e > (RU, LD): os braços batem 100% com as paredes soltas, então o canto vai inteiro por cima   // as duas paredes soltas ficam por baixo (as pontas dos braços) e o canto do dono vai por cima, com a junta limpa
+  // num T, a parede que ATRAVESSA o vértice fica por cima da que só encosta (senão o fio escuro do topo e a base saem tortos); na cruz, a ↘ fica por cima
+  const passa = w => (w.p.a === 'x' ? [[w.p.n, w.p.c], [w.p.n + 1, w.p.c]] : [[w.p.c, w.p.n], [w.p.c, w.p.n + 1]]).some(([x, y]) => { const q = vertices.get(x + ',' + y); return !!q && (w.p.a === 'x' ? q.L && q.R && (q.U || q.D) : q.U && q.D && (q.L || q.R)); });
+  for (const w of inf) {
+    if (usado.has(w)) continue;
+    const k = Hh(w); if (k === null) { faltam.add('parede baixa'); continue; }
+    const X = w.p.a === 'x' ? sx(w.p.n, w.p.c) : sx(w.p.c, w.p.n), Y = w.p.a === 'x' ? sy(w.p.n, w.p.c) : sy(w.p.c, w.p.n);
+    if (k === 'DM') {   // porta média ANIMADA (folha final): UM objeto por quadro (batentes + folha juntos, sempre inteiros); com parede alta perpendicular no começo usa a versão com a perna alta (_DMT)
+      const a = w.p.a, soma = a === 'x' ? w.p.n + w.p.c : w.p.c + w.p.n, dd = w.key + (passa(w) ? 0.001 : 0) + (a === 'x' ? 0.0002 : 0), alta = postaIni(w) && !!peca(a + '_DMT_f1'), f = quadroDaPorta(a, w.p.c, w.p.n);
+      const nmD = a + (alta ? '_DMT_f' : '_DMP_f') + f;
+      if (f === 1) itemPeca(nmD, X, Y, dd, hx + hy > soma + .5);
+      else { const ini = a === 'x' ? [0, 18] : [44, 62], resto = a === 'x' ? [18, 62] : [0, 44];   // porta aberta: o batente (ou perna alta) do COMEÇO e o resto (folha + batente do fim) têm profundidade própria, para o personagem passar entre eles
+        itemPeca(nmD, X, Y, dd, hx + hy > soma + .15, 0, ini); itemPeca(nmD, X, Y, dd, hx + hy > soma + .85, 0, resto); }
+      continue; }
+    let nm = w.p.a + '_' + (k === 'M' && postaIni(w) && peca(w.p.a + '_C') ? 'C' : k);   // média que começa encostada numa parede alta: peça com o pedaço alto (no modo coluna, a x_C / y_C)
+    if (k === 'DA' && peca(w.p.a + '_DA_f1')) nm = w.p.a + '_DA_f' + quadroDaPorta(w.p.a, w.p.c, w.p.n); if (!peca(nm)) { if (typeof PECAS !== 'undefined' && !PECAS[nm]) faltam.add(nm); continue; }
+    itemPeca(nm, X, Y, w.key + (passa(w) ? 0.001 : 0) + (w.p.a === 'x' ? 0.0002 : 0), w.atras); }
+  window.FALTAM = faltam;
+  return out;
+}
+// aresta de célula mais perto do ponto (fx, fy) do mundo
+function arestaPerto(fx, fy) {
+  const cX = Math.round(fy), dX = Math.abs(fy - cX), cY = Math.round(fx), dY = Math.abs(fx - cY);
+  return dX <= dY ? { a: 'x', c: cX, n: Math.floor(fx), d: dX } : { a: 'y', c: cY, n: Math.floor(fy), d: dY };
+}
+// ---------- salvar / abrir ----------
+function paraJson() { return { versao: 1, tamanho: M, materiais: NOMES, chao: MAP.map(r => r.map(m => NOMES.indexOf(m)).join('')), objetos, paredes, pisos: [...pisos], cantos }; }
+function deJson(j) {
+  if (!j || j.tamanho !== M || !Array.isArray(j.chao)) throw new Error('arquivo de mapa inválido');
+  const mats = j.materiais; for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { const m = mats[+j.chao[y][x]]; MAP[y][x] = MATS[m] ? m : 'grama_baixa'; }
+  objetos = (j.objetos || []).filter(o => OBJS[o.id] && o.x >= 0 && o.y >= 0 && o.x < M && o.y < M); objetos.forEach(o => { if (OBJS[o.id].deco && !o.f) { o.x += .5; o.y += .5; o.f = 1; } });
+  paredes = (j.paredes || []).filter(p => (p.a === 'x' || p.a === 'y') && p.c >= 0 && p.c <= M && p.n >= 0 && p.n < M && ['high', 'mid', 'door', 'low'].includes(p.k)); pisos = new Set(j.pisos || []); paredes.forEach(q => { if (q.r !== 'b' && q.r !== 'f') { const r = papelNovo(q.a, q.c, q.n); if (r) q.r = r; else delete q.r; } }); cantos = (j.cantos || []).filter(c => c && typeof c.p === 'string' && c.x >= 0 && c.y >= 0 && c.x <= M && c.y <= M); recalcParedes();
+  TERR.render();
+}
+const msg = t => { const e = document.getElementById('msg'); if (e) e.textContent = t; };
+function autosave() { if (typeof CASA_EDIT !== "undefined") CASA_EDIT.salvaCasa(); }
+function baixa() { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(paraJson())], { type: 'application/json' })); a.download = 'mapa.json'; a.click(); msg('mapa.json salvo na pasta Downloads'); }
+function abre(f) { const r = new FileReader(); r.onload = () => { try { deJson(JSON.parse(r.result)); autosave(); msg('mapa aberto'); } catch (e) { msg('erro: ' + e.message); } }; r.readAsText(f); }
+
+if (new URLSearchParams(location.search).has('demot')) {   // exemplo do terreno novo: ?demot&x=12&y=12
+  for (let cy = 4; cy < 20; cy++) for (let cx = 4; cx < 20; cx++) MAP[cy][cx] = 'grama_baixa';
+  for (let cx = 6; cx < 19; cx++) MAP[12][cx] = 'terra_nova';
+  for (let cy = 12; cy < 18; cy++) MAP[cy][14] = 'terra_nova';
+  for (let cy = 7; cy < 11; cy++) for (let cx = 8; cx < 12; cx++) MAP[cy][cx] = 'terra_nova';
+  MAP[16][8] = 'terra_nova'; MAP[15][18] = 'terra_nova'; MAP[15][17] = 'terra_nova';
+  TERR.render();
+}
+// ---------- jogo ----------
+const cv = document.getElementById('g'), ctx = cv.getContext('2d'), ui = document.getElementById('ui'); let K = 2, grade = false, ferr = { t: 'chao', id: 'terra_nova' }, editar = false, hsx = 0, hsy = 0, apertado = false;
+const resize = () => { cv.width = innerWidth; cv.height = innerHeight; ctx.imageSmoothingEnabled = false; }; addEventListener('resize', resize); resize();
+const VISIVEIS = ['grama_baixa', 'terra_nova'];
+let larg = 1, inicio = null, snap = null;   // pincel (1x1, 2x2, 3x3), inicio do traco e copia do mapa para a linha reta
+const atualizaUi = () => {
+  ui.innerHTML = 'WASD / setas: andar · Shift: liga/desliga correr · E: pegar · 1-8: usar item · roda: zoom';
+  const pn = document.getElementById('painel'); pn.style.display = editar ? '' : 'none'; if (!editar) return;
+  const bt = (t, id, img, nome) => '<button data-t="' + t + '" data-id="' + id + '" class="' + (ferr.t === t && ferr.id === id ? 'on' : '') + '"><img src="' + img + '">' + nome + '</button>';
+  pn.innerHTML = '<h4>Chão (teclas 1 e 2)</h4><div class="g">' + VISIVEIS.map(m => bt('chao', m, MATS[m].icone, MATS[m].nome || m)).join('') + '</div>' +
+    '<h4>' + 'Pincel · Shift + arrastar = linha reta' + '</h4><div class="g">' + [1, 2, 3].map(w => '<button data-w="' + w + '" class="' + (larg === w ? 'on' : '') + '">' + w + '×' + w + '</button>').join('') + '</div>' +
+    '<h4>Objetos</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => !o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + bt('apagar', 'x', 'terreno/terra_0_0.png', 'Apagar objeto') + '</div>' +
+    '<h4>Decorações</h4><div class="g">' + Object.entries(OBJS).filter(([id, o]) => o.deco).map(([id, o]) => bt('obj', id, o.src, o.nome)).join('') + '</div>' +
+    '<h4>Casa (paredes e piso)</h4><div class="g">' + bt('parede', 'high', CASA.prev('high'), 'Parede alta') + bt('parede', 'mid', (typeof PECAS !== 'undefined' && PECAS.x_M ? PECAS.x_M.src : CASA.prev('high')), 'Parede média') + bt('parede', 'door', CASA.prev('door'), 'Parede com porta') + bt('parede', 'low', CASA.prev('low'), 'Parede baixa') + bt('piso', 'piso', CASA.prev('piso'), 'Piso') + bt('apagap', 'x', 'terreno/terra_0_0.png', 'Tirar parede') + bt('tirapiso', 'x', 'terreno/terra_0_0.png', 'Tirar piso') + '</div>' +
+    '<h4>Cantos (escolha a peça e clique no vértice)</h4><div class="g">' + (typeof PECAS === 'undefined' ? [] : Object.keys(PECAS).filter(n => /^(LU|RD|RU|LD)_/.test(n))).map(n => bt('canto', n, PECAS[n].src, n.replace('_', ' '))).join('') + bt('tiracanto', 'x', 'terreno/terra_0_0.png', 'Tirar canto') + '</div>' +
+    '<div class="acoes"><button id="bSalvar">Salvar</button><button id="bAbrir">Abrir</button></div><input type="file" id="fArq" accept=".json" style="display:none"><div id="msg"></div>' +
+    '<div style="margin-top:6px;font-size:11px;color:#bbb">Clique ou arraste para pintar. Decorações vão exatamente onde você clica; arraste para espalhar sem sobrepor. Botão direito apaga o objeto, ou a decoração sob o cursor. Paredes: clique perto da aresta que quer (arraste para fazer uma fileira); os pilares aparecem sozinhos nas pontas e nos encontros. Piso e "Tirar piso" usam o pincel 1×1, 2×2, 3×3. Botão direito apaga a parede mais perto. O mapa também fica guardado sozinho neste navegador.</div>';
+  pn.querySelectorAll('[data-w]').forEach(b => b.onclick = () => { larg = +b.dataset.w; atualizaUi(); });
+  pn.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { ferr = { t: b.dataset.t, id: b.dataset.id }; atualizaUi(); });
+  document.getElementById('bSalvar').onclick = baixa; document.getElementById('bAbrir').onclick = () => document.getElementById('fArq').click(); document.getElementById('fArq').onchange = e => e.target.files[0] && abre(e.target.files[0]);
+}; atualizaUi();
+addEventListener('wheel', e => { K = Math.max(1, Math.min(4, K + (e.deltaY < 0 ? 1 : -1))); });
+const COL_BASE = .8;
+// colisão da árvore = a pegada dela no chão (tronco + raízes, medida do desenho em arvores_do_gemini.mjs). O pé do personagem (um pontinho achatado) não entra nela.
+// o sprite é desenhado com a ponta mais baixa das raízes no centro da célula (ponto de apoio cx,by); daí sai a posição do pé dentro do sprite
+// âncora do sprite na tela: árvores = ponta mais baixa das raízes no centro da célula (+4 px); decorações = meio da base da imagem no ponto onde foram postas
+function ancora(o) { const d = OBJS[o.id], sx = (o.x - o.y) * 64 + M * 64; return d.deco ? { sx, sy: (o.x + o.y) * 32, cx: d.im.naturalWidth / 2, by: d.im.naturalHeight - 1, e: ESCD } : { sx, sy: (o.x + o.y + 1) * 32 + 4, cx: d.cx, by: d.by, e: d.esc || 2 }; }
+function bateArv(o, wx, wy) { const d = OBJS[o.id]; if (d.deco && !d.pe) return false;
+  if (!d.pe) return Math.floor(wx) === o.x && Math.floor(wy) === o.y;   // árvores antigas: a célula inteira, como sempre foi
+  const A = ancora(o), fx = (wx - wy) * 64 + M * 64, fy = (wx + wy) * 32;
+  for (const [ax, ay] of [[0, 0], [-5, 0], [5, 0], [0, -2], [0, 2]]) { const px = A.cx + (fx + ax - A.sx) / A.e, py = Math.floor(A.by + (fy + ay - A.sy) / A.e), k = py - d.pe.y0; if (k >= 0 && k < d.pe.l.length && px >= d.pe.l[k] && px <= d.pe.r[k]) return true; }
+  return false; }
+let mostraCol = false;   // colisão da árvore = só o miolo da base do tronco (fração da largura medida); raízes e copa não bloqueiam
+const keys = {}; addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'KeyT') grade = !grade; if (e.code === 'KeyP') { let d = document.getElementById('posdbg'); if (d) { d.remove(); } else { d = document.createElement('div'); d.id = 'posdbg'; d.style.cssText = 'position:fixed;left:8px;bottom:8px;background:#000c;color:#ffd75e;font:14px monospace;padding:6px 10px;z-index:9;user-select:all'; document.body.appendChild(d); const at = () => { if (!d.isConnected) return; d.textContent = 'x=' + hx.toFixed(3) + ' y=' + hy.toFixed(3) + ' z=' + K + '  (P fecha)'; setTimeout(at, 150); }; at(); } } if (e.code === 'KeyC') mostraCol = !mostraCol; if ((e.code === 'ShiftLeft' || e.code === 'ShiftRight') && !e.repeat) CORRE_ON = !CORRE_ON; if (e.code === 'KeyE') interagir(); if ((e.code === 'Space' || e.code === 'Enter') && D.ativo) { e.preventDefault(); avanca(); } if (e.code === 'KeyR' && J.morto) novoJogo(); { const n = +e.key; if (n >= 1 && n <= SLOTS) { if (D.ativo) escolhe(n - 1); else usa(n - 1); } } }); addEventListener('keyup', e => keys[e.code] = false);
+function tratarCasa(e, fx, fy, cx, cy) {
+  const vx = Math.round(fx), vy = Math.round(fy), ic = cantos.findIndex(c => c.x === vx && c.y === vy), perto = Math.hypot(fx - vx, fy - vy) < .45;
+  if (e.button === 2 && ic >= 0 && perto) { cantos.splice(ic, 1); autosave(); return true; }
+  if (ferr.t === 'tiracanto') { if (ic >= 0) { cantos.splice(ic, 1); autosave(); } return true; }
+  if (ferr.t === 'canto') { if (vx < 0 || vy < 0 || vx > M || vy > M) return true; if (ic >= 0) cantos[ic].p = ferr.id; else cantos.push({ x: vx, y: vy, p: ferr.id }); autosave(); return true; }
+  const ar = arestaPerto(fx, fy), i = paredes.findIndex(p => p.a === ar.a && p.c === ar.c && p.n === ar.n);
+  if (e.button === 2) { if (i >= 0 && ar.d < .3) { paredes.splice(i, 1); recalcParedes(); autosave(); return true; } return false; }   // botão direito: apaga a parede mais perto; senão segue para os objetos
+  if (ferr.t === 'apagap') { if (i >= 0) { paredes.splice(i, 1); recalcParedes(); autosave(); } return true; }
+  if (ferr.t === 'parede') { if (ar.c < 0 || ar.c > M || ar.n < 0 || ar.n >= M) return true; if (i >= 0) { if (paredes[i].k === ferr.id) return true; paredes[i].k = ferr.id; } else { paredes.push({ a: ar.a, c: ar.c, n: ar.n, k: ferr.id }); } recalcParedes(); autosave(); return true; }
+  const o = Math.floor((larg - 1) / 2);   // piso / tirar piso com o pincel
+  for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) { const x = cx - o + k, y = cy - o + j; if (x < 0 || y < 0 || x >= M || y >= M) continue; if (ferr.t === 'piso') pisos.add(x + ',' + y); else pisos.delete(x + ',' + y); }
+  autosave(); return true;
+}
+function pintaMouse(e) {
+  if (!editar) return; const gx = (e.clientX - cv.width / 2) / K + hsx - M * 64, gy = (e.clientY - cv.height / 2) / K + hsy, cx = Math.floor((gx / 64 + gy / 32) / 2), cy = Math.floor((gy / 32 - gx / 64) / 2);
+  if (cx < 0 || cy < 0 || cx >= M || cy >= M) return; const i = objEm(cx, cy), fx = (gx / 64 + gy / 32) / 2, fy = (gy / 32 - gx / 64) / 2;
+  if (ferr.t === 'parede' || ferr.t === 'apagap' || ferr.t === 'piso' || ferr.t === 'tirapiso' || ferr.t === 'canto' || ferr.t === 'tiracanto' || e.button === 2) { if (tratarCasa(e, fx, fy, cx, cy)) return; }
+  if (e.button === 2 || ferr.t === 'apagar') { if (i >= 0) { objetos.splice(i, 1); autosave(); return; } let bj = -1, bz = -1e9; objetos.forEach((o, k) => { if (OBJS[o.id].deco && o.x + o.y > bz && opaco(o, gx, gy, 1)) { bz = o.x + o.y; bj = k; } }); if (bj >= 0) { objetos.splice(bj, 1); autosave(); } return; }
+  if (ferr.t === 'chao') {
+    const carimba = (x, y) => { const o = Math.floor((larg - 1) / 2); for (let j = 0; j < larg; j++) for (let k = 0; k < larg; k++) pinta(x - o + k, y - o + j, ferr.id); };
+    if (e.type === 'pointerdown') { inicio = [cx, cy]; snap = MAP.map(r => r.slice()); }
+    if (e.shiftKey && inicio) {   // linha reta ao longo do eixo da grade mais proximo da direcao do mouse
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) if (MAP[y][x] !== snap[y][x]) pinta(x, y, snap[y][x]);
+      const dx = cx - inicio[0], dy = cy - inicio[1], n = Math.max(Math.abs(dx), Math.abs(dy)), sx = Math.abs(dx) >= Math.abs(dy) ? Math.sign(dx) : 0, sy = sx ? 0 : Math.sign(dy);
+      for (let t = 0; t <= n; t++) carimba(inicio[0] + sx * t, inicio[1] + sy * t);
+    } else carimba(cx, cy);
+    autosave(); } else if (ferr.t === 'obj') { if (OBJS[ferr.id].deco) { if (e.type === 'pointerdown' || !sobrepoe(ferr.id, fx, fy)) { objetos.push({ x: Math.round(fx * 100) / 100, y: Math.round(fy * 100) / 100, id: ferr.id, f: 1 }); autosave(); } } else { if (i >= 0) objetos.splice(i, 1); objetos.push({ x: cx, y: cy, id: ferr.id }); autosave(); } }
+}
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => { apertado = true; pintaMouse(e); }); addEventListener('pointerup', () => { apertado = false; }); cv.addEventListener('pointermove', e => { if (apertado) pintaMouse(e); });
+// ---------- MUNDO: sobrevivência (fase 1) ----------
+// Bloco inserido em mundo.html por faz_mundo.mjs. Tudo daqui é novo; o resto do arquivo é o motor da cabana (chao.html).
+let CORRE_ON = false, CORRE_MOVEU = false;   // Shift liga/desliga a corrida (um toque)
+const SLOTS = 8, PILHA = 5, SAVE_KEY = 'mundo_mapa_v1';
+// ---- itens (ícones desenhados por código; o dono refina depois no editor) ----
+const PAL = { k: '#2a2433', w: '#f4efe6', b: '#5fb4ee', B: '#3a82c4', c: '#d9483a', s: '#c4cad2', S: '#8d95a1', R: '#c8473a', Y: '#f2c14e', g: '#4f9a3a', r: '#d63b36', o: '#d99a4e', O: '#a8692b', n: '#7a4a22', h: '#ffd9d6', p: '#e8788a' };
+const ITENS = {
+  chave: { nome: 'Chave de roda', vida: 0, texto: 'Pesada e engraxada. Boa de segurar quando a conversa azeda.', g: ['.kkkk.......', 'ksSSsk......', 'kSkkSkkkkkk.', 'ksSSsSssSSsk', '.kkkkkkkkkk.'] },
+  caixa: { nome: 'Caixa de peças', vida: 0, texto: 'A caixa lacrada do Tadeu. É para o Seu Valdir.', g: ['kkkkkkkkkk', 'koooooooOk', 'kooYYYYooOk', 'koooooooOk', 'kooooooooOk', 'kOOOOOOOOOk', 'kkkkkkkkkk'] },
+  analgesico: { nome: 'Analgésico', vida: 15, g: ['.kkkkkkkk.', 'kwwwwwwwwk', 'kwppwwppwk', 'kwppwwppwk', 'kwwwwwwwwk', 'kwppwwppwk', 'kwppwwppwk', 'kwwwwwwwwk', '.kkkkkkkk.'] },
+  bateria: { nome: 'Bateria usada', vida: 0, texto: 'Pesada, suja de graxa, ainda com um pouco de carga. É para o Tadeu recondicionar.', g: ['..kk..kk..', '..kRk.kSk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSkkSSkkSk', 'kSSSSSSSSk', 'kkkkkkkkkk'] },
+  curativo: { nome: 'Kit de curativo', vida: 30, g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwRRRRRRwk', 'kwRRRRRRwk', 'kwwwRRwwwk', 'kwwwRRwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] },
+};
+ITENS.modulo = { nome: 'Módulo fora de linha', vida: 0, texto: 'Uma placa eletrônica embrulhada em plástico bolha. É para o contato do Tadeu.', g: ['kkkkkkkkkk', 'kggggggggk', 'kgYggssggk', 'kggggggggk', 'kgssgYgggk', 'kggggggggk', 'kkkkkkkkkk'] };
+ITENS.envelope = { nome: 'Envelope do Tadeu', vida: 0, texto: 'O orçamento do freezer da Dona Neide, lacrado. Não é pra abrir.', g: ['kkkkkkkkkk', 'kwwwwwwwwk', 'kwkwwwwkwk', 'kwwkwwkwwk', 'kwwwkkwwwk', 'kwwwwwwwwk', 'kkkkkkkkkk'] };
+// peças da carcaça do Zeca (a versão danificada é a mesma, enferrujada)
+const PECAS_G = {
+  alt: ['..kkkkkk..', '.kSSSSSSk.', 'kSSkkkkSSk', 'kSkRRRRkSk', 'kSkRSSRkSk', 'kSkRRRRkSk', 'kSSkkkkSSk', '.kSSSSSSk.', '..kkkkkk..'],
+  part: ['......kk..', '......kRk.', 'kkkkkkkkkk', 'kSSSSSSSSk', 'kSOOOOOOSk', 'kSSSSSSSSk', 'kkkkkkkkkk'],
+  bomba: ['.k.kkkk.k.', 'kkkSSSSkkk', '.kSSkkSSk.', 'kSSkRRkSSk', 'kSSkRRkSSk', '.kSSkkSSk.', 'kkkSSSSkkk', '.k.kkkk.k.'] };
+for (const [id, nome] of [['alt', 'Alternador'], ['part', 'Motor de partida'], ['bomba', 'Bomba d\'água']]) {
+  ITENS['peca_' + id] = { nome, vida: 0, texto: 'Peça tirada da carcaça do Zeca. O Tadeu compra.', g: PECAS_G[id] };
+  ITENS['peca_' + id + '_d'] = { nome: nome + ' (danificado)', vida: 0, texto: 'Saiu amassada. Vale metade, mas o Tadeu ainda compra.', g: PECAS_G[id].map(l => l.replace(/S/g, 'O').replace(/R/g, 'n')) };
+}
+const ICONE = {};
+function icone(t) {
+  if (ICONE[t]) return ICONE[t]; const g = ITENS[t].g, w = Math.max(...g.map(l => l.length)), c = document.createElement('canvas'); c.width = w; c.height = g.length; const x = c.getContext('2d');
+  g.forEach((l, j) => { for (let i = 0; i < l.length; i++) { const k = l[i]; if (k !== '.' && PAL[k]) { x.fillStyle = PAL[k]; x.fillRect(i + Math.floor((w - l.length) / 2), j, 1, 1); } } });
+  c.url = c.toDataURL(); return ICONE[t] = c;
+}
+// ---- estado do jogador ----
+const T_INICIO = 4 * 60 + 30;   // terça-feira, 04h30 (minutos desde terça 00h)
+const J = { vida: 100, grana: 0, divida: 480, t: T_INICIO, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} };
+let SPAWN = { x: 11.5, y: 21.5 }, ITENS_MUNDO = [];
+// ---- bairro gerado por código ----
+function rng(s) { return () => { s |= 0; s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function geraBairro() {
+  const rnd = rng(20261119), longe = Array.from({ length: M }, () => Array(M).fill(true)), livre = Array.from({ length: M }, () => Array(M).fill(true)), pw = new Map(), pegaCel = [];
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) MAP[y][x] = 'grama_baixa';
+  objetos = []; paredes = []; pisos = new Set(); ITENS_MUNDO = [];
+  const terra = (x, y) => { if (x >= 0 && y >= 0 && x < M && y < M) { MAP[y][x] = 'terra_nova'; livre[y][x] = false; } };
+  const reta = (x0, y0, x1, y1) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) terra(x, y); };
+  reta(15, 0, 16, M - 1); reta(0, 15, M - 1, 16);   // as duas ruas (2 de largura) cruzando o mapa
+  const par = (a, c, n, k) => pw.set(a + '|' + c + '|' + n, { a, c, n, k });
+  const casa = (x0, y0, w, h, lado, n, cam) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { pisos.add(x + ',' + y); pegaCel.push([x, y, x0 + '_' + y0]); }
+    for (let y = y0 - 3; y <= y0 + h + 2; y++) for (let x = x0 - 3; x <= x0 + w + 2; x++) if (x >= 0 && y >= 0 && x < M && y < M) { longe[y][x] = false; if (x >= x0 - 1 && x <= x0 + w && y >= y0 - 1 && y <= y0 + h) livre[y][x] = false; }
+    for (let i = 0; i < w; i++) { par('x', y0, x0 + i, 'high'); par('x', y0 + h, x0 + i, 'high'); }
+    for (let j = 0; j < h; j++) { par('y', x0, y0 + j, 'high'); par('y', x0 + w, y0 + j, 'high'); }
+    if (lado === 'N') par('x', y0, n, 'door'); else if (lado === 'S') par('x', y0 + h, n, 'door'); else if (lado === 'W') par('y', x0, n, 'door'); else par('y', x0 + w, n, 'door');
+    if (cam) reta(...cam);
+  };
+  casa(3, 9, 5, 4, 'S', 5, [5, 13, 5, 14]);
+  casa(9, 3, 4, 4, 'E', 5, [13, 5, 14, 5]);
+  casa(19, 9, 5, 4, 'S', 21, [21, 13, 21, 14]); par('y', 21, 9, 'high'); par('y', 21, 10, 'door'); par('y', 21, 11, 'high'); par('y', 21, 12, 'high');   // divisória interna com porta
+  casa(19, 3, 4, 4, 'W', 5, [17, 5, 18, 5]);
+  casa(9, 18, 4, 5, 'E', 19, [13, 19, 14, 19]);   // a CASA DO JOGADOR: a casa de teste do dono (4x5 com quartinho 2x2)
+  par('x', 20, 9, 'high'); par('x', 20, 10, 'high'); par('y', 11, 18, 'door'); par('y', 11, 19, 'high');
+  casa(3, 24, 5, 4, 'E', 26, [8, 26, 14, 26]);
+  casa(19, 19, 4, 4, 'W', 21, [17, 21, 18, 21]);
+  casa(19, 25, 5, 4, 'W', 27, [17, 27, 18, 27]);
+  paredes = [...pw.values()]; recalcParedes();
+  // árvores, arbustos e enfeites do chão
+  const arv = [], pesos = []; for (const k of Object.keys(OBJS)) { if (OBJS[k].deco) continue; if (/^(arvore\d|n_arvore_)/.test(k)) { arv.push(k); pesos.push(3); } else if (/^n_(arbusto|samambaia|toco)/.test(k)) { arv.push(k); pesos.push(1); } }
+  const soma = pesos.reduce((a, b) => a + b, 0), sorteia = () => { let r = rnd() * soma; for (let i = 0; i < arv.length; i++) { r -= pesos[i]; if (r <= 0) return arv[i]; } return arv[0]; };
+  const enf = ['d_grama_alta_1', 'd_grama_alta_2', 'd_grama_media_1', 'd_grama_media_2', 'd_flor_margarida', 'd_flor_amarela', 'd_pedra_pequena', 'd_folha_1', 'd_trevo'].filter(k => OBJS[k]);
+  const arvOcup = new Set();
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { if (!livre[y][x] || !longe[y][x] || MAP[y][x] !== 'grama_baixa') continue; const borda = x < 2 || y < 2 || x >= M - 2 || y >= M - 2; if (rnd() < (borda ? .5 : .045) && !(Math.abs(x - SPAWN.x) < 2 && Math.abs(y - SPAWN.y) < 2)) { objetos.push({ x, y, id: sorteia() }); arvOcup.add(x + ',' + y); } }
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { if (!livre[y][x] || arvOcup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; if (rnd() < .22 && enf.length) objetos.push({ x: Math.round((x + .15 + rnd() * .7) * 100) / 100, y: Math.round((y + .15 + rnd() * .7) * 100) / 100, id: enf[Math.floor(rnd() * enf.length)], f: 1 }); }
+  // itens: dentro das casas (mais comida/água) e espalhados pela grama (mais maçã)
+  let nid = 0; const poe = (t, x, y) => ITENS_MUNDO.push({ id: nid++, t, x, y });
+  poe('curativo', 12.5, 20.5);   // um curativo na casa do jogador
+  const dentro = ['curativo'];
+  const porCasa = {}; for (const c of pegaCel) (porCasa[c[2]] = porCasa[c[2]] || []).push(c);
+  for (const [k, cs] of Object.entries(porCasa)) { const n = k === '9_18' ? 0 : 1, usados = new Set(); for (let i = 0; i < n; i++) { const c = cs[Math.floor(rnd() * cs.length)]; if (usados.has(c[0] + ',' + c[1])) continue; usados.add(c[0] + ',' + c[1]); poe(dentro[Math.floor(rnd() * dentro.length)], c[0] + .3 + rnd() * .4, c[1] + .3 + rnd() * .4); } }
+  const fora = ['curativo']; let t = 0;
+  while (t < 4) { const x = Math.floor(rnd() * M), y = Math.floor(rnd() * M); if (!livre[y][x] || arvOcup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; poe(fora[Math.floor(rnd() * fora.length)], x + .3 + rnd() * .4, y + .3 + rnd() * .4); t++; }
+  TERR.render();
+}
+// ---- jogo ----
+const el = id => document.getElementById(id);
+function aviso(t) { const a = el('aviso'); a.textContent = t; a.style.opacity = 1; clearTimeout(aviso.t); aviso.t = setTimeout(() => a.style.opacity = 0, 2200); }
+function salva() { try { localStorage.setItem(SAVE_KEY, JSON.stringify({ vida: J.vida, grana: J.grana, divida: J.divida, t: J.t, inv: J.inv, pegos: J.pegos, q: J.q, f: J.f, hx, hy, morto: J.morto })); } catch (e) { } }
+function carrega() { try { const s = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!s) return; Object.assign(J, { vida: s.vida, grana: s.grana || 0, divida: typeof s.divida === 'number' ? s.divida : 480, t: typeof s.t === 'number' ? s.t : T_INICIO, inv: s.inv || [], pegos: s.pegos || {}, q: s.q || 'inicio', f: s.f || {}, morto: !!s.morto }); if (typeof s.hx === 'number') { hx = s.hx; hy = s.hy; } } catch (e) { } }
+function novoJogo() { if (typeof LUTA !== 'undefined') { LUTA.limpa(); CARROT.reinicia(); PERS.revive(P); P.combT0 = 0; } try { localStorage.removeItem(SAVE_KEY); } catch (e) { } Object.assign(J, { vida: 100, grana: 0, divida: 480, t: T_INICIO, inv: [], pegos: {}, morto: false, q: 'inicio', f: {} }); hx = SPAWN.x; hy = SPAWN.y; salva(); desenhaHud(true); iniciaCena(); }
+function itemPerto() { let b = null, bd = .9; for (const it of ITENS_MUNDO) { if (J.pegos[it.id]) continue; const d = Math.hypot(hx - it.x, hy - it.y); if (d < bd) { bd = d; b = it; } } return b; }
+function pegar() {
+  if (J.morto) return; const it = itemPerto(); if (!it) return;
+  let s = J.inv.find(q => q.t === it.t && q.n < PILHA); if (!s) { if (J.inv.length >= SLOTS) { aviso('Mochila cheia'); return; } s = { t: it.t, n: 0 }; J.inv.push(s); }
+  s.n++; J.pegos[it.id] = 1; aviso('Pegou: ' + ITENS[it.t].nome); salva(); desenhaHud(true);
+}
+function usa(i) {
+  if (J.morto) return; const s = J.inv[i]; if (!s) return; const d = ITENS[s.t]; if (d.texto) { aviso(d.texto); return; }
+  if (d.vida && J.vida >= 100) { aviso('Você já está com a vida cheia'); return; }
+  J.vida = Math.min(100, J.vida + d.vida);
+  if (--s.n <= 0) J.inv.splice(i, 1); aviso('Usou: ' + d.nome); salva(); desenhaHud(true);
+}
+let hudSig = '';
+function desenhaHud(forca) {
+  const f = Math.round, p = itemPerto(), ia = !p && typeof interPerto === 'function' ? interPerto() : null, rot = typeof CARROT !== 'undefined' && CARROT.ocupado() ? CARROT.rotulo() : p ? 'Pegar ' + ITENS[p.t].nome : ia ? ia.rot : typeof CARROT !== 'undefined' ? CARROT.rotulo() : '', obj = typeof objetivo === 'function' ? objetivo() : '';
+  const hrs = typeof horaTxt === 'function' ? horaTxt() : '', sig = [f(J.vida), J.grana, J.divida, hrs, J.morto, JSON.stringify(J.inv), rot, obj, !!J.f.aviso, typeof D !== 'undefined' && D.ativo].join('|'); if (!forca && sig === hudSig) return; hudSig = sig;
+  el('b_vida').style.width = Math.max(0, J.vida) + '%'; el('t_vida').textContent = f(J.vida); el('r_vida').className = 'barra' + (J.vida < 25 ? ' baixo' : '');
+  el('grana').textContent = 'R$ ' + J.grana + (J.f.aviso ? '  ·  dívida R$ ' + J.divida : ''); el('hora').textContent = hrs; el('obj').textContent = obj;
+  el('inv').innerHTML = Array.from({ length: SLOTS }, (_, i) => { const s = J.inv[i]; return '<div class="slot' + (s ? ' cheio' : '') + '" data-i="' + i + '"><span class="n">' + (i + 1) + '</span>' + (s ? '<img src="' + icone(s.t).url + '" style="width:' + icone(s.t).width * 3 + 'px"><span class="q">' + (s.n > 1 ? s.n : '') + '</span>' : '') + '</div>'; }).join('');
+  el('inv').querySelectorAll('.slot').forEach(e => e.onclick = () => usa(+e.dataset.i));
+  const dlgAberto = typeof D !== 'undefined' && D.ativo; el('dica').style.display = rot && !J.morto && !dlgAberto ? '' : 'none'; el('dica').textContent = 'E · ' + rot;
+  el('morte').style.display = J.morto ? '' : 'none';
+}
+let tSave = 0;
+function jogoTick(dt) {
+  if (J.morto || (typeof D !== 'undefined' && D.ativo)) { for (const k of ['KeyD', 'KeyA', 'KeyW', 'KeyS', 'ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown']) keys[k] = false; }
+  if (J.morto) { desenhaHud(); return; }
+  if (J.vida < 100) J.vida = Math.min(100, J.vida + dt * .3);
+  if (typeof cenaTick === 'function') cenaTick(dt);
+  desenhaHud(); tSave += dt; if (tSave > 2) { tSave = 0; salva(); }
+}
+function desenhaItem(it, now) {
+  const sx = (it.x - it.y) * 64 + M * 64, sy = (it.x + it.y) * 32, ic = icone(it.t), bob = Math.sin(now / 400 + it.id) * 1.5, perto = Math.hypot(hx - it.x, hy - it.y) < .9;
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(sx, sy, 9, 4.5, 0, 0, 7); ctx.fill();
+  if (perto) { ctx.fillStyle = 'rgba(255,230,120,.28)'; ctx.beginPath(); ctx.ellipse(sx, sy, 15, 7.5, 0, 0, 7); ctx.fill(); }
+  ctx.drawImage(ic, Math.round(sx - ic.width), Math.round(sy - ic.height * 2 - 3 + bob), ic.width * 2, ic.height * 2);
+}
+
+// ---------- Pátio da zona industrial: corre noturno de furtividade + bicos pontuais ----------
+// Inserido entre mundo_bloco.js e mundo_cena.js. O pátio fica ao sul, a oeste da rua lateral (células x 3..16, y 24..30).
+// Entradas: portão a leste (x=17, y 28..29) e uma fresta no muro do norte (x 4..5), por um corredor estreito entre a casa e o muro (os "dutos").
+const WP = [[15.4, 25.8], [8.4, 25.8], [8.4, 30.2], [15.4, 30.2]];   // ronda do vigia em volta do bloco de paletes
+const PAT_DIRS = [[-1, 0.05], [1, 0.15], [0.05, -1], [1, 0.15]];     // olhar da patota: oeste, leste, norte, leste
+const Z = { v: { x: 15.4, y: 25.8, i: 1, fx: -1, fy: 0, pausa: 0, inv: null, mov: false }, p: { x: 6.8, y: 27.8, fx: -1, fy: 0.05, t: 0, k: 0 }, det: 0, latas: [] };
+const missaoZ = () => J.f.z === 'ir' || J.f.z === 'volta';
+const dirTela = (vx, vy) => { const sx = vx - vy, sy = vx + vy, a = Math.abs(sx), b = Math.abs(sy); return [a < .4 * b ? 0 : Math.sign(sx), b < .4 * a ? 0 : Math.sign(sy)]; };
+function viraNpc(id, vx, vy) { const [dx, dy] = dirTela(vx, vy); NPCP[id].dir = dy < 0 ? (dx < 0 ? 'NW' : dx > 0 ? 'NE' : 'N') : dy > 0 ? (dx < 0 ? 'SW' : dx > 0 ? 'SE' : 'S') : dx < 0 ? 'W' : 'E'; }
+const bloqVisao = (x, y) => rectsP.some(([a, b, c, d]) => x > a && x < c && y > b && y < d) || MOVEIS.some(m => m.cobre && x > m.x && x < m.x + m.w && y > m.y && y < m.y + m.d);
+function semObstaculo(x0, y0, x1, y1) { const d = Math.hypot(x1 - x0, y1 - y0), n = Math.ceil(d / .07); for (let i = 1; i < n; i++) { const t = i / n; if (bloqVisao(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t)) return false; } return true; }
+const vigias = () => [{ x: Z.v.x, y: Z.v.y, fx: Z.v.fx, fy: Z.v.fy, range: 4.2 + (J.f.visto ? 1 : 0), half: 36 }, { x: Z.p.x, y: Z.p.y, fx: Z.p.fx, fy: Z.p.fy, range: 3.8 + (J.f.visto ? 1 : 0), half: 42 }];
+function enxerga(w) {
+  const dx = hx - w.x, dy = hy - w.y, d = Math.hypot(dx, dy); if (d > w.range) return false;
+  const perto = d < 1.0;
+  if (!perto) { const c = (dx * w.fx + dy * w.fy) / (d * Math.hypot(w.fx, w.fy)); if (c < Math.cos(w.half * Math.PI / 180)) return false; }
+  return semObstaculo(w.x, w.y, hx, hy);
+}
+function irParaVia(v, tx, ty, sp, dt) { const dx = tx - v.x, dy = ty - v.y, d = Math.hypot(dx, dy); if (d < .001) return d; const s = Math.min(d, sp * dt); v.x += dx / d * s; v.y += dy / d * s; v.fx = dx / d; v.fy = dy / d; v.mov = true; return d - s; }
+function investiga(x, y, t) {
+  const v = Z.v; let via = 0, bd = 1e9; WP.forEach((p, k) => { const d = Math.hypot(p[0] - x, p[1] - y); if (d < bd) { bd = d; via = k; } });
+  v.inv = { x, y, t, via }; v.pausa = 0;
+}
+function patioTick(dt) {
+  const v = Z.v, p = Z.p, f = J.f;
+  // vigia
+  v.mov = false;
+  if (v.inv) {
+    if (v.inv.via != null) { const [tx, ty] = WP[v.inv.via]; if (irParaVia(v, tx, ty, 2.1, dt) < .1) { v.i = (v.inv.via + 1) % 4; v.inv.via = null; } }
+    else if (irParaVia(v, v.inv.x, v.inv.y, 2.1, dt) < .15) { v.mov = false; v.inv.t -= dt; if (v.inv.t <= 0) { let b = 0, bd = 1e9; WP.forEach((q, k) => { const d = Math.hypot(q[0] - v.x, q[1] - v.y); if (d < bd) { bd = d; b = k; } }); v.inv = null; v.i = b; v.pausa = .6; } }
+  } else if (v.pausa > 0) v.pausa -= dt;
+  else { const [tx, ty] = WP[v.i]; if (irParaVia(v, tx, ty, 1.15, dt) < .05) { v.i = (v.i + 1) % 4; v.pausa = .9; } }
+  // patota: troca a direção do olhar a cada 2,8 s
+  p.t += dt; if (p.t >= 2.8) { p.t = 0; p.k = (p.k + 1) % PAT_DIRS.length; [p.fx, p.fy] = PAT_DIRS[p.k]; }
+  if (!missaoZ() || J.morto) { Z.det = 0; return; }
+  // latas: pisar chama o vigia
+  for (const l of Z.latas) { l.cd = Math.max(0, (l.cd || 0) - dt); if (!l.cd && Math.hypot(hx - l.x, hy - l.y) < .5) { l.cd = 6; f.ruido = 1; investiga(l.x, l.y, 6); aviso('Uma lata rola e faz barulho.'); } }
+  // visão
+  if (vigias().some(enxerga)) { Z.det += dt; if (Z.det >= .55) detectado(); } else Z.det = Math.max(0, Z.det - dt * .8);
+}
+function detectado() {
+  Z.det = 0; Z.v.inv = null; Z.v.pausa = 1; J.f.visto = 1; J.vida = Math.max(5, J.vida - 20);
+  dlgSeq([['Vigia', 'Ei! Você aí! Parado!'], ['', 'O vigia te agarra pelo colarinho e te joga pra fora do portão. Você cai de mau jeito. A cara ficou marcada naquele setor.']], () => { hx = 17.7; hy = 28.6; desenhaHud(true); });
+}
+// ---- desenho: o cone de visão no chão (barrado por parede e carga) ----
+function patioDesenha(now) {
+  if (!missaoZ()) return [];
+  return [{ d: -2, f: () => {
+    for (const w of vigias()) {
+      const ang = Math.atan2(w.fy, w.fx), H = w.half * Math.PI / 180, pts = [[w.x, w.y]];
+      for (let k = 0; k <= 14; k++) { const a = ang - H + 2 * H * k / 14; let r = .2; while (r < w.range && !bloqVisao(w.x + Math.cos(a) * r, w.y + Math.sin(a) * r)) r += .15; pts.push([w.x + Math.cos(a) * r, w.y + Math.sin(a) * r]); }
+      ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(sxm(x, y), sym(x, y)) : ctx.moveTo(sxm(x, y), sym(x, y))); ctx.closePath();
+      ctx.fillStyle = Z.det > 0 ? 'rgba(255,70,50,.40)' : 'rgba(255,225,110,.30)'; ctx.fill();
+    }
+  } }];
+}
+// ---- terreno e paredes ----
+function patioMapa(par, reta, reserva) {
+  reta(3, 24, 16, 30);   // chão de terra batida do pátio
+  reta(4, 23, 17, 23);   // corredor entre a casa e o muro (os dutos)
+  for (let n = 3; n <= 16; n++) { if (n !== 4) par('x', 24, n, 'mid'); par('x', 31, n, 'mid'); }
+  for (let n = 24; n <= 30; n++) { par('y', 3, n, 'mid'); if (n !== 28) par('y', 17, n, 'mid'); }
+  reserva(3, 23, 16, 30);
+}
+// ---- móveis, luzes, latas, NPCs e achados ----
+function patioMoveis(movel, liga) {
+  Z.latas = [{ x: 12.2, y: 30.3 }, { x: 6.2, y: 25.4 }, { x: 15.2, y: 29.0 }];
+  const caixaDet = (g, pr, o) => { lin(g, '#58402a', pr(.1, .1, o.zt), pr(.7, .1, o.zt)); };
+  const palete = (x, y, w, d, h) => movel({ x, y, w, d, cobre: true, partes: [{ w, d, h, cores: COR.caixa, det: caixaDet }] });
+  movel({ x: 10.6, y: 27.3, w: 3.0, d: 1.7, cobre: true, partes: [{ w: 3.0, d: 1.7, h: 34, cores: COR.caixa, det: caixaDet }, { dx: .3, dy: .2, w: 1.5, d: 1.2, h: 22, z0: 34, cores: ['#b8905a', '#9a7348', '#7c5b38'] }] });
+  palete(14.6, 27.0, .8, .8, 26); palete(5.3, 26.1, .7, .7, 22); palete(9.0, 28.0, .6, .6, 20); palete(15.0, 30.0, .6, .6, 24);
+  const tonel = movel({ x: 4.2, y: 30.0, w: .55, d: .55, cobre: true, partes: [{ w: .55, d: .55, h: 28, cores: ['#7a3b32', '#5e2c25', '#47211c'] }] });
+  const prat = movel({ x: 3.2, y: 28.0, w: .8, d: 1.5, cobre: true, partes: [{ w: .8, d: 1.5, h: 46, cores: COR.ferro, det: (g, pr, o) => { ret(g, '#6fa3c4', ...pr(.2, .5, o.zt - 10), 4, 3); } }] });
+  liga(prat, 4.6, 28.8, 1.5, 'Pegar o módulo da prateleira', () => {
+    const f = J.f, h = (J.t / 60) % 24;
+    if (!daItem('modulo')) return; f.z = 'volta'; desenhaHud(true);
+    dlgSeq([['', 'Entre uma caixa e outra, preso numa prateleira de ferro: o módulo fora de linha, embrulhado em plástico bolha. Você guarda sem fazer barulho.'], ['', 'Agora é voltar até o Tadeu sem ninguém ver.']]);
+  }, () => J.f.z === 'ir');
+  const pilha = movel({ x: 15.6, y: 24.5, w: .6, d: .6, bloq: false, partes: [{ w: .6, d: .6, h: 14, cores: ['#9a9aa2', '#7b7b83', '#5c5c63'] }] });
+  liga(pilha, 15.9, 25.2, 1.4, 'Chutar a pilha de latas', () => {
+    J.f.distrator = 1; investiga(7.4, 25.3, 9);
+    dlgSeq([['', 'Você chuta a pilha. As latas desabam do outro lado do pátio com um estrondo. O vigia vira a cabeça e vai conferir.']]);
+  }, () => J.f.z === 'ir');
+  for (const l of Z.latas) movel({ x: l.x - .12, y: l.y - .12, w: .24, d: .24, bloq: false, partes: [{ w: .24, d: .24, h: 6, cores: ['#aab0b8', '#868b93', '#6a6e75'] }] });
+  LUZES.push({ x: 16.3, y: 27.2, z: 80, r: 200 }, { x: 6.5, y: 26.6, z: 80, r: 200 }, { x: 11.7, y: 30.7, z: 80, r: 190 });
+  // vigia e patota
+  const vig = { get x() { return Z.v.x - .25; }, get y() { return Z.v.y - .25; }, w: .5, d: .5, bloq: false, npc: true, desenha: now => { viraNpc('vigia', Z.v.fx, Z.v.fy); const [mx, my] = Z.v.mov ? dirTela(Z.v.fx, Z.v.fy) : [0, 0]; desenhaNpc('vigia', Z.v.x, Z.v.y, [hexRgb('#c9c3a0'), hexRgb('#5c5a44'), hexRgb('#968f6e')], now, mx, my); } }; MOVEIS.push(vig);
+  const pat = { x: Z.p.x - .25, y: Z.p.y - .25, w: .5, d: .5, bloq: true, npc: true, desenha: now => { viraNpc('patota', Z.p.fx, Z.p.fy); desenhaNpc('patota', Z.p.x, Z.p.y, [hexRgb('#6a6f78'), hexRgb('#2c2f35'), hexRgb('#4b4f57')], now); } }; MOVEIS.push(pat);
+  // achados na rua (cada um só uma vez)
+  const achado = (id, x, y, valor, rot, txt) => { const m = movel({ x, y, w: .18, d: .18, bloq: false, partes: [{ w: .18, d: .18, h: 2, cores: ['#f2d36b', '#c9a43a', '#9a7a22'] }], ativo: () => !J.f['ach_' + id] }); liga(m, x + .1, y + .1, 1.2, rot, () => { J.f['ach_' + id] = 1; J.grana += valor; desenhaHud(true); aviso('+ R$ ' + valor); dlgSeq([['', txt]]); }, () => !J.f['ach_' + id]); };
+  achado('a1', 19.2, 20.6, 6, 'Pegar o que brilha na sarjeta', 'Seis reais em moedas, grudadas de lama na beira da sarjeta. Alguém deixou cair e nem voltou.');
+  achado('a2', 14.7, 9.0, 10, 'Pegar a cédula dobrada', 'Uma cédula dobrada em quatro, presa atrás do poste. R$ 10. Dinheiro de alguém, mas já virou da rua.');
+  achado('a3', 8.4, 28.4, 8, 'Pegar os trocados no chão', 'Trocados espalhados na terra do pátio, entre palete e palete. R$ 8. Nem o vigia se deu ao trabalho de pegar.');
+}
+
+// ---------- CENA 01: o quarto nos fundos da oficina (RPG urbano, pé no chão) ----------
+// Inserido em mundo.html por faz_mundo.mjs, depois de mundo_bloco.js. Móveis e personagens são caixas isométricas pintadas por código (arte provisória; o dono desenha as de verdade depois).
+// Coordenadas: mundo em células (x ↘, y ↙). Quarto = x 5..8, y 10..13 · oficina = x 8..16, y 10..16 · portão no lado leste (x=16, y 13..14) · rua lateral = x 18..20.
+let MOVEIS = [], INTER = [], LUZES = [];
+let D = { ativo: false };
+const sxm = (x, y) => (x - y) * 64 + M * 64, sym = (x, y) => (x + y) * 32;
+const hash2 = (a, b) => { let h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >>> 13)) * 1274126177 | 0; return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+const hexRgb = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+// ---- caixa isométrica em pixels (sem serrilhado): topo, face de frente-esquerda (+y) e frente-direita (+x), contorno escuro e um grão leve ----
+function caixaCanvas(w, d, h, z0, cores, det) {
+  const zt = z0 + h, W = Math.ceil((w + d) * 64) + 3, H = Math.ceil((w + d) * 32 + zt) + 4, ox = Math.ceil(d * 64) + 1, oy = zt + 1;
+  const pr = (a, b, z) => [Math.round(ox + (a - b) * 64), Math.round(oy + (a + b) * 32 - z)];
+  const quad = pts => (x, y) => { let pos = 0, neg = 0; for (let i = 0; i < 4; i++) { const [x1, y1] = pts[i], [x2, y2] = pts[(i + 1) % 4], c = (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1); if (c > 0) pos++; else if (c < 0) neg++; } return !(pos && neg); };
+  const faces = [quad([pr(0, 0, zt), pr(w, 0, zt), pr(w, d, zt), pr(0, d, zt)]), quad([pr(0, d, zt), pr(w, d, zt), pr(w, d, z0), pr(0, d, z0)]), quad([pr(w, 0, zt), pr(w, d, zt), pr(w, d, z0), pr(w, 0, z0)])];
+  const mapa = new Uint8Array(W * H); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (let k = 0; k < 3; k++) if (faces[k](x + .5, y + .5)) { mapa[y * W + x] = k + 1; break; }
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'), im = g.createImageData(W, H), rgb = cores.map(hexRgb);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const f = mapa[y * W + x]; if (!f) continue; const borda = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => !mapa[(y + b) * W + x + a]); const m = borda ? .45 : 1 + (hash2(x, y) - .5) * .12, o = (y * W + x) * 4, col = rgb[f - 1]; im.data[o] = col[0] * m; im.data[o + 1] = col[1] * m; im.data[o + 2] = col[2] * m; im.data[o + 3] = 255; }
+  g.putImageData(im, 0, 0); if (det) det(g, pr, { w, d, h, z0, zt });
+  return { c, ox, oy };
+}
+const ret = (g, cor, x, y, w = 1, h = 1) => { g.fillStyle = cor; g.fillRect(Math.round(x), Math.round(y), w, h); };
+const lin = (g, cor, p, q) => { const n = Math.max(Math.abs(q[0] - p[0]), Math.abs(q[1] - p[1])) || 1; for (let i = 0; i <= n; i++) ret(g, cor, p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n); };
+// móvel = vários blocos desenhados na ordem dada, tudo com uma só profundidade; x,y = canto de trás; w,d = área que bloqueia
+function movel(def) { const m = Object.assign({ bloq: true, partes: [] }, def); MOVEIS.push(m); return m; }
+function desenhaMovel(m) { for (const p of m.partes) { p.cv = p.cv || caixaCanvas(p.w, p.d, p.h, p.z0 || 0, p.cores, p.det); const X = sxm(m.x + (p.dx || 0), m.y + (p.dy || 0)), Y = sym(m.x + (p.dx || 0), m.y + (p.dy || 0)); ctx.drawImage(p.cv.c, Math.round(X - p.cv.ox), Math.round(Y - p.cv.oy)); } }
+const dMovel = m => { const base = m.x + m.y + (m.w + m.d) / 2; if (hx > m.x - 1.3 && hx < m.x + m.w + 1.3 && hy > m.y - 1.3 && hy < m.y + m.d + 1.3) return (hx >= m.x + m.w || hy >= m.y + m.d) ? hx + hy - .01 : hx + hy + .01; return base; };
+const bateMovel = (x, y) => MOVEIS.some(m => m.bloq && (!m.ativo || m.ativo()) && x + RP > m.x && x - RP < m.x + m.w && y + RP > m.y && y - RP < m.y + m.d);
+// ---- personagens (o mesmo boneco do jogador, com a camiseta pintada de outra cor) ----
+const NPCCV = document.createElement('canvas'); NPCCV.width = 200; NPCCV.height = 200; const NPCG = NPCCV.getContext('2d', { willReadFrequently: true });
+const CAMISA = [hexRgb('#9c9873'), hexRgb('#4b4936'), hexRgb('#8c7d67')];   // camiseta do boneco (miolo, contorno, sombra): trocadas por outra cor em cada personagem
+const NPCP = { zeca: PERS.create('SE'), neide: PERS.create('SW'), osmar: PERS.create('SE'), valdir: PERS.create('SW'), tadeu: PERS.create('SW'), g1: PERS.create('SE'), g2: PERS.create('S'), vigia: PERS.create('W'), patota: PERS.create('W') };
+function desenhaNpc(id, x, y, cor, now, mx = 0, my = 0) {
+  NPCG.clearRect(0, 0, 200, 200); NPCG.save(); NPCG.translate(100, 170); PERS.step(NPCP[id], mx, my, false, now); PERS.draw(NPCG, NPCP[id], 0, 0); NPCG.restore();
+  const im = NPCG.getImageData(0, 0, 200, 200), p = im.data; for (let i = 0; i < p.length; i += 4) { if (!p[i + 3]) continue; for (let k = 0; k < 3; k++) { const o = CAMISA[k]; if (Math.abs(p[i] - o[0]) < 3 && Math.abs(p[i + 1] - o[1]) < 3 && Math.abs(p[i + 2] - o[2]) < 3) { p[i] = cor[k][0]; p[i + 1] = cor[k][1]; p[i + 2] = cor[k][2]; break; } } }
+  NPCG.putImageData(im, 0, 0); ctx.drawImage(NPCCV, Math.round(sxm(x, y) - 100), Math.round(sym(x, y) - 170));
+}
+// ---- diálogo ----
+function dlg(quem, txt, ops, fim) { D = { ativo: true, quem, txt, ops: ops || null, fim, n: 0 }; el('dlg').style.display = ''; el('dq').textContent = quem || ''; el('dq').style.display = quem ? '' : 'none'; el('dt').textContent = ''; el('dt').className = quem ? '' : 'narra'; el('dops').innerHTML = ''; el('dc').style.display = 'none'; desenhaHud(true); }
+function fecha() { D = { ativo: false }; el('dlg').style.display = 'none'; desenhaHud(true); salva(); }
+function dlgSeq(linhas, fim) { let i = 0; const passo = () => { if (i >= linhas.length) { fecha(); if (fim) fim(); return; } const [q, t] = linhas[i++]; dlg(q, t, null, passo); }; passo(); }
+function avanca() { if (!D.ativo || D.trab) return; if (D.n < D.txt.length) { D.n = D.txt.length; mostraDlg(); return; } if (D.ops) return; const f = D.fim; fecha(); if (f) f(); }
+function escolhe(i) { if (!D.ativo || D.n < D.txt.length || !D.ops) return; const o = D.ops[i]; if (!o || o.off) return; const cur = D; o.f(); if (D === cur) fecha(); }
+function mostraDlg() {
+  el('dt').textContent = D.txt.slice(0, Math.floor(D.n)); if (D.n < D.txt.length) return;
+  if (D.ops) { el('dops').innerHTML = D.ops.map((o, i) => '<button data-i="' + i + '"' + (o.off ? ' disabled' : '') + '>' + (i + 1) + ' · ' + o.t + '</button>').join(''); el('dops').querySelectorAll('button').forEach(b => b.onclick = () => escolhe(+b.dataset.i)); el('dc').style.display = 'none'; } else { el('dc').style.display = ''; el('dc').onclick = avanca; }
+}
+// ---- relógio: 1 min de jogo = 6 s reais (1 dia de jogo = 2h24 reais); prazo = sexta, 18h ----
+const PRAZO = 3 * 1440 + 18 * 60, MULT = +(new URLSearchParams(location.search).get('tempo') || 1), DIAS = ['Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom', 'Seg'];
+function horaTxt() { const m = Math.floor(J.t), h = Math.floor(m / 60) % 24; return DIAS[Math.floor(m / 1440) % 7] + ' ' + String(h).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function horaDe(t) { const m = Math.floor(t); return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+function luzDoDia() { const h = (J.t / 60) % 24; return h < 5 || h >= 20 ? 0 : h < 7 ? (h - 5) / 2 : h < 17 ? 1 : (20 - h) / 3; }
+function dorme() {
+  const h = (J.t / 60) % 24;
+  if (h >= 6 && h < 20) return dlgSeq([['', 'Ainda é dia. Dormir agora só faz o prazo andar sem o dinheiro entrar.']]);
+  dlg('', 'Dormir até as 6h da manhã? O relógio avança e o prazo de sexta chega mais perto.', [{ t: 'Dormir', f: () => { const dia = Math.floor(J.t / 1440); J.t = (h < 6 ? dia : dia + 1) * 1440 + 6 * 60; J.vida = 100; fecha(); dlgSeq([['', 'Você apaga no colchão fino. Quando abre os olhos, já é manhã, ' + horaTxt() + '.']]); } }, { t: 'Ainda não', f: () => { } }]);
+}
+// ---- itens e interação ----
+const temItem = t => J.inv.some(q => q.t === t);
+function daItem(t) { let s = J.inv.find(q => q.t === t && q.n < PILHA); if (!s) { if (J.inv.length >= SLOTS) { aviso('Mochila cheia'); return false; } s = { t, n: 0 }; J.inv.push(s); } s.n++; desenhaHud(true); salva(); return true; }
+function tiraItem(t) { const i = J.inv.findIndex(q => q.t === t); if (i < 0) return; if (--J.inv[i].n <= 0) J.inv.splice(i, 1); desenhaHud(true); salva(); }
+function interPerto() { let b = null, bd = 1e9; for (const a of INTER) { if (a.ativo && !a.ativo()) continue; const d = Math.hypot(hx - a.x, hy - a.y); if (d < a.r && d < bd) { bd = d; b = a; } } return b; }
+function interagir() { if (window.EDITA) return; if (D.ativo) { avanca(); return; } if (J.morto) return; if (CARROT.ocupado()) { CARROT.interage(); return; } if (itemPerto()) { pegar(); return; } const a = interPerto(); if (a) a.f(); else CARROT.interage(); }
+const texto = (...linhas) => () => dlgSeq(linhas.map(t => ['', t]));
+function objetivo() { const f = J.f; if (J.q === 'corre') return 'Entregar a caixa de peças ao Seu Valdir: fim da rua lateral (sul), depois a estrada leste. Use o carro do Tadeu (na rua, em frente ao portão)'; if (f.z === 'ir') return 'Pegar o módulo no pátio da zona industrial (sul, a oeste da rua lateral), sem ser visto'; if (f.z === 'volta') return 'Levar o módulo ao Tadeu, sem ser visto'; if (f.rec === 'ir') return 'Levar o envelope do Tadeu à Dona Neide (mercadinho)'; if (f.rec === 'volta') return 'Voltar ao Tadeu com a resposta da Dona Neide'; if (f.b === 'buscar') return 'Buscar uma bateria usada com o Seu Zeca (ferro-velho, do outro lado da rua lateral)'; if (f.b === 'volta') return 'Levar a bateria ao Tadeu: R$ 55 até ' + horaDe(f.bIni + 60) + ', R$ 45 até ' + horaDe(f.bIni + 120); if (f.n === 'cobrar') return 'Cobrar o fiado de R$ 60 do Seu Osmar (casa ao sul da rua)'; if (f.n === 'volta') return 'Voltar ao mercadinho e acertar com a Dona Neide'; if (J.q === 'fim' && J.f.carro && !J.f.carroOk) return 'Devolver o carro do Tadeu na rua em frente ao portão da oficina';
+  if (J.q === 'fim') return J.divida > 0 ? 'Juntar o dinheiro do aluguel: serviços do Tadeu e da Dona Neide' : 'Aluguel em dia'; if (f.corre === 'recusou') return 'Procurar outro jeito de se virar na rua'; if (f.tadeu) return 'Resolver com o Tadeu'; return f.rua ? 'Falar com o Tadeu, na oficina' : 'Olhar o quarto, pegar o que for útil e sair pela oficina'; }
+// ---- bancada do quarto ----
+function bancadaQuarto() {
+  const f = J.f, ops = [], resta = [];
+  if (!f.chave) { ops.push({ t: 'Pegar a chave de roda', f: () => { f.chave = 1; daItem('chave'); aviso('Pegou: Chave de roda'); bancadaQuarto(); } }); resta.push('uma chave de roda engraxada'); }
+  if (!f.cur) { ops.push({ t: 'Pegar o curativo', f: () => { f.cur = 1; daItem('curativo'); aviso('Pegou: Kit de curativo'); bancadaQuarto(); } }); resta.push('um curativo'); }
+  if (!f.din) { ops.push({ t: 'Pegar as moedas e cédulas amassadas', f: () => { f.din = 1; J.grana += 37; aviso('+ R$ 37'); desenhaHud(true); bancadaQuarto(); } }); resta.push('moedas e cédulas amassadas'); }
+  ops.push({ t: 'Ler o caderno de anotações', f: () => dlgSeq([['', 'Rabiscos de rotas pela cidade baixa. Uma lista de nomes, quase todos riscados: Beto, Dona Neide, Marcão.'], ['', 'Só um nome está circulado: Tadeu.']], bancadaQuarto) });
+  ops.push({ t: 'Sair', f: () => { } });
+  dlg('', 'Na bancada: ' + (resta.length ? resta.join(', ') + ', ' : '') + 'o caderno de anotações e o carregador do comunicador, com o fio descascado.' + (f.din ? '' : ' Dá uns R$ 37, contando tudo.'), ops);
+}
+// ---- Tadeu e o primeiro corre ----
+function repasse(v) { J.grana -= v; J.divida = Math.max(0, J.divida - v); desenhaHud(true); salva(); if (J.divida <= 0) { J.f.quitou = 1; dlgSeq([['Tadeu', J.f.seco ? 'Tá. Agora sim, a gente tá quite. Mas eu não esqueci.' : 'Fechou. O dono do galpão não enche mais o saco. Valeu, de verdade.']]); } else dlgSeq([['Tadeu', 'Anotado. Ainda faltam R$ ' + J.divida + '.' + (J.f.seco ? ' Continua mostrando serviço.' : '')]]); }
+function menuTadeu() {
+  const f = J.f, oi = f.seco ? ['Fala.', 'O que é?'] : ['E aí, alguma novidade?', 'E aí, o que manda?', 'Fala aí, o que manda?'];
+  dlg('Tadeu', oi[Math.floor(J.t / 7) % oi.length], [
+    J.f.b === 'volta' && { t: 'Entregar a bateria', f: entregaBateria },
+    J.f.z === 'volta' && temItem('modulo') && { t: 'Entregar o módulo da zona industrial', f: entregaModulo },
+    J.f.rec === 'volta' && { t: 'Contar o que a Dona Neide respondeu', f: fimRecado },
+    J.inv.some(q => /^peca_/.test(q.t)) && { t: 'Vender as peças da carcaça', f: vendePecas },
+    { t: 'Pedir um serviço', f: pedirServico },
+    { t: 'Falar do aluguel', f: menuAluguel },
+    { t: 'Conversar sobre o corre', f: conversaTadeu },
+    { t: 'Deixar pra lá', f: () => { } }].filter(Boolean));
+}
+function menuAluguel() {
+  const f = J.f, d = J.divida, pode = d > 0 && J.grana > 0, t = d <= 0 ? 'O aluguel tá em dia.' : (J.t >= PRAZO ? 'Você me deve R$ ' + d + '.' : 'Ainda faltam R$ ' + d + ' do aluguel. O prazo é sexta, 18h.');
+  dlg('Tadeu', t, [
+    { t: 'Repassar R$ 50', off: !pode || J.grana < 50 || d < 50, f: () => repasse(50) },
+    { t: 'Repassar R$ 100', off: !pode || J.grana < 100 || d < 100, f: () => repasse(100) },
+    { t: 'Repassar tudo que tenho (R$ ' + Math.min(J.grana, d) + ')', off: !pode, f: () => repasse(Math.min(J.grana, d)) },
+    { t: 'Voltar', f: menuTadeu }]);
+}
+function pedirServico() {
+  const f = J.f, h = (J.t / 60) % 24;
+  if (J.q === 'corre') return dlgSeq([['Tadeu', 'Termina a entrega do Valdir primeiro. Uma coisa de cada vez.']]);
+  if (f.b === 'buscar' || f.b === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço da bateria, não tá? Vai lá.']]);
+  if (f.z === 'ir' || f.z === 'volta') return dlgSeq([['Tadeu', 'Já tá com o serviço do pátio, não tá? Termina esse primeiro.']]);
+  if (f.rec === 'ir' || f.rec === 'volta') return dlgSeq([['Tadeu', 'O recado da Neide ainda tá na rua. Termina esse primeiro.']]);
+  const dia = h >= 5 && h < 20, noite = J.t < PRAZO && (J.q === 'fim' || f.b === 'feito' || f.n === 'feito'), ops = [];
+  if (dia && f.b !== 'feito') ops.push({ t: 'A bateria do cliente (Seu Zeca)', f: servicoBateria });
+  if (dia && !f.rec) ops.push({ t: 'Um recado pra Dona Neide', f: servicoRecado });
+  if (noite && !f.z) ops.push({ t: 'O serviço pesado na zona industrial', f: servicoPatio });
+  if (!ops.length) return dlgSeq([['Tadeu', !dia ? 'A rua tá morta a essa hora. Volta amanhã cedo, que aparece serviço.' : 'Por ora não tem mais serviço de bancada. Se aparecer algo, eu falo.']]);
+  if (ops.length === 1) return ops[0].f();
+  ops.push({ t: 'Deixa pra lá.', f: () => { } });
+  dlg('Tadeu', f.seco ? 'Tem umas coisas. Escolhe.' : 'Tenho umas coisas na mão. O que você encara?', ops);
+}
+function servicoBateria() {
+  const f = J.f;
+  dlg('Tadeu', (f.seco ? 'Tenho um serviço. Faz direito dessa vez. ' : 'Tenho um serviço sim. ') + 'Preciso recondicionar a bateria de um cliente, e o Seu Zeca, do ferro-velho do outro lado da rua lateral, tem uma usada. Traz pra cá antes que o movimento aumente: se voltar em até uma hora eu pago R$ 55, em até duas R$ 45, depois disso R$ 35. A bateria é por sua conta, o Zeca costuma pedir uns R$ 25.', [
+    { t: 'Fechado. Vou lá.', f: () => { f.b = 'buscar'; f.bIni = J.t; f.bCusto = null; dlgSeq([['Tadeu', 'A rua ainda tá acordando, vai de olho. E negocia com o Zeca, ele gosta de um papo.']]); } },
+    { t: 'Deixa pra lá.', f: () => { } }]);
+}
+function servicoRecado() {
+  const f = J.f;
+  dlg('Tadeu', 'É coisa pequena. Esse envelope é o orçamento do freezer da Dona Neide, que passou aqui pra olhar. Leva lá no mercadinho, ela confere e te dá a resposta. Volta e me conta que eu te pago R$ 20.', [
+    { t: 'Fechado. Levo agora.', f: () => { if (!daItem('envelope')) return; f.rec = 'ir'; dlgSeq([['Tadeu', 'Ela abre às seis e fecha às oito da noite. Não some com isso por aí.']]); } },
+    { t: 'Deixa pra lá.', f: () => { } }]);
+}
+function fimRecado() {
+  const f = J.f; f.rec = 'feito'; J.grana += 20; aviso('+ R$ 20'); desenhaHud(true);
+  dlgSeq([['Tadeu', 'Ela topou o orçamento? Ótimo, então o freezer entra na fila. Toma, o combinado: R$ 20.']]);
+}
+function servicoPatio() {
+  const f = J.f;
+  dlg('Tadeu', 'Tem um serviço pesado lá na borda da zona industrial. Um contato precisa de um módulo fora de linha que ficou num pátio encostado no muro. Paga bem, entre R$ 90 e R$ 120, mas não é moleza. Se chamarem a segurança ou a guilda fechar o cerco por lá, sobra pra você. O pátio fica no fim da rua lateral, ao sul, do lado oeste. Dá pra entrar pelo portão ou contornar a casa por trás, pelos dutos. Quanto menos gente no pátio, melhor, mas o vigia faz ronda o tempo todo.', [
+    { t: 'Fechado. Eu pego esse módulo.', f: () => { f.z = 'ir'; dlgSeq([['Tadeu', 'Olha o ritmo do vigia antes de se mexer, e vê onde ele não enxerga. Se quiser desviar a atenção dele, tem latas por lá. Mas volta inteiro.']]); } },
+    { t: 'Deixa pra lá.', f: () => { } }]);
+}
+function entregaModulo() {
+  const f = J.f, pg = f.visto ? 90 : (f.ruido || f.distrator) ? 100 : 120;
+  tiraItem('modulo'); J.grana += pg; f.z = 'feito'; aviso('+ R$ ' + pg); desenhaHud(true);
+  dlgSeq([['Tadeu', f.visto ? 'Me disseram que o vigia te pegou. O cliente aceitou a peça mesmo assim, mas desconta. Fecha em R$ ' + pg + '. Evita aparecer por lá uns dias.' : (f.ruido || f.distrator) ? 'Deu uns barulhos por lá, mas ninguém soube de nada. Fecha em R$ ' + pg + '.' : 'Limpinho. Nem sinal de que alguém passou por lá. O combinado: R$ ' + pg + '.'], ['', 'Com o módulo entregue, o esquema esfria. Não vai ter outro serviço igual a esse.']]);
+}
+function entregaBateria() {
+  const f = J.f, gasto = J.t - f.bIni, base = gasto <= 60 ? 55 : gasto <= 120 ? 45 : 35, pg = Math.max(10, base - (f.seco ? 10 : 0));
+  tiraItem('bateria'); J.grana += pg; f.b = 'feito'; f.bDia = Math.floor(J.t / 1440); desenhaHud(true);
+  dlgSeq([['Tadeu', gasto <= 60 ? 'Rapidinho! Era isso.' : gasto <= 120 ? 'Demorou um pouco, mas serve.' : 'Demorou demais. O cliente já tava reclamando.'], ['', 'O Tadeu confere a bateria e entrega R$ ' + pg + '.'], ...(f.zecaAmigo ? [['Tadeu', 'Soube que você deu uma mão pro Zeca. Ele fala bem de você, e isso vale mais que o dinheiro.']] : []), ...(f.seco ? [['Tadeu', 'Descontei do que você me deve. Continua assim.']] : [])]);
+}
+// ---- desmontar a carcaça do Zeca ----
+const ETAPAS = [{ id: 'alt', nome: 'o alternador', valor: 50 }, { id: 'part', nome: 'o motor de partida', valor: 40 }, { id: 'bomba', nome: 'a bomba d\'água', valor: 25 }];
+function trabalha(min, fim, rot = 'Desmontando a carcaça') {
+  dlg('', rot + '...', null, null); D.trab = true; D.n = D.txt.length; el('dc').style.display = 'none';
+  const ini = J.t, alvo = J.t + min, t0 = performance.now(), dur = 1800;
+  const iv = setInterval(() => { const p = Math.min(1, (performance.now() - t0) / dur), k = Math.floor(p * 20); J.t = ini + (alvo - ini) * p; el('dt').textContent = rot + '...   ' + '█'.repeat(k) + '░'.repeat(20 - k) + '   ' + horaTxt(); if (p >= 1) { clearInterval(iv); fecha(); fim(); } }, 60);
+}
+function falaCarcaca() {
+  const f = J.f, i = f.cEt || 0, h = (J.t / 60) % 24, dia = Math.floor(J.t / 1440);
+  if (!f.zecaAmigo) return dlgSeq([['', 'Uma carcaça de carro sem rodas, mais ferrugem que lata. O Seu Zeca fica de olho em quem mexe nela.']]);
+  if (i >= 3) return dlgSeq([['', 'A carcaça está limpa: sobrou só a lataria e a ferrugem. O Seu Zeca já tá de olho no ferro pra vender.']]);
+  if (!temItem('chave')) return dlgSeq([['', 'Sem a chave de roda não dá pra soltar nada aqui.']]);
+  if (h < 6 || h >= 20) return dlgSeq([['', 'Escuro demais pra mexer em motor. Volta de dia.']]);
+  if (f.cDia !== dia) { f.cDia = dia; f.cN = 0; }
+  if (f.cN >= 2) return dlgSeq([['', 'Já deu por hoje: as mãos estão em carne viva. Amanhã a gente continua.']]);
+  const e = ETAPAS[i];
+  dlg('', 'O Seu Zeca aponta para ' + e.nome + ' da carcaça. "Inteiro vale uns R$ ' + e.valor + ' pro Tadeu. Na marra, metade."', [
+    { t: 'Soltar com cuidado (1h de jogo, peça perfeita)', f: () => trabalha(60, () => pecaPronta(e, true)) },
+    { t: 'Soltar na força (20 min, peça danificada: vale metade)', f: () => trabalha(20, () => pecaPronta(e, false)) },
+    { t: 'Deixar pra depois', f: () => { } }]);
+}
+function pecaPronta(e, boa) {
+  const t = 'peca_' + e.id + (boa ? '' : '_d'); if (!daItem(t)) { aviso('Mochila cheia: a peça ficou na carcaça'); return; }
+  J.f.cEt = (J.f.cEt || 0) + 1; J.f.cN = (J.f.cN || 0) + 1; aviso('Pegou: ' + ITENS[t].nome);
+  dlgSeq([['', boa ? 'Parafuso por parafuso, ' + e.nome + ' sai inteiro e limpo.' : 'Você faz força até o ferro ceder. ' + e.nome + ' sai amassado e riscado, mas sai.'], ['Seu Zeca', boa ? 'Isso é trabalho de quem sabe o que tá fazendo. Lembra: a carcaça é minha, então 40% do que a peça render é meu. O Tadeu me acerta.' : 'Rápido, mas olha o estrago. O Tadeu vai pagar menos. E 40% do que render é meu, que a carcaça é minha.']]);
+}
+function vendePecas() {
+  let total = 0, boas = 0, ruins = 0; const itens = [];
+  for (const q of J.inv) { const m = /^peca_(alt|part|bomba)(_d)?$/.exec(q.t); if (!m) continue; const e = ETAPAS.find(x => x.id === m[1]), v = Math.round(e.valor * (m[2] ? .5 : 1)); total += v * q.n; (m[2] ? (ruins += q.n) : (boas += q.n)); itens.push(q); }
+  if (!itens.length) return dlgSeq([['Tadeu', 'Você não tem peça nenhuma pra eu ver.']]);
+  const zeca = Math.round(total * .4), liq = total - zeca;
+  dlg('Tadeu', 'Deixa eu ver o que o Zeca te passou... ' + (boas ? 'Essas inteiras estão limpas, bom serviço. ' : '') + (ruins ? 'Essas amassadas não valem o mesmo. ' : '') + 'Dou R$ ' + total + ' por tudo. A carcaça é do Zeca, então 40% (R$ ' + zeca + ') eu já separo pra ele. Sobram R$ ' + liq + ' pra você.', [
+    { t: 'Vender tudo (você recebe R$ ' + liq + ')', f: () => { for (const q of itens) { for (let k = q.n; k > 0; k--) tiraItem(q.t); } J.grana += liq; aviso('+ R$ ' + liq); desenhaHud(true); dlgSeq([['Tadeu', J.f.zecaAmigo ? 'O Zeca tá te passando coisa boa, hein. Mantém essa amizade.' : 'Combinado.']]); } },
+    { t: 'Ainda não', f: () => { } }]);
+}
+function falaZeca() {
+  const f = J.f;
+  if (f.b !== 'buscar' && f.zecaAmigo && (f.cEt || 0) < 3) return dlgSeq([['Seu Zeca', 'Aquela carcaça ainda tem coisa boa: alternador, motor de partida e bomba d\'água. Tira com cuidado, que o Tadeu paga bem por peça inteira. A carcaça é minha, então 40% do que render é meu; o resto é teu. Mão de obra boa eu reconheço.']]);
+  if (f.b !== 'buscar') return dlgSeq([['Seu Zeca', f.b === 'volta' ? 'Já levou a bateria? Então vai, o Tadeu não gosta de esperar.' : 'Sucata, ferro-velho, peça usada. Se o Tadeu mandar, eu tenho.']]);
+  const leva = custo => { f.bCusto = custo; f.b = 'volta'; J.grana -= custo; daItem('bateria'); aviso('Pegou: Bateria usada'); desenhaHud(true); };
+  dlg('Seu Zeca', 'Ô, o menino do Tadeu. A bateria tá ali, usada mas ainda dá carga. Vinte e cinco e é tua.', [
+    { t: 'Pagar R$ 25', off: J.grana < 25, f: () => { leva(25); dlgSeq([['Seu Zeca', 'Negócio fechado. Leva com cuidado, que é pesada.']]); } },
+    { t: 'Barganhar o preço', f: () => dlg('Seu Zeca', 'Barganhar? (ri) Tá bom, tá bom. Quinze e não se fala mais nisso. Ou então me dá uma mão com aquela peça emperrada na carcaça, que eu tô há anos tentando soltar.', [
+      { t: 'Pagar R$ 15', off: J.grana < 15, f: () => { leva(15); dlgSeq([['Seu Zeca', 'Assim que eu gosto, freguês que sabe conversar.']]); } },
+      { t: 'Soltar a peça emperrada com a chave de roda, em troca da bateria', off: !temItem('chave'), f: () => { f.zecaAmigo = 1; leva(0); dlgSeq([['', 'Você encaixa a chave de roda no parafuso enferrujado e faz força até ele ceder. O Seu Zeca assiste de braços cruzados.'], ['Seu Zeca', 'Anos que essa peça tava presa! Leva a bateria, é tua. E volta sempre.']]); } },
+      { t: 'Deixa, eu volto depois', f: () => { } }]) },
+    { t: 'Voltar depois', f: () => { } }]);
+}
+function falaTadeu() {
+  if (J.f.corre) return menuTadeu();
+  conversaTadeu();
+}
+function conversaTadeu() {
+  const f = J.f; f.tadeu = 1;
+  if (J.q === 'fim' && J.f.carro && !J.f.carroOk) {   // a condição do empréstimo: devolver o carro
+    if (!carroNaOficina()) return dlgSeq([['Tadeu', 'Cadê o meu carro? Traz ele aqui na frente do portão e a gente conversa.']]);
+    J.f.carroOk = 1; if (typeof CARROT !== 'undefined') CARROT.disponivel = false;
+    const bonus = J.f.usouCarro; if (bonus) { J.grana += 20; aviso('+ R$ 20'); } desenhaHud(true);
+    return dlgSeq([['Tadeu', bonus ? 'Trouxe inteiro, hein? Valeu. Toma R$ 20 pra gasolina.' : 'Tá aí o carro, e nem usou. Cada um com seu jeito. Valeu por trazer a caixa.'], ...(J.f.matou ? [['Tadeu', 'Ouvi dizer que dois da Guilda do Cano ficaram pelo caminho. Isso não vai ficar barato. Passa uns dias sem aparecer pro lado de lá.']] : [])]);
+  }
+  if (J.q === 'fim') return dlgSeq([['Tadeu', 'O Valdir já me avisou que a caixa chegou. Valeu de verdade. Passa aqui amanhã cedo, sempre aparece alguma coisa.']]);
+    if (J.q === 'corre') return dlgSeq([['Tadeu', 'Ainda com a caixa na mão? O Valdir espera do outro lado da cidade, no fim da estrada leste. O carro tá na rua, na frente do portão. Vai antes de a rua encher.']]);
+  if (f.corre === 'recusou') return dlg('Tadeu', 'Mudou de ideia?', [{ t: 'Aceito o corre. R$ 40 no fim.', f: () => aceita('direto', 40, 'Tá. Então vai. Mas agora é R$ 40, o resto já distribuí.') }, { t: 'Ainda não.', f: () => { } }]);
+  dlg('Tadeu', 'Ô, acordou cedo. Ou nem dormiu... (limpa a graxa das mãos) O dono do galpão cobrou de novo, e sexta é o prazo. A sua parte ainda tá em aberto, tá? Por isso preciso de um favor rápido antes de a rua encher. Essa caixa de peças tem que chegar no Seu Valdir, que mora do outro lado da cidade: desce a rua lateral até o fim e pega a estrada leste. Ele paga R$ 50 na entrega. Só que o pessoal da Guilda do Cano anda rondando por lá.', [
+    { t: 'Topo. Já saio.', f: () => aceita('direto', 50, 'Boa. Vai com cuidado, e volta inteiro. A peça é cara.') },
+    { t: 'R$ 50 é pouco pro risco. Me adianta uma parte e me diz o que tem lá fora.', f: negocia },
+    { t: 'Hoje não, Tadeu. Eu me viro.', f: recusa }]);
+}
+function aceita(tipo, paga, fala) { J.f.corre = tipo; J.f.paga = paga; J.q = 'corre'; dlgSeq([['Tadeu', fala], ['', 'O Tadeu entrega uma caixa pesada, lacrada com fita amarela.'], ['Tadeu', 'O Valdir mora do outro lado da cidade, é longe demais pra ir a pé. Leva o meu carro, tá na rua na frente do portão. Mas olha: me traz ele inteiro e de volta aqui na frente da oficina. Esse carro é o meu ganha-pão.'], ['', 'O Tadeu joga a chave pra você. Chegue perto do carro e aperte E para entrar.']], () => { if (!temItem('caixa')) daItem('caixa'); J.f.carro = 1; if (typeof CARROT !== 'undefined') CARROT.disponivel = true; aviso('Pegou: Caixa de peças e a chave do carro'); desenhaHud(true); }); }
+function negocia() {
+  dlg('Tadeu', '(suspira) Rapaz... Tá bom. Toma R$ 20 agora e os R$ 30 o Valdir paga na entrega. E olha: os caras da guilda saem pro café lá pelas sete. Se você demorar um pouco, passa limpo.', [
+    { t: 'Fechado. Espero eles saírem.', f: () => { J.grana += 20; aviso('+ R$ 20'); aceita('negociou', 30, 'Combinado. Sem pressa, mas sem enrolar também.'); } },
+    { t: 'Quero R$ 30 agora, não R$ 20.', f: () => dlg('Tadeu', 'Tá achando que eu sou banco? Ou vai por R$ 40 no fim, sem adiantamento, ou não vai.', [{ t: 'Tá bom. Vou assim mesmo.', f: () => { J.f.conf = -1; aceita('azedou', 40, 'Então vai. E não demora.'); } }, { t: 'Então deixa pra lá.', f: recusa }]) }]);
+}
+function recusa() { J.f.corre = 'recusou'; dlgSeq([['Tadeu', 'Cada um sabe de si. A porta fica aberta se você mudar de ideia.']]); }
+function entrega() {
+  if (!temItem('caixa')) return dlgSeq([['Seu Valdir', 'Cadê a caixa? Sem a caixa não tem conversa.']]);
+  const pg = J.f.paga, linhas = [['Seu Valdir', 'Até que enfim. Deixa eu ver... (confere a caixa) Tá inteira. Fala pro Tadeu que a conta fecha.'], ['', 'Seu Valdir conta as notas e entrega R$ ' + pg + '.']];
+  if (J.f.matou) linhas.push(['Seu Valdir', 'Vi o que aconteceu lá fora: dois da Guilda do Cano no chão. Isso vai dar problema, e não é só pra você. Toma o dinheiro e some uns dias.']);
+  else if (J.f.marcado) linhas.push(['Seu Valdir', 'Ouvi dizer que a guilda ficou de olho em você. Cuida desse pedaço pra não trazer problema pra cá.']);
+  tiraItem('caixa'); J.grana += pg; J.q = 'fim'; desenhaHud(true);
+  dlgSeq(linhas, () => dlgSeq([['', 'Primeiro corre cumprido. Mas o aviso ainda cobra R$ 480 pela oficina e pelo quarto, e a sexta não espera.'], ['', 'FIM DA CENA 01 — a rotina da cidade baixa continua.']]));
+}
+// ---- mercadinho da Dona Neide: aberto das 6h às 20h ----
+const aberto = () => { const h = (J.t / 60) % 24; return h >= 6 && h < 20; }, diaAtual = () => Math.floor(J.t / 1440);
+function compra(t, preco) { if (J.grana < preco) return aviso('Falta dinheiro (R$ ' + preco + ')'); if (!daItem(t)) return; J.grana -= preco; aviso('Comprou: ' + ITENS[t].nome + ' (- R$ ' + preco + ')'); desenhaHud(true); }
+function falaNeide() {
+  const f = J.f;
+  if (!aberto()) return dlgSeq([['', 'O mercadinho está fechado. A placa diz: "abre às 6h, fecha às 20h".']]);
+  if (f.n === 'volta') return acertoNeide();
+  if (f.rec === 'ir' && temItem('envelope')) return dlgSeq([['Dona Neide', 'Ah, o orçamento do freezer. (lê) Tá puxado, mas é justo. Fala pro Tadeu que pode consertar.'], ['', 'Você guarda a resposta pra levar de volta.']], () => { tiraItem('envelope'); f.rec = 'volta'; });
+  const intro = !f.neide; f.neide = 1;
+  const menu = () => dlg('Dona Neide', intro && !f.neideMenu ? 'Ah, o rapaz da oficina do Tadeu! Já te vi passando por aqui. Aqui o que é meu tá com preço na etiqueta, e fiado só pra quem eu conheço há tempo. O que vai ser?' : 'Fala, meu filho. O que vai ser?', [
+    { t: 'Comprar curativo (R$ 18)', off: J.grana < 18, f: () => { compra('curativo', 18); menu(); } },
+    { t: 'Comprar analgésico (R$ 10)', off: J.grana < 10, f: () => { compra('analgesico', 10); menu(); } },
+    { t: 'Perguntar se tem serviço', f: servicoNeide },
+    f.mural && !f.feira && { t: 'Falar do anúncio de ajudante de feira', f: feiraNeide },
+    { t: 'Sair', f: () => { } }].filter(Boolean));
+  f.neideMenu = 0; menu();
+}
+function feiraNeide() {
+  const h = (J.t / 60) % 24;
+  if (h >= 10) return dlgSeq([['Dona Neide', 'Ah, o caminhão do atacado já veio e já foi, meu filho. A descarga é cedinho, das 6h às 10h. Passa amanhã nessa hora.']]);
+  dlg('Dona Neide', 'Chegou o caminhão do atacado e eu só tenho duas mãos. São caixotes de arroz, óleo e lata pra levar pro fundo e arrumar na prateleira. Duas horas de serviço, R$ 25. Topa?', [
+    { t: 'Topo. Vamos lá.', f: () => trabalha(120, () => { J.grana += 25; J.f.feira = 1; aviso('+ R$ 25'); desenhaHud(true); dlgSeq([['', 'Duas horas carregando caixotes. Os braços ardem, mas o estoque está arrumado.'], ['Dona Neide', 'Olha só, serviço limpo. Toma, R$ 25. Se eu precisar de novo, eu chamo.']]); }, 'Carregando caixotes') },
+    { t: 'Agora não.', f: () => { } }]);
+}
+function servicoNeide() {
+  const f = J.f;
+  if (f.n === 'cobrar') return dlgSeq([['Dona Neide', 'Já te falei: o fiado do Seu Osmar, ali ao sul. Sem o dinheiro, nem volta.']]);
+  if (f.n === 'feito') return dlgSeq([['Dona Neide', 'Por enquanto não tenho mais nada pra você, meu filho. O fiado do Osmar já foi resolvido. Se aparecer coisa, eu aviso.']]);
+  dlg('Dona Neide', 'Tem sim. O Seu Osmar, da casa ao sul da rua, me deve R$ 60 de fiado faz um mês. Fala que não tem, mas eu vejo ele comprando cigarro. Cobra pra mim que eu te dou uma parte, conforme o que você trouxer.', [
+    { t: 'Fechado. Eu cobro.', f: () => { f.n = 'cobrar'; f.coleta = 0; dlgSeq([['Dona Neide', 'Boa. Ele é arredio, vai fazer cara de coitado. Não cai.']]); } },
+    { t: 'Agora não.', f: () => { } }]);
+}
+function falaOsmar() {
+  const f = J.f;
+  if (f.n !== 'cobrar') return dlgSeq([['Seu Osmar', 'Não tô com tempo pra papo, rapaz.']]);
+  dlg('Seu Osmar', 'Fiado? Que fiado? Eu pago a Dona Neide quando tiver. Não tô com dinheiro nenhum, olha só os meus bolsos!', [
+    { t: temItem('chave') ? 'Cobrar firme (mostrar a chave de roda)' : 'Cobrar firme', f: () => {
+      if (temItem('chave')) { f.coleta = 60; f.osmarMarcado = 1; f.n = 'volta'; dlgSeq([['', 'Você deixa a chave de roda aparecer na mão. O Seu Osmar engole seco.'], ['Seu Osmar', 'Tá bom, tá bom! Toma os R$ 60. Mas não precisava disso.'], ['', 'R$ 60 do fiado no bolso. O Seu Osmar não vai esquecer a sua cara.']]); }
+      else { f.coleta = 30; f.n = 'volta'; dlgSeq([['Seu Osmar', 'Tenho R$ 30, é o que tem. O resto eu pago quando puder.'], ['', 'Sem nada na mão para pressionar, só saiu a metade.']]); } } },
+    { t: 'Negociar: R$ 40 agora e o resto em duas semanas', f: () => { f.coleta = 40; f.n = 'volta'; dlgSeq([['Seu Osmar', 'Assim eu consigo. Toma R$ 40. O resto eu junto, prometo.'], ['', 'O Seu Osmar fica aliviado. Você ganhou um aliado, ou pelo menos um devedor educado.']]); } },
+    { t: 'Voltar depois', f: () => { } }]);
+}
+function acertoNeide() {
+  const f = J.f, col = f.coleta, pg = col >= 60 ? 50 : col >= 40 ? 35 : 25;
+  dlgSeq([['Dona Neide', col >= 60 ? 'Tudo?! Mas que homem! Toma, sua parte: R$ ' + pg + '.' : col >= 40 ? 'Quarenta... é menos, mas já é alguma coisa. Sua parte: R$ ' + pg + '.' : 'Só trinta? Ele te enrolou, hein. Sua parte: R$ ' + pg + '.'], ...(f.osmarMarcado ? [['Dona Neide', 'Ouvi dizer que você mostrou a chave de roda pro Osmar. Rua pequena, rapaz. Aqui todo mundo fala.']] : [])], () => { J.grana += pg; aviso('+ R$ ' + pg); f.n = 'feito'; f.neideDia = diaAtual(); desenhaHud(true); });
+}
+// ---- ponto do Seu Valdir e a guilda ----
+const guardado = () => J.q === 'corre' && J.f.corre !== 'negociou' && !J.f.liberado;
+function encontro() {
+  if (J.f.briga) return dlgSeq([['', 'Os dois da Guilda do Cano ainda estão de pé entre você e o Seu Valdir.']]);
+  dlg('Capanga da Guilda', 'E aí, parceiro. Esse trecho é da Guilda do Cano. Taxa de circulação: R$ 20. Ou a caixa fica aqui.', [
+    { t: 'Pagar R$ 20', off: J.grana < 20, f: () => { J.grana -= 20; J.f.liberado = 1; desenhaHud(true); dlgSeq([['Capanga da Guilda', 'Tá certo. Pode levar.']]); } },
+    { t: 'Mostrar a chave de roda', off: !temItem('chave'), f: () => { J.f.liberado = 1; J.f.marcado = 1; dlgSeq([['', 'Os dois olham a ferramenta na sua mão. Trocam um olhar.'], ['Capanga da Guilda', 'Não vale a confusão. Leva. Mas a gente sabe a sua cara.']]); } },
+    { t: 'Partir pra cima', f: briga },
+    { t: 'Voltar depois', f: () => { } }]);
+}
+// ---- a luta contra a Guilda do Cano ----
+const COR_G = { g1: [hexRgb('#9a2f2f'), hexRgb('#4a1717'), hexRgb('#762424')], g2: [hexRgb('#4c5262'), hexRgb('#262a34'), hexRgb('#3a3f4d')] };
+const POS_G = { g1: [54.4, 57.0, 53.0, 55.4], g2: [53.4, 58.0, 53.0, 60.0] };   // [x, y] de guarda; [x, y] depois de liberar
+function criaGuardas(provoca) {
+  const now = performance.now(); for (const id of ['g1', 'g2']) LUTA.cria({ id, x: POS_G[id][0], y: POS_G[id][1], dir: 'W', cor: COR_G[id], morre: () => { if (!LUTA.rivais.some(r => LUTA.vivo(r))) vitoriaGuilda(); } });
+  if (provoca) LUTA.provoca(now);
+}
+function briga() { J.f.briga = 1; dlgSeq([['', 'Você não aceita a taxa. Os dois fecham o punho e vêm pra cima.']], () => criaGuardas(true)); }
+function vitoriaGuilda() { const f = J.f; f.matou = 1; f.liberado = 1; dlgSeq([['', 'Os dois da Guilda do Cano ficam no chão. A rua cai num silêncio esquisito. O caminho até o Seu Valdir está livre.']]); }
+function carroNaOficina() { if (typeof CARROT === 'undefined') return true; const c = CARROT.car; return c.on && c.estado === 'parado' && Math.hypot(c.x - 19.0, c.y - 16.4) < 5; }
+function carroBloqueado(x, y) {   // o carro não passa por cima de quem está na estrada
+  const perto = (a, b, r) => Math.hypot(x - a, y - b) < r;
+  if (perto(58.75, 55.25, 1.1)) return true;
+  if (!J.f.briga && guardado()) return perto(POS_G.g1[0], POS_G.g1[1], 1.2) || perto(POS_G.g2[0], POS_G.g2[1], 1.2);
+  return LUTA.todos.some(f => LUTA.vivo(f) && perto(f.x, f.y, 1.0));
+}
+function consertoValdir() {
+  dlg('Seu Valdir', 'Já que perguntou: a dobradiça do portão dos fundos tá frouxa e rangendo a rua inteira. Aperta com a chave de roda que eu te dou R$ 20. Meia hora e acaba.', [
+    { t: 'Apertar a dobradiça (meia hora, precisa da chave de roda)', off: !temItem('chave'), f: () => trabalha(30, () => { J.grana += 20; J.f.vc = 1; aviso('+ R$ 20'); desenhaHud(true); dlgSeq([['', 'Você aperta o parafuso até a dobradiça parar de gemer.'], ['Seu Valdir', 'Agora sim dá pra ouvir meus pensamentos. Toma os R$ 20.']]); }, 'Apertando a dobradiça') },
+    { t: 'Agora não.', f: () => { } }]);
+}
+function falaValdir() {
+  if (J.q === 'fim') return dlg('Seu Valdir', 'Tá acertado. Se aparecer outra caixa, eu mando chamar.', [
+    !J.f.vc && { t: 'Perguntar se precisa de ajuda com mais alguma coisa', f: consertoValdir },
+    { t: 'Sair', f: () => { } }].filter(Boolean));
+  if (J.q !== 'corre') return dlgSeq([['Seu Valdir', 'Se não é entrega, não tenho tempo. Volta quando tiver alguma coisa.']]);
+  if (guardado()) return encontro();
+  entrega();
+}
+// ---- montagem do cenário ----
+const COR = { madeira: ['#8a6a46', '#6f5337', '#58402a'], ferro: ['#7b7f86', '#5f636a', '#4a4d53'], pano: ['#b9b3a4', '#948f82', '#7a766b'], caixa: ['#a98150', '#8a6840', '#6e5232'], branco: ['#cdd0c8', '#aeb1a9', '#8f928b'], carro: ['#8c5b41', '#6e4733', '#56382a'], vidro: ['#7a9aab', '#617d8b', '#4d6470'], preto: ['#2b2b30', '#202024', '#18181b'], balde: ['#6d7e8c', '#586774', '#46525c'] };
+function montaMoveis() {
+  MOVEIS = []; INTER = []; LUZES = [];
+  const liga = (m, x, y, r, rot, f, ativo) => INTER.push({ x, y, r, rot, f, ativo, m });
+  // quarto
+  const colchao = movel({ x: 5.15, y: 11.35, w: .9, d: 1.5, partes: [{ w: .9, d: 1.5, h: 8, cores: ['#a8a59e', '#898680', '#6e6c67'], det: (g, pr, o) => { ret(g, '#cfc8b8', ...pr(.12, .12, o.zt), 1, 1); for (let b = .1; b < .5; b += .05) lin(g, '#d9d3c4', pr(.15, b, o.zt), pr(.8, b, o.zt)); lin(g, '#7e7a70', pr(.1, .95, o.zt), pr(.7, 1.05, o.zt)); lin(g, '#7e7a70', pr(.2, 1.25, o.zt), pr(.8, 1.2, o.zt)); } }] });
+  liga(colchao, 5.75, 11.9, 1.5, 'Descansar no colchão', () => dlg('', 'Um colchão fino no chão. O lençol ainda guarda a forma de quem dormiu mal.', [{ t: 'Dormir (pula a noite até as 6h)', f: dorme }, { t: 'Deixar pra lá', f: () => { } }]));
+  const banc = movel({ x: 6.15, y: 10.15, w: 1.7, d: .7, partes: [{ w: 1.7, d: .7, h: 30, cores: COR.madeira, det: (g, pr, o) => { lin(g, '#aeb2b8', pr(.15, .35, o.zt), pr(.7, .3, o.zt)); lin(g, '#d9d9de', pr(.18, .33, o.zt), pr(.5, .3, o.zt)); ret(g, '#e8c14a', ...pr(1.0, .4, o.zt), 2, 1); ret(g, '#e8c14a', ...pr(1.08, .45, o.zt), 2, 1); ret(g, '#cfc8a8', ...pr(1.1, .3, o.zt), 3, 1); lin(g, '#e7e3d8', pr(1.35, .15, o.zt), pr(1.55, .2, o.zt)); lin(g, '#1c1c20', pr(.1, .55, o.zt), pr(.9, .6, o.zt)); } }] });
+  liga(banc, 7.0, 10.9, 1.5, 'Mexer na bancada', bancadaQuarto);
+  const aviso1 = movel({ x: 5.3, y: 10.1, w: .6, d: .05, bloq: false, partes: [{ w: .6, d: .05, h: 20, z0: 38, cores: ['#e6e0cc', '#d4cdb4', '#bdb69d'], det: (g, pr, o) => { for (let k = 0; k < 4; k++) lin(g, '#55504a', pr(.06, .05, o.zt - 4 - k * 3), pr(.5, .05, o.zt - 4 - k * 3)); lin(g, '#c8332b', pr(.06, .05, o.zt - 16), pr(.5, .05, o.zt - 16)); } }] });
+  liga(aviso1, 5.6, 10.7, 1.4, 'Ler o aviso na parede', () => dlgSeq([['', 'AVISO DE COBRANÇA. Oficina e quarto dos fundos: 3 meses em atraso. Total devido: R$ 480. Prazo: sexta-feira.'], ['', 'O nome do Tadeu está no papel. O valor está sublinhado em vermelho, duas vezes.'], ['', 'O proprietário nunca consertou a goteira, mas cobra o aluguel inteiro. Se a sua parte não vier, a conta cai toda nas costas do Tadeu.']], () => { J.f.aviso = 1; desenhaHud(true); }));
+  const balde = movel({ x: 7.35, y: 11.0, w: .4, d: .4, partes: [{ w: .4, d: .4, h: 16, cores: COR.balde, det: (g, pr, o) => { ret(g, '#2a3b4a', ...pr(.08, .08, o.zt), 18, 8); ret(g, '#6fa3c4', ...pr(.12, .2, o.zt), 6, 1); } }] });
+  liga(balde, 7.55, 11.2, 1.3, 'Olhar o balde', texto('O balde já está quase cheio. A goteira começou no mês passado e o dono do imóvel nunca apareceu.'));
+  LUZES.push({ x: 6.8, y: 11.7, z: 90, r: 230, pisca: true });
+  // oficina
+  const gel = movel({ x: 8.3, y: 10.15, w: .8, d: .8, partes: [{ w: .8, d: .8, h: 66, cores: COR.branco, det: (g, pr, o) => { lin(g, '#6b6e68', pr(.8, .65, o.zt - 8), pr(.8, .65, o.zt - 22)); lin(g, '#6b6e68', pr(.65, .8, o.zt - 8), pr(.65, .8, o.zt - 22)); } }] });
+  liga(gel, 8.7, 11.2, 1.4, 'Olhar a geladeira', texto('A geladeira velha zumbe sem parar. Dentro: meia garrafa d\'água e um pote sem tampa. Nada que dê pra vender.'));
+  const carro = { x: 10.65, y: 12.15, w: .9, d: 1.9, bloq: true, npc: true, carro: true, dir: 14, get dd() { return this.x + this.y + (this.w + this.d) / 2 + .15; }, desenha: now => CARRO_VERM.desenha(ctx, carro.x + carro.w / 2, carro.y + carro.d / 2, carro.dir) }; MOVEIS.push(carro);   // carro de cliente (vermelho), virado ao longo da oficina
+  liga(carro, 11.1, 13.1, 2.4, 'Olhar o carro', texto('Um carro de cliente, parado há semanas esperando uma peça que nunca chega. A lataria está fria.'));
+  const cx1 = movel({ x: 14.0, y: 10.2, w: .9, d: .9, partes: [{ w: .9, d: .9, h: 26, cores: COR.caixa }, { dx: .15, dy: .15, w: .6, d: .6, h: 18, z0: 26, cores: ['#b8905a', '#9a7348', '#7c5b38'] }] });
+  const cx2 = movel({ x: 13.0, y: 10.25, w: .6, d: .6, partes: [{ w: .6, d: .6, h: 20, cores: COR.caixa }] });
+  liga(cx1, 14.0, 11.5, 1.6, 'Olhar as caixas', texto('Caixas de peças, todas etiquetadas. Nenhuma é sua.'));
+  const bt = movel({ x: 13.8, y: 15.1, w: 1.8, d: .75, partes: [{ w: 1.8, d: .75, h: 30, cores: COR.madeira, det: (g, pr, o) => { ret(g, '#d9d9de', ...pr(.3, .3, o.zt), 5, 1); } }, { dx: 1.2, dy: .2, w: .35, d: .22, h: 12, z0: 30, cores: ['#4a4f47', '#383c36', '#2b2e2a'], det: (g, pr, o) => { lin(g, '#9a9aa2', pr(.3, .1, o.zt), pr(.3, .1, o.zt + 14)); ret(g, '#d8a04a', ...pr(.1, .22, o.zt - 4), 2, 2); } }] });
+  liga(bt, 14.7, 14.5, 1.7, 'Ouvir o rádio', texto('O rádio de bancada chia baixo, entre duas estações. De vez em quando sai um pedaço de notícia sobre a "taxa de circulação" dos distritos altos.'), () => !tadeuPerto());
+  // Tadeu
+  const tad = { x: 15.35, y: 14.45, w: .5, d: .5, bloq: true, npc: true, desenha: now => desenhaNpc('tadeu', tad.x + .25, tad.y + .25, [hexRgb('#c27a3a'), hexRgb('#6b4021'), hexRgb('#97602f')], now) }; MOVEIS.push(tad); TAD = tad;
+  liga(tad, 15.6, 14.7, 1.7, 'Falar com o Tadeu', falaTadeu);
+}
+function itensCena(now) {
+  const out = [];
+  for (const m of MOVEIS) { if (m.ativo && !m.ativo()) continue; if (m.npc) out.push({ d: ajustaMuro(m, m.dd !== undefined ? m.dd : m.x + m.y + m.w), f: () => m.desenha(now) }); else out.push({ d: ajustaMuro(m, dMovel(m)), f: () => desenhaMovel(m) }); }
+  if (window.EDITA) out.push(...CASA_EDIT.overlay());
+  return out;
+}
+// ---- atmosfera: madrugada fria, lâmpada com mau contato, a rua clareando ----
+let dia = 0;
+const luzPisca = now => { const a = Math.sin(now / 130) + Math.sin(now / 53 + 1.7) + Math.sin(now / 310); return a > 2.1 ? .25 : a > 1.6 ? .7 : 1; };
+function ambiente(now) {
+  dia += (luzDoDia() * (foraDeCasa() ? 1 : .55) - dia) * .03; const W = cv.width, H = cv.height, t = (a, b) => Math.round(a + (b - a) * dia);
+  ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(' + t(95, 225) + ',' + t(102, 225) + ',' + t(135, 232) + ')'; ctx.fillRect(0, 0, W, H);
+  ctx.globalCompositeOperation = 'lighter';
+  for (const L of LUZES) { const px = W / 2 + (sxm(L.x, L.y) - hsx) * K, py = H / 2 + (sym(L.x, L.y) - L.z - hsy) * K, r = L.r * K, f = L.pisca ? luzPisca(now) : 1, g = ctx.createRadialGradient(px, py, 0, px, py, r); g.addColorStop(0, 'rgba(255,170,80,' + (.3 * f * (1 - dia * .7)) + ')'); g.addColorStop(1, 'rgba(255,170,80,0)'); LUZ_PINTA(L, g, px - r, py - r, 2 * r, W, H); }
+  ctx.restore();
+}
+// ---- mapa da cena ----
+var TAD = { x: 15.35, y: 14.45 };
+function geraCena01() {
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) MAP[y][x] = 'grama_baixa';
+  objetos = []; paredes = []; pisos = new Set(); ITENS_MUNDO = [];
+  const pw = new Map(), par = (a, c, n, k) => pw.set(a + '|' + c + '|' + n, { a, c, n, k });
+  for (let y = 10; y <= 12; y++) for (let x = 5; x <= 7; x++) pisos.add(x + ',' + y);          // quarto (x 5..7, y 10..12)
+  for (let y = 10; y <= 15; y++) for (let x = 8; x <= 15; x++) pisos.add(x + ',' + y);         // oficina (x 8..15, y 10..15)
+  for (let n = 5; n <= 15; n++) par('x', 10, n, 'high');
+  for (let n = 5; n <= 7; n++) par('x', 13, n, 'high');
+  for (let n = 8; n <= 15; n++) par('x', 16, n, 'high');
+  for (let n = 10; n <= 12; n++) par('y', 5, n, 'high');
+  par('y', 8, 10, 'high'); par('y', 8, 11, 'door'); par('y', 8, 12, 'high'); for (let n = 13; n <= 15; n++) par('y', 8, n, 'high');
+  for (let n = 10; n <= 15; n++) par('y', 16, n, n === 13 ? 'door' : 'high');                  // portão leste (y = 13)
+  paredes = [...pw.values()]; CASA_EDIT.carregaCasa(); recalcParedes();   // carregaCasa: se o dono refez a casa no editor (F2), usa a planta dele
+  SPAWN = { x: 7.0, y: 11.55 };
+  montaMoveis(); CASA_EDIT.aplica(); SPAWN = CASA_EDIT.nascer(SPAWN); TERR.render();
+}
+function geraCena01Velha() {
+  const rnd = rng(1123), longe = Array.from({ length: M }, () => Array(M).fill(true)), livre = Array.from({ length: M }, () => Array(M).fill(true)), pw = new Map();
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) MAP[y][x] = 'grama_baixa';
+  objetos = []; paredes = []; pisos = new Set(); ITENS_MUNDO = [];
+  const terra = (x, y) => { if (x >= 0 && y >= 0 && x < M && y < M) { MAP[y][x] = 'terra_nova'; livre[y][x] = false; } };
+  const reta = (x0, y0, x1, y1) => { for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) terra(x, y); };
+  const par = (a, c, n, k) => pw.set(a + '|' + c + '|' + n, { a, c, n, k });
+  const reserva = (x0, y0, x1, y1) => { for (let y = y0 - 3; y <= y1 + 3; y++) for (let x = x0 - 3; x <= x1 + 3; x++) if (x >= 0 && y >= 0 && x < M && y < M) { longe[y][x] = false; if (x >= x0 - 1 && x <= x1 + 1 && y >= y0 - 1 && y <= y1 + 1) livre[y][x] = false; } };
+  reta(18, 0, 19, M - 1);   // rua lateral
+  reta(16, 13, 17, 13);     // da porta do portão até a rua
+  reta(20, 57, 62, 58);     // a estrada leste: sai do fim da rua lateral (sul) até o ponto do Seu Valdir
+  // quarto (x 5..7, y 10..12) + oficina (x 8..15, y 10..15)
+  for (let y = 10; y <= 12; y++) for (let x = 5; x <= 7; x++) pisos.add(x + ',' + y);
+  for (let y = 10; y <= 15; y++) for (let x = 8; x <= 15; x++) pisos.add(x + ',' + y);
+  for (let n = 5; n <= 15; n++) par('x', 10, n, 'high');
+  for (let n = 5; n <= 7; n++) par('x', 13, n, 'high');
+  for (let n = 8; n <= 15; n++) par('x', 16, n, 'high');
+  for (let n = 10; n <= 12; n++) par('y', 5, n, 'high');
+  patioMapa(par, reta, reserva);
+  par('y', 8, 10, 'high'); par('y', 8, 11, 'door'); par('y', 8, 12, 'high'); for (let n = 13; n <= 15; n++) par('y', 8, n, 'high');
+  for (let n = 10; n <= 15; n++) par('y', 16, n, n === 13 ? 'door' : 'high');
+  reserva(5, 10, 16, 15);
+  // casas de fundo (só cenário, sem nada dentro)
+  const casa = (x0, y0, w, h, lado, n, cam) => {
+    for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) pisos.add(x + ',' + y);
+    for (let i = 0; i < w; i++) { par('x', y0, x0 + i, 'high'); par('x', y0 + h, x0 + i, 'high'); } for (let j = 0; j < h; j++) { par('y', x0, y0 + j, 'high'); par('y', x0 + w, y0 + j, 'high'); }
+    if (lado === 'W') par('y', x0, n, 'door'); else par('y', x0 + w, n, 'door'); reserva(x0, y0, x0 + w - 1, y0 + h - 1); reta(...cam);
+  };
+  casa(23, 6, 4, 4, 'W', 8, [20, 8, 22, 8]);
+  casa(23, 15, 4, 5, 'W', 17, [20, 17, 22, 17]);
+  casa(23, 23, 4, 4, 'W', 25, [20, 25, 22, 25]);
+  casa(9, 19, 5, 4, 'E', 21, [14, 21, 17, 21]);
+  casa(9, 3, 4, 4, 'E', 5, [13, 5, 17, 5]);
+  reserva(19, 3, 22, 6); reserva(16, 16, 18, 19);
+  casa(54, 50, 4, 4, 'S', 56, [56, 54, 56, 56]);   // casas do ponto do Seu Valdir (só cenário)
+  casa(60, 50, 3, 4, 'S', 61, [61, 54, 61, 56]);
+  reserva(18, 56, 63, 59);
+  paredes = [...pw.values()]; recalcParedes();
+  // árvores e enfeites
+  const arv = [], pesos = []; for (const k of Object.keys(OBJS)) { if (OBJS[k].deco) continue; if (/^(arvore\d|n_arvore_)/.test(k)) { arv.push(k); pesos.push(3); } else if (/^n_(arbusto|samambaia|toco)/.test(k)) { arv.push(k); pesos.push(1); } }
+  const soma = pesos.reduce((a, b) => a + b, 0), sorteia = () => { let r = rnd() * soma; for (let i = 0; i < arv.length; i++) { r -= pesos[i]; if (r <= 0) return arv[i]; } return arv[0]; };
+  const enf = ['d_grama_alta_1', 'd_grama_alta_2', 'd_grama_media_1', 'd_grama_media_2', 'd_pedra_pequena', 'd_folha_1', 'd_folhas_monte', 'd_galho'].filter(k => OBJS[k]), ocup = new Set();
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { if (!livre[y][x] || !longe[y][x] || MAP[y][x] !== 'grama_baixa') continue; const borda = x < 2 || y < 2 || x >= M - 2 || y >= M - 2; if (rnd() < (borda ? .45 : .03)) { objetos.push({ x, y, id: sorteia() }); ocup.add(x + ',' + y); } }
+  for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { if (!livre[y][x] || ocup.has(x + ',' + y) || MAP[y][x] !== 'grama_baixa') continue; if (rnd() < .16 && enf.length) objetos.push({ x: Math.round((x + .15 + rnd() * .7) * 100) / 100, y: Math.round((y + .15 + rnd() * .7) * 100) / 100, id: enf[Math.floor(rnd() * enf.length)], f: 1 }); }
+  SPAWN = { x: 7.0, y: 11.55 };
+  montaMoveis(); TERR.render();
+}
+const tadeuPerto = () => Math.hypot(hx - (TAD.x + .25), hy - (TAD.y + .25)) < 2.4;
+// ---- o carro do Tadeu: estaciona em frente ao portão e só abre depois do empréstimo; guarda onde você deixou ----
+function carroTick() {
+  if (typeof CARROT === 'undefined') return; const c = CARROT.car;
+  if (!c.on) { const p = J.f.cp || MT.vaga(); CARROT.poeEm(p[0], p[1], p[2]); CARROT.disponivel = true; }
+  if (c.estado === 'dentro') J.f.usouCarro = 1;
+  if (c.estado === 'parado') J.f.cp = [Math.round(c.x * 100) / 100, Math.round(c.y * 100) / 100, c.dir];
+}
+// ---- ritmo da cena ----
+let encDentro = false;
+function cenaTick(dt) {
+  carroTick(); if (window.EDITA) return;   // editor da casa aberto: o tempo e a história param
+  if (!D.ativo && !J.morto) J.t += dt / 6 * MULT;
+  if (D.ativo && D.n < D.txt.length) { D.n = Math.min(D.txt.length, D.n + dt * 70); mostraDlg(); }
+  if (D.ativo) return;
+  if (J.t >= PRAZO && !J.f.prazo) { J.f.prazo = 1; prazoFinal(); return; }
+  if (!J.f.viuTadeu && Math.hypot(hx - (TAD.x + .25), hy - (TAD.y + .25)) < 2.8) { J.f.viuTadeu = 1; dlgSeq([['', 'Tadeu está encostado na bancada perto do portão, limpando a graxa das mãos enquanto o dia começa a clarear.']], falaTadeu); return; }
+  if (!J.f.rua && hx > 16.6) { J.f.rua = 1; dlgSeq([['', 'Você cruza o portão lateral e pisa na rua úmida da cidade baixa. O movimento da manhã começa a ganhar forma, os cabos cruzam o alto e, ao longe, os prédios corporativos observam.']]); return; }
+}
+function prazoFinal() {
+  if (J.divida <= 0) return dlgSeq([['', 'Sexta, 18h. O dono do galpão passa, pega o dinheiro e vai embora sem dizer uma palavra. Dessa vez o Tadeu não precisa cobrir nada.']]);
+  const falta = J.divida; J.divida = Math.ceil(falta * 1.1 / 5) * 5; J.f.seco = 1; desenhaHud(true);
+  dlgSeq([['', 'Sexta, 18h. O dono do galpão aparece pra cobrar. Faltaram R$ ' + falta + ', e o Tadeu cobriu a diferença tirando do dinheiro das peças.'], ['Tadeu', 'Eu segurei a barra por você. O que faltou agora é dívida sua comigo, com acréscimo: R$ ' + J.divida + '. E os adiantamentos acabaram até você mostrar serviço.']]);
+}
+function iniciaCena() { if (!J.f.intro) { J.f.intro = 1; dlgSeq([['', 'Cidade baixa. Madrugada.'], ['', 'O último trabalho não pagou. O bolso está vazio e o seu nome anda apertado na vizinhança.'], ['', 'Antes de sair, vale olhar o quarto.']]); } }
+if (new URLSearchParams(location.search).has('bairro')) { SPAWN = { x: 11.5, y: 21.5 }; geraBairro(); } else geraCena01();
+
+const P = PERS.create('NE'); let hx = SPAWN.x, hy = SPAWN.y, last = performance.now();
+carrega(); iniciaCena(); document.getElementById('novo').onclick = () => { if (confirm('Começar um jogo novo? O progresso atual será apagado.')) novoJogo(); }; desenhaHud(true);
+window.CENTRO = true;   // sistema de colunas (folha final do dono) é o único; o modo antigo com peças de canto foi removido
+const q = new URLSearchParams(location.search); if (q.has('x')) hx = +q.get('x'); if (q.has('y')) hy = +q.get('y'); if (q.has('z')) K = +q.get('z');
+if (q.has('demoporta')) {   // exemplo da porta animada: sala 3x3 (células 4..6) com porta alta nas 4 paredes (↙ e ↘, fundo e frente); personagem fora, perto da porta do fundo. Não grava no mapa salvo.
+  pisos = new Set(); paredes = []; for (let x = 4; x <= 6; x++) for (let y = 4; y <= 6; y++) pisos.add(x + ',' + y);
+  for (let i = 4; i <= 6; i++) { paredes.push({ a: 'x', c: 4, n: i, k: i === 5 ? 'door' : 'high' }, { a: 'x', c: 7, n: i, k: i === 5 ? 'door' : 'high' }, { a: 'y', c: 4, n: i, k: i === 5 ? 'door' : 'high' }, { a: 'y', c: 7, n: i, k: i === 5 ? 'door' : 'high' }); }
+  recalcParedes(); if (!q.has('x')) { hx = 2.4; hy = 5.5; } autosave = () => {};
+}
+function frame(now) { if (typeof CARROT === 'undefined' || typeof LUTA === 'undefined') { requestAnimationFrame(frame); return; }
+  const dt = Math.min(.05, (now - last) / 1000); last = now; jogoTick(dt);
+  let dx = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0), dy = (keys.KeyS || keys.ArrowDown ? 1 : 0) - (keys.KeyW || keys.ArrowUp ? 1 : 0), run = (dx || dy) ? (CORRE_MOVEU = true, CORRE_ON) : (CORRE_MOVEU && (CORRE_ON = false, CORRE_MOVEU = false), false);
+  if (PERS.preso(P, now)) { dx = 0; dy = 0; run = false; } PERS.step(P, dx, dy, run, now);
+  if (dx || dy) { const v = (run ? 190 : 110) * dt; // pixels de tela
+    const sxv = dx / Math.hypot(dx, dy) * v, syv = dy / Math.hypot(dx, dy) * v * .5;
+    const nx = hx + (sxv / 64 + syv / 32) / 2, ny = hy + (syv / 32 - sxv / 64) / 2; const livre = (x, y) => !objetos.some(o => bateArv(o, x, y)) && !bateParede(x, y) && !CARROT.bate(x, y); if (livre(nx, ny)) { hx = nx; hy = ny; } else if (livre(nx, hy)) hx = nx; else if (livre(hx, ny)) hy = ny; }
+  hsx = (hx - hy) * 64 + M * 64; hsy = (hx + hy) * 32; const cx = cv.width / 2, cy = cv.height / 2;
+  ctx.fillStyle = '#16120e'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.save(); ctx.imageSmoothingEnabled = false; ctx.translate(Math.round(cx - hsx * K), Math.round(cy - hsy * K)); ctx.scale(K, K);
+  { const X0 = -391.8, Z0 = 196.8, PM = MAPACHAO.PPM, sx0 = (10.5 - 13) * 64 + M * 64, sy0 = (10.5 + 13) * 32;
+    const R = MT.visiveis(hsx, hsy, cv.width, cv.height, K); TERR.drawView(ctx, R.cx0, R.cx1, R.cy0, R.cy1, R.tela); objetos = MT.objetos(R);   // grama, terra, árvores e enfeites das células visíveis
+    ctx.save(); ctx.translate(sx0 - X0 * PM, sy0 - Z0 * PM / 2); ctx.scale(PM, PM / 2);
+    const cxm = X0 + (hsx - sx0) / PM, czm = Z0 + (hsy - sy0) / (PM / 2), hw = cv.width / 2 / K / PM + 20, hh = cv.height / 2 / K / (PM / 2) + 20;
+    MAPACHAO.desenha(ctx, cxm - hw, cxm + hw, czm - hh, czm + hh); ctx.restore(); }
+  for (const k of pisos) { const [px0, py0] = k.split(',').map(Number); ctx.drawImage(CASA.floorTile, (px0 - py0) * 64 + M * 64 - 64, (px0 + py0) * 32); }
+  if (grade) { ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = 1 / K; ctx.beginPath(); for (let i = 0; i <= M; i++) { ctx.moveTo(M * 64 + i * 64, i * 32); ctx.lineTo(M * 64 + i * 64 - M * 64, i * 32 + M * 32); ctx.moveTo(M * 64 - i * 64, i * 32); ctx.lineTo(M * 64 - i * 64 + M * 64, i * 32 + M * 32); } ctx.stroke(); }
+  const lista = objetos.map(o => OBJS[o.id].deco ? { d: o.x + o.y + (OBJS[o.id].pe ? (OBJS[o.id].pe.y0 - (OBJS[o.id].im.naturalHeight - 1)) * ESCD / 32 : 0), f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y) * 32)) } : { d: o.x + o.y + 1 + ((OBJS[o.id].pe ? OBJS[o.id].pe.y0 - OBJS[o.id].by + 4 : 0) * (OBJS[o.id].esc || 2)) / 32, f: () => desenhaObj(ctx, o, Math.round((o.x - o.y) * 64 + M * 64), Math.round((o.x + o.y + 1) * 32)) });
+  const casa = itensCasa(); for (const it of ITENS_MUNDO) if (!J.pegos[it.id]) lista.push({ d: it.x + it.y, f: () => desenhaItem(it, now) }); lista.push(...itensCena(now)); lista.push(...LUTA.itens(now)); lista.push(...CARROT.itens(now)); lista.push({ d: hx + hy, jog: true, f: () => PERS.draw(ctx, P, hsx, hsy) }); if (mostraCol) lista.push({ d: 1e9, f: () => { ctx.strokeStyle = '#ff2d2d'; ctx.lineWidth = 1 / K; for (const o of objetos) { const d = OBJS[o.id]; if (!d.pe) continue; const A = ancora(o), X = px => A.sx + (px - A.cx) * A.e, Y = k => A.sy + (d.pe.y0 + k - A.by) * A.e; ctx.beginPath(); d.pe.l.forEach((v, k) => { k ? ctx.lineTo(X(v), Y(k)) : ctx.moveTo(X(v), Y(k)); }); for (let k = d.pe.r.length - 1; k >= 0; k--) ctx.lineTo(X(d.pe.r[k]), Y(k)); ctx.closePath(); ctx.stroke(); } ctx.beginPath(); for (const [a, b, c, d] of rectsP) { const P2 = (x, y) => [(x - y) * 64 + M * 64, (x + y) * 32]; const q = [P2(a, b), P2(c, b), P2(c, d), P2(a, d)]; ctx.moveTo(q[0][0], q[0][1]); q.slice(1).forEach(([x, y]) => ctx.lineTo(x, y)); ctx.closePath(); } ctx.stroke(); ctx.fillStyle = '#2dff2d'; ctx.fillRect(hsx - 1, hsy - 1, 2, 2); } }); lista.sort((a, b) => a.d - b.d);
+  { const pi = lista.findIndex(it => it.jog), antes = lista.slice(0, pi), jog = lista[pi], depois = lista.slice(pi + 1);
+    const ins = (arr, its) => { for (const it of its.sort((a, b) => a.d - b.d)) { let k = arr.findIndex(x => x.d > it.d); if (k < 0) k = arr.length; arr.splice(k, 0, it); } };
+    const H0 = [hsx - 16, hsy - 64, hsx + 16, hsy + 4], cobre = it => it.r[0] < H0[2] - 4 && it.r[0] + it.r[2] > H0[0] + 4 && it.r[1] < H0[3] - 4 && it.r[1] + it.r[3] > H0[1] + 4;   // encostar 1-3 px na caixa do personagem não conta como cobrir (senão o canto e a parede vizinha ficavam em ordens diferentes e sobravam pontos soltos do contorno)
+    const presas = casa.filter(cobre), soltas = casa.filter(it => !cobre(it));
+    // uma parede solta que NÃO toca o personagem pode ficar de qualquer lado dele sem mudar nada visualmente; então ela vai para o lado em que respeita a ordem em relação às peças que cobrem o personagem (senão uma parede vizinha cobria o poste do canto em T e deixava um toco com o topo cortado)
+    const ov2 = (p, q) => p.r[0] < q.r[0] + q.r[2] && p.r[0] + p.r[2] > q.r[0] && p.r[1] < q.r[1] + q.r[3] && p.r[1] + p.r[3] > q.r[1];
+    const vaiAntes = it => it.d <= hx + hy ? !presas.some(q => !q.atras && q.d < it.d && ov2(q, it)) : presas.some(q => q.atras && q.d > it.d && ov2(q, it));
+    ins(antes, soltas.filter(vaiAntes)); ins(depois, soltas.filter(it => !vaiAntes(it)));   // as que não tocam o personagem: profundidade real
+    ins(antes, presas.filter(it => it.atras)); ins(depois, presas.filter(it => !it.atras));   // as que o cobrem: as de trás antes dele, as da frente depois
+    window.ORDEM = [...antes, jog, ...depois].map(it => (it.n || (it.jog ? 'JOG' : '?')) + ' d=' + it.d.toFixed(4) + (it.atras ? ' atras' : '') + ' r=' + (it.r ? it.r.join(',') : '')); [...antes, jog, ...depois].forEach((it, i) => { if (!(window.SKIP && window.SKIP.has(i))) it.f(); }); } ctx.restore(); ambiente(now); requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script><script src="luta.js"></script><script src="carro_mapa.js"></script><script>addEventListener('keydown', e => { if (e.code === 'KeyQ' && !e.repeat) LUTA.soco(performance.now()); });</script></body></html>
